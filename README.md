@@ -52,6 +52,14 @@ npm run lint      # ESLint
 
 By default the frontend points at `http://localhost:5046` for the API (`frontend/src/services/api/apiClient.ts`); override with `VITE_API_BASE_URL` if your backend runs elsewhere.
 
+## Verifying the build (authoritative)
+
+```powershell
+./scripts/verify.ps1
+```
+
+Per `docs/adr/ADR-018-regional-deployment-and-market-scope.md`, this project cannot depend on GitHub being reachable, so this script — not `.github/workflows/*.yml` — is the real "is the build green" gate. It runs `dotnet restore` + `dotnet build` (0 warnings required), the backend test suite **twice** (a determinism guard — a suite that only passes once isn't proven green), then `npm ci`, lint, build, and test in `frontend/`, and prints a PASS/FAIL summary with per-step timing. Non-zero exit on any failure. See `docs/phases/PHASE-01C-REPORT.md` for a full run's real output.
+
 ## Running the tests
 
 **Backend** — from `backend/`:
@@ -60,7 +68,7 @@ By default the frontend points at `http://localhost:5046` for the API (`frontend
 dotnet test
 ```
 
-This runs all four test projects (Domain.Tests, Application.Tests, Infrastructure.Tests, Web.Tests) — **478/478, 0 failed**, confirmed across 10 consecutive runs (`docs/phases/PHASE-01B-REPORT.md`).
+This runs all four test projects (Domain.Tests, Application.Tests, Infrastructure.Tests, Web.Tests) — **491/491, 0 failed** (53 + 218 + 59 + 161), confirmed across 10 consecutive runs (`docs/phases/PHASE-01B-REPORT.md`; the 59 in Infrastructure.Tests includes the 13 tracking-regression guard tests added in `docs/phases/PHASE-01C-REPORT.md`).
 
 > **Resolved:** `TutorFlow.Web.Tests` was previously observed to fail intermittently (~7 failures out of 146, varying between runs). This turned out to be two separate, unrelated problems, both now fixed — see `docs/phases/PHASE-01-REPORT.md` and `docs/phases/PHASE-01B-REPORT.md` for the full investigation: (1) one genuinely order-dependent test, caused by `IClassFixture<TutorFlowWebApplicationFactory>` sharing one in-memory database across every test method in a class (fixed by resetting the schema before each `[Fact]`); (2) six deterministic failures — not flakiness at all — caused by the persistence defect described in "Known pitfalls" below.
 
@@ -70,7 +78,7 @@ This runs all four test projects (Domain.Tests, Application.Tests, Infrastructur
 npm test -- --run
 ```
 
-Verified to pass **173/173, 0 failed** across 47 test files in this session.
+173/173 passing in isolation. Running the full `scripts/verify.ps1` pipeline back-to-back with the backend steps has been observed to occasionally hit vitest's fixed 5000ms per-test timeout on a handful of slower UI tests under machine load right after a fresh `npm ci`/`npm run build` — see `docs/phases/PHASE-01C-REPORT.md` Section 3 for the full characterization. Re-running `npm test -- --run` alone always passed 173/173 in that investigation; this looks like environment timing, not a product or test defect, and was left unfixed per this phase's scope (no frontend/src changes, no vitest upgrade).
 
 ## Project layout
 

@@ -6,6 +6,10 @@ TutorFlow is a multi-sided scheduling and booking marketplace connecting Student
 
 Source: `PROJECT_CONSTITUTION.md` (Mission, Product Goals, Project Scope).
 
+## Scope and Regional Constraints
+
+TutorFlow v1 targets **Iran only** — English-only UI (no i18n), `Asia/Tehran` (UTC+03:30, no DST) as the operating timezone, a single currency (Rial/Toman), and hosting inside Iran. No payment module exists in v1; when one is built, it must use an Iranian PSP under a redirect + callback + server-side-verify model. The system must never depend on Stripe, PayPal, Twilio, SendGrid, or any other US-hosted cloud service. v1 is Iran-first, not Iran-locked — see `docs/adr/ADR-018-regional-deployment-and-market-scope.md` for the full decision and the specific seams (currency, timezone conversion, payment provider, notification provider) that must stay abstract for v2.
+
 ## Architecture at a glance
 
 Backend is a Clean Architecture / Modular Monolith, partitioned into four bounded contexts (Identity & Relationship, Scheduling & Booking, Discovery, Marketplace Oversight). Layer dependency direction is strict and enforced by project references:

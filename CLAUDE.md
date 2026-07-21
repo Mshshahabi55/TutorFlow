@@ -24,6 +24,12 @@ When any two documents disagree, the higher one in this list wins. Do not averag
 - **Every new Domain Event that mutates governance-relevant state must be covered by the audit trail** (see `docs/adr/ADR-016-audit-durability-strategy.md` for what "covered" means and which events currently qualify).
 - **Never commit secrets.** Connection strings, API keys, and credentials live in user-secrets or environment variables, never in `appsettings.json`, `appsettings.*.json`, or any tracked file. `appsettings.json`'s connection string is a `REPLACE_ME` placeholder by design — keep it that way.
 - **Tests are part of "done."** Domain, Application, and Web layers each require test coverage for new behavior — not just one layer. Follow the existing pattern: a Domain test for the invariant, an Application test for the handler's orchestration/authorization, a Web test for the HTTP contract.
+- **English is the only UI language. Never introduce i18n in v1.**
+- **Never add a dependency on a service unreachable from Iran.**
+- **All timestamps are stored in UTC. Tehran is UTC+03:30 with no DST — never assume whole-hour offsets.**
+- **Single currency. Never introduce multi-currency logic in v1.**
+
+See `docs/adr/ADR-018-regional-deployment-and-market-scope.md` for the full market-scope decision these four rules restate.
 
 ## Definition of Done
 

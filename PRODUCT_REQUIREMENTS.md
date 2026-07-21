@@ -212,4 +212,10 @@ Everything below is a genuine gap not covered by the Constitution or the 2026-07
 
 ---
 
+## Addendum: Regional Deployment & Market Scope (Appended — 2026-07-21)
+
+`docs/adr/ADR-018-regional-deployment-and-market-scope.md` (Accepted) resolves Section 10.5, Open Question 16: **TutorFlow v1 targets Iran only** — English-only UI, `Asia/Tehran` (UTC+03:30, no DST) as the operating timezone, a single currency (Rial/Toman), hosting inside Iran, and no dependency on Stripe, PayPal, Twilio, SendGrid, or any other US-hosted cloud service. Payments remain out of scope for v1 (Section 9, unchanged); ADR-018 records only the constraint a future payment integration must satisfy. Section 10.5 Open Question 19 (jurisdiction-specific regulatory requirements) is partially informed by this addendum but not fully resolved. Nothing above this addendum is altered.
+
+---
+
 *Status: Draft — pending user approval. No further documents or code are to be created until this document is approved.*

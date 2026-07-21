@@ -1,3 +1,5 @@
+> **SUPERSEDED** — This plan is historical. See IMPLEMENTATION_PLAN_V3.md.
+
 # TutorFlow - Implementation Plan V2
 
 ## ۱. خلاصه اجرایی

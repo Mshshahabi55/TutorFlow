@@ -1,3 +1,5 @@
+> **SUPERSEDED — historical record only.** This plan predates the ratified ADR set and does not reflect the current architecture. See IMPLEMENTATION_PLAN_V3.md and docs/adr/ for the authoritative position.
+
 در این مرحله بر اساس مستند معماری و ساختار فعلی پروژه، یک برنامه‌ی عملیاتی فازبندی‌شده و قابل اجرا برای تیم توسعه تهیه می‌کنم.
 
 ## خلاصه‌ی درک من از وضعیت فعلی

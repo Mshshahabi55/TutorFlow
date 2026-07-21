@@ -1,3 +1,5 @@
+> **SUPERSEDED — historical record only.** This plan predates the ratified ADR set and does not reflect the current architecture. See IMPLEMENTATION_PLAN_V3.md and docs/adr/ for the authoritative position.
+
 # TutorFlow — Final Architecture Review and Implementation Plan
 
 ## 1. Architectural Summary

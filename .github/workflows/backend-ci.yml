@@ -1,3 +1,7 @@
+# Per docs/adr/ADR-018-regional-deployment-and-market-scope.md, this project
+# cannot depend on GitHub being reachable — this workflow is best-effort CI
+# convenience only. scripts/verify.ps1 is the authoritative "is the build
+# green" gate; run it locally if this workflow is unavailable or untrusted.
 name: backend-ci
 
 on:
@@ -28,6 +32,12 @@ jobs:
         working-directory: backend
         run: dotnet build TutorFlow.sln --no-restore --configuration Release
 
-      - name: Test
+      # Run twice: a determinism guard (docs/phases/PHASE-01-REPORT.md) — a
+      # suite that only passes once is not proven green.
+      - name: Test (run 1 of 2)
+        working-directory: backend
+        run: dotnet test TutorFlow.sln --no-build --configuration Release
+
+      - name: Test (run 2 of 2)
         working-directory: backend
         run: dotnet test TutorFlow.sln --no-build --configuration Release

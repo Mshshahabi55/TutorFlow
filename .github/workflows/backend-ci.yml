@@ -1,0 +1,33 @@
+name: backend-ci
+
+on:
+  push:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Restore
+        working-directory: backend
+        run: dotnet restore TutorFlow.sln
+
+      - name: Build
+        working-directory: backend
+        run: dotnet build TutorFlow.sln --no-restore --configuration Release
+
+      - name: Test
+        working-directory: backend
+        run: dotnet test TutorFlow.sln --no-build --configuration Release

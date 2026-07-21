@@ -1,13 +1,19 @@
 namespace TutorFlow.Web.Tests;
 
-public class ObservabilityTests : IClassFixture<TutorFlowWebApplicationFactory>
+public class ObservabilityTests : IClassFixture<TutorFlowWebApplicationFactory>, IAsyncLifetime
 {
+    private readonly TutorFlowWebApplicationFactory _factory;
     private readonly HttpClient _client;
 
     public ObservabilityTests(TutorFlowWebApplicationFactory factory)
     {
+        _factory = factory;
         _client = factory.CreateClient();
     }
+
+    public Task InitializeAsync() => _factory.ResetDatabaseAsync();
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
     public async Task Health_endpoint_is_reachable_and_reports_healthy()

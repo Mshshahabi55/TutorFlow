@@ -15,7 +15,7 @@ namespace TutorFlow.Web.Tests;
 // SearchTutors_filters_by_subject_and_finds_a_matching_approved_tutor now
 // approves through an authenticated Admin caller, since /tutors/{id}/approve
 // is coarse-grained-protected as of WP4 Priority 2.
-public class DiscoveryEndpointsTests : IClassFixture<TutorFlowWebApplicationFactory>
+public class DiscoveryEndpointsTests : IClassFixture<TutorFlowWebApplicationFactory>, IAsyncLifetime
 {
     private readonly TutorFlowWebApplicationFactory _factory;
     private readonly HttpClient _client;
@@ -25,6 +25,10 @@ public class DiscoveryEndpointsTests : IClassFixture<TutorFlowWebApplicationFact
         _factory = factory;
         _client = factory.CreateClient();
     }
+
+    public Task InitializeAsync() => _factory.ResetDatabaseAsync();
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     private static async Task<JsonElement> ReadBodyAsync(HttpResponseMessage response)
     {

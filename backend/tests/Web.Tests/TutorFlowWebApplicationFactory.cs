@@ -49,4 +49,20 @@ public sealed class TutorFlowWebApplicationFactory : WebApplicationFactory<Progr
             _connection.Dispose();
         }
     }
+
+    // Called from each test class's IAsyncLifetime.InitializeAsync() so every
+    // [Fact] runs against a genuinely empty database, rather than one
+    // accumulating rows from every prior test method in the class (see
+    // docs/phases/PHASE-01-REPORT.md Section 3 for why the previous
+    // one-database-per-class-lifetime setup produced order-dependent
+    // failures). Cheaper than rebuilding the whole WebApplicationFactory/host
+    // per test: reuses the already-open connection and just drops/recreates
+    // schema on it.
+    public async Task ResetDatabaseAsync()
+    {
+        using var scope = Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<TutorFlowDbContext>();
+        await dbContext.Database.EnsureDeletedAsync();
+        await dbContext.Database.EnsureCreatedAsync();
+    }
 }

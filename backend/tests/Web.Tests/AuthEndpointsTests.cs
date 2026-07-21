@@ -21,7 +21,7 @@ namespace TutorFlow.Web.Tests;
 // exercise AuthorizationMiddleware's real enforcement (WP4 Priority 1,
 // AUTHORIZATION_MATRIX.md §4.2), since that is the first endpoint to call
 // RequirePermission(...).
-public class AuthEndpointsTests : IClassFixture<TutorFlowWebApplicationFactory>
+public class AuthEndpointsTests : IClassFixture<TutorFlowWebApplicationFactory>, IAsyncLifetime
 {
     private readonly TutorFlowWebApplicationFactory _factory;
     private readonly HttpClient _client;
@@ -31,6 +31,10 @@ public class AuthEndpointsTests : IClassFixture<TutorFlowWebApplicationFactory>
         _factory = factory;
         _client = factory.CreateClient();
     }
+
+    public Task InitializeAsync() => _factory.ResetDatabaseAsync();
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     private static async Task<JsonElement> ReadBodyAsync(HttpResponseMessage response)
     {

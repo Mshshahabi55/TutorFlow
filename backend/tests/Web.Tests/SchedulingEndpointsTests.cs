@@ -15,7 +15,7 @@ namespace TutorFlow.Web.Tests;
 // for the scope discipline these follow (Presentation orchestration only).
 // DeclareAvailability now also exercises AuthorizationMiddleware's real
 // enforcement (WP4 Priority 3, AUTHORIZATION_MATRIX.md §4.3).
-public class SchedulingEndpointsTests : IClassFixture<TutorFlowWebApplicationFactory>
+public class SchedulingEndpointsTests : IClassFixture<TutorFlowWebApplicationFactory>, IAsyncLifetime
 {
     private readonly TutorFlowWebApplicationFactory _factory;
     private readonly HttpClient _client;
@@ -25,6 +25,10 @@ public class SchedulingEndpointsTests : IClassFixture<TutorFlowWebApplicationFac
         _factory = factory;
         _client = factory.CreateClient();
     }
+
+    public Task InitializeAsync() => _factory.ResetDatabaseAsync();
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     private static async Task<JsonElement> ReadBodyAsync(HttpResponseMessage response)
     {

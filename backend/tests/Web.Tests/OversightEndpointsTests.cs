@@ -15,7 +15,7 @@ namespace TutorFlow.Web.Tests;
 // for the scope discipline these follow (Presentation orchestration only).
 // GetAllSessions now also exercises AuthorizationMiddleware's real
 // enforcement (WP4 Priority 2, AUTHORIZATION_MATRIX.md §4.5).
-public class OversightEndpointsTests : IClassFixture<TutorFlowWebApplicationFactory>
+public class OversightEndpointsTests : IClassFixture<TutorFlowWebApplicationFactory>, IAsyncLifetime
 {
     private readonly TutorFlowWebApplicationFactory _factory;
     private readonly HttpClient _client;
@@ -25,6 +25,10 @@ public class OversightEndpointsTests : IClassFixture<TutorFlowWebApplicationFact
         _factory = factory;
         _client = factory.CreateClient();
     }
+
+    public Task InitializeAsync() => _factory.ResetDatabaseAsync();
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     private static async Task<JsonElement> ReadBodyAsync(HttpResponseMessage response)
     {

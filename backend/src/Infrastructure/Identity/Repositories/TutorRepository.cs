@@ -19,11 +19,22 @@ internal sealed class TutorRepository : ITutorRepository
         _dbContext = dbContext;
     }
 
+    // Tracked (not AsNoTracking): every caller of GetByIdAsync/GetByEmailAsync
+    // that matters for correctness is a command handler that mutates the
+    // returned Tutor and passes it to IUnitOfWork.SaveChangesAsync
+    // (Approve/Suspend/SetHourlyRate/SetSubject/SetLanguage/SetLocation/
+    // SetOfferedDurations/Login/AdminResetPassword) — EfUnitOfWork never
+    // re-attaches aggregates itself (docs/phases/PHASE-01B-REPORT.md Section
+    // 3/6), so an untracked read here meant the mutation was silently never
+    // persisted. GetTutorByIdQueryHandler's read-only usage of GetByIdAsync
+    // pays a small, acceptable tracking overhead as a side effect of sharing
+    // this method with the command path, rather than this repository
+    // maintaining two near-duplicate lookups for the same entity.
     public Task<Tutor?> GetByIdAsync(AccountId id, CancellationToken cancellationToken = default) =>
-        _dbContext.Tutors.AsNoTracking().FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
+        _dbContext.Tutors.FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
 
     public Task<Tutor?> GetByEmailAsync(EmailAddress email, CancellationToken cancellationToken = default) =>
-        _dbContext.Tutors.AsNoTracking().FirstOrDefaultAsync(t => t.Email == email, cancellationToken);
+        _dbContext.Tutors.FirstOrDefaultAsync(t => t.Email == email, cancellationToken);
 
     public async Task<IReadOnlyCollection<Tutor>> GetDiscoverableAsync(CancellationToken cancellationToken = default) =>
         await _dbContext.Tutors

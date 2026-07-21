@@ -44,8 +44,19 @@ public class TutorRepositoryTests
         Assert.Null(result);
     }
 
+    // Was GetByIdAsync_returns_a_detached_tutor_when_found, asserting the
+    // opposite of what this test now asserts. That was the defect itself,
+    // encoded as a requirement: TutorRepository.GetByIdAsync used to be
+    // AsNoTracking(), so every command handler that fetched a Tutor through
+    // it to mutate and save (Approve/Suspend/SetHourlyRate/.../Login/
+    // AdminResetPassword) had its change silently discarded, because
+    // EfUnitOfWork.SaveChangesAsync never re-attaches the aggregates it's
+    // given (docs/phases/PHASE-01B-REPORT.md Sections 3 and 6 - the phase
+    // that authorized removing AsNoTracking() from this exact method).
+    // GetByIdAsync must now return a tracked entity for that fix to work,
+    // so this test's own contract had to invert along with it.
     [Fact]
-    public async Task GetByIdAsync_returns_a_detached_tutor_when_found()
+    public async Task GetByIdAsync_returns_a_tracked_tutor_when_found()
     {
         using var connection = new SqliteConnection("DataSource=:memory:");
         await connection.OpenAsync();
@@ -70,7 +81,7 @@ public class TutorRepositoryTests
             var result = await readRepository.GetByIdAsync(tutor.Id);
 
             Assert.NotNull(result);
-            Assert.DoesNotContain(readContext.ChangeTracker.Entries<Tutor>(), entry => entry.Entity.Id == tutor.Id);
+            Assert.Contains(readContext.ChangeTracker.Entries<Tutor>(), entry => entry.Entity.Id == tutor.Id);
         }
     }
 

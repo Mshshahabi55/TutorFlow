@@ -441,6 +441,57 @@ public class SchedulingEndpointsTests : IClassFixture<TutorFlowWebApplicationFac
         Assert.True(body.GetProperty("isSuccess").GetBoolean());
     }
 
+    // Phase 4.6 (a live defect Phase 5A's study surfaced, independent of
+    // payments): AvailabilitySlot.IsConsumed is never reset by
+    // Session.Cancel(), and the unique index backing CONST-1
+    // (SessionConfiguration: HasIndex(s => s.AvailabilitySlotId).IsUnique())
+    // is unconditional, not filtered by Status. A cancelled Session
+    // therefore blocks its slot permanently today - proven here before any
+    // fix, per the Phase 1B precedent of committing a red test first.
+    //
+    // Confirmed by direct observation (not inferred) which layer rejects
+    // the rebooking attempt: the response is 409 Conflict,
+    // "BookSessionCommand.InvalidState", "This Availability Slot has
+    // already been consumed and cannot produce another Session." - the
+    // exact message AvailabilitySlot.Book()'s in-memory `if (IsConsumed)
+    // throw` guard raises. This is the Domain-level IsConsumed check, not
+    // the database unique index: a ConcurrencyConflictException (the
+    // index's own failure mode) would instead have produced
+    // "BookSessionCommand.SlotAlreadyBooked" (see
+    // BookSessionCommandHandler's two distinct catch clauses). The second
+    // booking attempt never reaches the database at all in this scenario -
+    // it is rejected in memory before any SQL is issued.
+    [Fact]
+    public async Task CancelSession_reopens_the_slot_so_it_can_be_rebooked()
+    {
+        var (slotId, _) = await DeclareAvailabilityWithTutorAsync();
+        var (studentId, studentToken) = await RegisterAndLoginStudentAsync();
+        var bookResponse = await PostWithAuthAsync("/sessions", new
+        {
+            AvailabilitySlotId = slotId,
+            StudentId = studentId,
+            ParentGuardianId = (Guid?)null,
+        }, studentToken);
+        var bookBody = await ReadBodyAsync(bookResponse);
+        var sessionId = bookBody.GetProperty("value").GetProperty("sessionId").GetGuid();
+
+        var cancelResponse = await PostWithAuthAsync($"/sessions/{sessionId}/cancel", body: null, studentToken);
+        cancelResponse.EnsureSuccessStatusCode();
+
+        var (otherStudentId, otherStudentToken) = await RegisterAndLoginStudentAsync();
+        var rebookResponse = await PostWithAuthAsync("/sessions", new
+        {
+            AvailabilitySlotId = slotId,
+            StudentId = otherStudentId,
+            ParentGuardianId = (Guid?)null,
+        }, otherStudentToken);
+
+        rebookResponse.EnsureSuccessStatusCode();
+        var rebookBody = await ReadBodyAsync(rebookResponse);
+        Assert.True(rebookBody.GetProperty("isSuccess").GetBoolean());
+        Assert.NotEqual(sessionId, rebookBody.GetProperty("value").GetProperty("sessionId").GetGuid());
+    }
+
     [Fact]
     public async Task CancelSession_returns_failure_for_unknown_session()
     {

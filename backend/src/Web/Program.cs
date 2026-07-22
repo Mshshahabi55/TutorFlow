@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using TutorFlow.Infrastructure;
 using TutorFlow.Infrastructure.Persistence;
+using TutorFlow.Web;
 using TutorFlow.Web.DependencyInjection;
 using TutorFlow.Web.Middleware;
 
@@ -137,6 +138,15 @@ if (builder.Configuration.GetValue("Database:AutoMigrate", defaultValue: false))
     using var migrationScope = app.Services.CreateScope();
     var dbContext = migrationScope.ServiceProvider.GetRequiredService<TutorFlowDbContext>();
     await dbContext.Database.MigrateAsync();
+}
+
+// Development-only seed data (docs/phases/PHASE-02-REPORT.md Task 6) — an
+// explicit environment guard, not a configuration flag, since this must
+// never be reachable in any environment where "Development" isn't already
+// true for other reasons (e.g. the REPLACE_ME-placeholder bypass above).
+if (app.Environment.IsDevelopment())
+{
+    await DevelopmentSeeder.SeedAsync(app.Services);
 }
 
 app.Run();

@@ -71,7 +71,46 @@ dotnet restore TutorFlow.sln
 dotnet build TutorFlow.sln
 ```
 
-To actually run the API against a real database, you first need a PostgreSQL instance and a real connection string — `backend/src/Web/appsettings.json` ships with a **placeholder** (`Username=REPLACE_ME;Password=REPLACE_ME`) that will not connect to anything. Set your real connection string via user-secrets or an environment variable, never by editing `appsettings.json` directly (see `CLAUDE.md`). This has not been exercised in this session — no `dotnet run` or `dotnet ef database update` was performed.
+To run the API against a real database: complete "Database setup" above,
+then apply migrations and run:
+
+```bash
+cd backend/src/Web
+ASPNETCORE_ENVIRONMENT=Development dotnet ef database update
+ASPNETCORE_ENVIRONMENT=Development dotnet run
+```
+
+`appsettings.json` ships with a **placeholder** connection string
+(`Username=REPLACE_ME;Password=REPLACE_ME`) that will not connect to
+anything by design — the real one comes from user-secrets, loaded only in
+the `Development` environment. Verified working end-to-end in
+`docs/phases/PHASE-02-REPORT.md`: migrations applied cleanly against
+PostgreSQL 17.10, the API starts with no errors (one benign
+`Failed to determine the https port for redirect.` warning, expected with
+no HTTPS launch profile configured), and `GET /health` returns `Healthy`.
+There is currently only one health endpoint — no separate `/health/ready`.
+
+### Development seed data
+
+In the `Development` environment only, the API seeds a minimal dataset on
+startup if it isn't already there (idempotent — safe to restart repeatedly):
+one Admin/Staff account, one approved Tutor with an offering and an open
+Availability Slot, one Student, and one Parent/Guardian with a confirmed
+Relationship to that Student (`backend/src/Web/DevelopmentSeeder.cs`).
+
+The Admin account's password is never hardcoded — set it before running:
+
+```bash
+cd backend/src/Web
+dotnet user-secrets set "Seed:AdminPassword" "<your-dev-password>"
+# or: export Seed__AdminPassword="<your-dev-password>"
+```
+
+If it isn't configured, startup fails immediately with a clear error
+rather than falling back to a default password. The Tutor/Student/
+Parent-Guardian demo accounts share one fixed password
+(`Seed-Password-123!`, in `DevelopmentSeeder.cs`) — they exist only for
+local manual testing, not to hold anything sensitive.
 
 ## Running the frontend
 

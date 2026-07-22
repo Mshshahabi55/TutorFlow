@@ -49,8 +49,12 @@ public sealed class SetTutorHourlyRateCommandHandler
         }
         catch (ArgumentException ex)
         {
+            // HourlyRate.Of throws for three distinct reasons (non-positive,
+            // fractional Rial, exceeds MaxAmount) — one error code covers
+            // all three since the caller-visible message (ex.Message) is
+            // already specific about which one.
             return Result.Failure(new Error(
-                "SetTutorHourlyRateCommand.Amount.NotPositive", ex.Message, ErrorType.Domain));
+                "SetTutorHourlyRateCommand.Amount.Invalid", ex.Message, ErrorType.Domain));
         }
 
         await _unitOfWork.SaveChangesAsync(new IAggregateRoot[] { tutor }, cancellationToken);

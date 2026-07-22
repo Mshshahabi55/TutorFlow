@@ -53,6 +53,39 @@ public class SetTutorHourlyRateCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_returns_failure_for_a_fractional_amount()
+    {
+        var repository = new InMemoryTutorRepository();
+        var unitOfWork = new FakeUnitOfWork();
+        var tutor = Tutor.Register(TestCredentials.Email(), TestCredentials.Hash());
+        await repository.AddAsync(tutor);
+        var handler = new SetTutorHourlyRateCommandHandler(repository, StubCurrentUserProvider.AsTutor(tutor.Id.Value), unitOfWork);
+
+        var result = await handler.Handle(new SetTutorHourlyRateCommand(tutor.Id.Value, 45.5m));
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("SetTutorHourlyRateCommand.Amount.Invalid", result.Error.Code);
+        Assert.Equal(0, unitOfWork.SaveChangesCallCount);
+    }
+
+    [Fact]
+    public async Task Handle_returns_failure_for_an_amount_exceeding_the_maximum()
+    {
+        var repository = new InMemoryTutorRepository();
+        var unitOfWork = new FakeUnitOfWork();
+        var tutor = Tutor.Register(TestCredentials.Email(), TestCredentials.Hash());
+        await repository.AddAsync(tutor);
+        var handler = new SetTutorHourlyRateCommandHandler(repository, StubCurrentUserProvider.AsTutor(tutor.Id.Value), unitOfWork);
+
+        var result = await handler.Handle(
+            new SetTutorHourlyRateCommand(tutor.Id.Value, TutorFlow.Domain.Identity.ValueObjects.HourlyRate.MaxAmount + 1m));
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("SetTutorHourlyRateCommand.Amount.Invalid", result.Error.Code);
+        Assert.Equal(0, unitOfWork.SaveChangesCallCount);
+    }
+
+    [Fact]
     public async Task Handle_returns_failure_for_empty_tutor_id()
     {
         var repository = new InMemoryTutorRepository();

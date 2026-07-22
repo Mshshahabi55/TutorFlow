@@ -34,11 +34,15 @@ internal sealed class TutorConfiguration : IEntityTypeConfiguration<Tutor>
         builder.Property(t => t.IsSuspended);
         builder.Ignore(t => t.IsDiscoverable);
 
+        // ADR-019: Rial has no minor unit — scale 0, not the old scale-2
+        // (numeric(10,2), a leftover from before currency/precision were
+        // decided). Precision 12 matches HourlyRate.MaxAmount's ceiling
+        // exactly (twelve nines).
         builder.Property(t => t.HourlyRate)
             .HasConversion(new ValueConverter<HourlyRate?, decimal?>(
                 rate => rate == null ? null : rate.Amount,
                 amount => amount == null ? null : HourlyRate.Of(amount.Value)))
-            .HasPrecision(10, 2);
+            .HasPrecision(12, 0);
 
         builder.Property(t => t.Subject)
             .HasConversion(new ValueConverter<Subject?, string?>(

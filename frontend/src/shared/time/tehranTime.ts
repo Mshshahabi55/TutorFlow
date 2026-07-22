@@ -10,6 +10,18 @@
  * DST rule from any other zone.
  */
 
+// Tehran's UTC offset, as of this writing: +03:30 (210 minutes), fixed,
+// no DST. This is deliberately a hardcoded constant rather than a value
+// resolved from `Intl`/the host's IANA timezone database, so that
+// correctness here never depends on the runtime's tz-data being current —
+// see the module comment above.
+//
+// This is an assumption with a real expiry condition, not a law of
+// physics: Iran has changed this before (DST was abolished only in 2022)
+// and could change its offset again. If that ever happens, **this
+// constant is the only place in the codebase that needs to change** —
+// every conversion in this module, and every caller across the app, reads
+// through it.
 const TEHRAN_OFFSET_MINUTES = 3 * 60 + 30;
 const TEHRAN_OFFSET_MS = TEHRAN_OFFSET_MINUTES * 60_000;
 

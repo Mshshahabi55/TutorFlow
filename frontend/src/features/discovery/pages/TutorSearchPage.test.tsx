@@ -69,8 +69,13 @@ describe("TutorSearchPage", () => {
     expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
   });
 
-  it("rejects a malformed availableFrom filter instead of searching", async () => {
-    vi.spyOn(discoveryService, "searchTutors").mockResolvedValue({
+  // Phase 3.5 replaced the free-typed UTC ISO-string filter with a native
+  // `<input type="datetime-local">` (Phase 3 Task 2's pattern), so a user
+  // can no longer type an arbitrary malformed string into it. This inverts
+  // the old "rejects a malformed availableFrom filter" assertion into
+  // "searches with a Tehran-entered availableFrom, converted to UTC".
+  it("searches with a Tehran-entered availableFrom filter, converted to UTC", async () => {
+    const searchTutors = vi.spyOn(discoveryService, "searchTutors").mockResolvedValue({
       items: [],
       totalCount: 0,
       page: 1,
@@ -80,13 +85,15 @@ describe("TutorSearchPage", () => {
     renderWithProviders(<TutorSearchPage />);
     await screen.findByText("No Tutors match these filters");
 
-    await userEvent.type(
-      screen.getByLabelText("Available from (UTC, ISO 8601)"),
-      "not-a-timestamp",
-    );
+    // 2026-08-01T17:30 Tehran (UTC+03:30) is 2026-08-01T14:00:00Z.
+    await userEvent.type(screen.getByLabelText("Available from (Tehran)"), "2026-08-01T17:30");
     await userEvent.click(screen.getByRole("button", { name: "Search" }));
 
-    expect(await screen.findByText(/enter a valid utc date\/time/i)).toBeInTheDocument();
+    expect(searchTutors).toHaveBeenLastCalledWith(
+      { subject: "", language: "", location: "", availableFrom: "2026-08-01T14:00:00.000Z" },
+      1,
+      20,
+    );
   });
 
   it("navigates to the Tutor's detail page on row click", async () => {

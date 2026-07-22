@@ -15,6 +15,7 @@ import { DataTable, type DataTableColumn } from "@/shared/components/table/DataT
 import { PageHeader } from "@/shared/components/PageHeader";
 import { usePagination } from "@/shared/hooks/usePagination";
 import { formatMinutesList } from "@/shared/utils/duration";
+import { fromTehranInput } from "@/shared/time/tehranTime";
 import { paths } from "@/routes/paths";
 import type { TutorDto } from "@/services/api/dtos";
 
@@ -63,7 +64,10 @@ export function TutorSearchPage() {
   const hasActiveFilters = Object.values(filters).some((value) => value !== "");
 
   function handleSubmit(values: TutorSearchFiltersFormValues) {
-    setFilters(values);
+    setFilters({
+      ...values,
+      availableFrom: values.availableFrom === "" ? "" : fromTehranInput(values.availableFrom),
+    });
     reset();
   }
 
@@ -91,8 +95,9 @@ export function TutorSearchPage() {
           <FormTextField name="location" label="Location" sx={{ minWidth: 160 }} />
           <FormTextField
             name="availableFrom"
-            label="Available from (UTC, ISO 8601)"
-            placeholder="2026-08-01T00:00:00Z"
+            label="Available from (Tehran)"
+            type="datetime-local"
+            slotProps={{ inputLabel: { shrink: true } }}
             sx={{ minWidth: 240 }}
           />
           <Stack direction="row" spacing={1} alignSelf={{ sm: "flex-start" }}>

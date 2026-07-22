@@ -20,7 +20,7 @@ import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import AdminPanelSettingsRoundedIcon from "@mui/icons-material/AdminPanelSettingsRounded";
 import ListAltRoundedIcon from "@mui/icons-material/ListAltRounded";
 import LockResetRoundedIcon from "@mui/icons-material/LockResetRounded";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { Fragment, type ReactNode } from "react";
 import { paths } from "@/routes/paths";
 import { useCurrentActor } from "@/shared/hooks/useCurrentActor";
@@ -173,12 +173,18 @@ function normalizeActorRole(role: string | undefined): ActorRole | null {
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const { actor } = useCurrentActor();
   const { user, isAuthenticated } = useAuth();
+  const { pathname } = useLocation();
   const authenticatedRole = isAuthenticated ? normalizeActorRole(user?.role) : null;
   const effectiveRole = authenticatedRole ?? actor.role;
 
   return (
     <List component="nav" aria-label="Primary">
-      <ListItemButton component={NavLink} to={paths.home} onClick={onNavigate}>
+      <ListItemButton
+        component={NavLink}
+        to={paths.home}
+        onClick={onNavigate}
+        selected={pathname === paths.home}
+      >
         <ListItemIcon>
           <DashboardRoundedIcon />
         </ListItemIcon>
@@ -189,7 +195,13 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
         <Fragment key={section.title}>
           <ListSubheader component="div">{section.title}</ListSubheader>
           {visibleEntries(section.entries, effectiveRole).map((entry) => (
-            <ListItemButton key={entry.to} component={NavLink} to={entry.to} onClick={onNavigate}>
+            <ListItemButton
+              key={entry.to}
+              component={NavLink}
+              to={entry.to}
+              onClick={onNavigate}
+              selected={pathname === entry.to || pathname.startsWith(`${entry.to}/`)}
+            >
               <ListItemIcon>{entry.icon}</ListItemIcon>
               <ListItemText primary={entry.label} />
             </ListItemButton>

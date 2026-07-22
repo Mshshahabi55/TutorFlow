@@ -152,6 +152,14 @@ const shadows = Array.from({ length: 25 }, (_, elevation) => {
 // (mobileStepper/appBar/drawer/modal/snackbar/tooltip).
 // ---------------------------------------------------------------------------
 
+/**
+ * The monospace stack every raw-id display (`CopyableId`, and the id
+ * subtitle a few detail pages set inline) should read from, instead of each
+ * call site repeating its own `"ui-monospace, monospace"` literal — a single
+ * token for the one typographic idea "this is an identifier, not prose".
+ */
+export const monoFontFamily = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+
 export const theme = createTheme({
   palette: {
     mode: "light",
@@ -195,6 +203,11 @@ export const theme = createTheme({
   },
   shadows,
   components: {
+    // --- Button: primary=contained, secondary action=outlined, low-emphasis
+    // =text, destructive=color="error" (outlined to propose, contained inside
+    // the confirm dialog) — an existing convention (Task 1 audit), not new.
+    // This only adds a visible, non-color focus ring and a firmer disabled
+    // state; call sites are untouched.
     MuiButton: {
       defaultProps: {
         disableElevation: true,
@@ -202,12 +215,191 @@ export const theme = createTheme({
       styleOverrides: {
         root: {
           textTransform: "none",
+          "&:focus-visible": {
+            outline: `2px solid ${accent.main}`,
+            outlineOffset: 2,
+          },
+        },
+      },
+    },
+    MuiIconButton: {
+      styleOverrides: {
+        root: {
+          "&:focus-visible": {
+            outline: `2px solid ${accent.main}`,
+            outlineOffset: 2,
+          },
         },
       },
     },
     MuiAppBar: {
       defaultProps: {
         elevation: 0,
+      },
+    },
+
+    // --- Form controls: one label/helper/error treatment for every text
+    // field, select, checkbox, radio — including the datetime-local inputs
+    // used for every Tehran-time entry point, which are plain MuiTextField
+    // instances and so inherit this automatically.
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          borderRadius: radiusPx.md,
+          backgroundColor: "#FFFFFF",
+        },
+      },
+    },
+    MuiFormHelperText: {
+      styleOverrides: {
+        root: {
+          marginLeft: 0,
+          fontSize: typographyScale.caption.fontSize,
+        },
+      },
+    },
+    MuiCheckbox: {
+      styleOverrides: {
+        root: {
+          "&:focus-visible": {
+            outline: `2px solid ${accent.main}`,
+            outlineOffset: 2,
+          },
+        },
+      },
+    },
+    MuiRadio: {
+      styleOverrides: {
+        root: {
+          "&:focus-visible": {
+            outline: `2px solid ${accent.main}`,
+            outlineOffset: 2,
+          },
+        },
+      },
+    },
+
+    // --- Card / Paper: depth from a 1px divider-colour border
+    // (variant="outlined", already the convention everywhere), not shadow.
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          backgroundImage: "none",
+        },
+        outlined: {
+          borderColor: neutral[200],
+        },
+      },
+    },
+    MuiCard: {
+      defaultProps: {
+        variant: "outlined",
+      },
+    },
+
+    // --- DataTable's Table/TableCell: a clearly distinct header row,
+    // consistent cell padding, and a divider-colour bottom border instead of
+    // MUI's default per-row border everywhere.
+    MuiTableHead: {
+      styleOverrides: {
+        root: {
+          backgroundColor: neutral[50],
+          "& .MuiTableCell-root": {
+            fontWeight: typographyScale.subtitle2.fontWeight,
+            color: neutral[700],
+            borderBottomColor: neutral[200],
+          },
+        },
+      },
+    },
+    MuiTableCell: {
+      styleOverrides: {
+        root: {
+          borderBottomColor: neutral[200],
+        },
+      },
+    },
+    MuiTableRow: {
+      styleOverrides: {
+        root: {
+          "&:last-of-type .MuiTableCell-root": {
+            borderBottom: "none",
+          },
+        },
+      },
+    },
+
+    // --- Dialog: same outlined-card language, no heavy shadow.
+    MuiDialog: {
+      styleOverrides: {
+        paper: {
+          backgroundImage: "none",
+          boxShadow: namedShadows.floating,
+        },
+      },
+    },
+    MuiDialogTitle: {
+      styleOverrides: {
+        root: {
+          fontSize: typographyScale.h6.fontSize,
+          fontWeight: typographyScale.h6.fontWeight,
+        },
+      },
+    },
+
+    // --- StatusPill (Chip): the "neutral" tone renders as an outlined chip
+    // (StatusPill.tsx `color="default"`) — give it a deliberate border/text
+    // colour instead of MUI's default action-grey, so it reads as "no
+    // status opinion" rather than "disabled".
+    MuiChip: {
+      styleOverrides: {
+        outlined: {
+          borderColor: neutral[300],
+          color: neutral[700],
+        },
+      },
+    },
+
+    // --- Tooltip: an arrow on every tooltip app-wide (CopyableId's copy
+    // button, RoleSwitcher's clear button, ...) via defaultProps, so each
+    // call site does not have to opt in individually.
+    MuiTooltip: {
+      defaultProps: {
+        arrow: true,
+      },
+      styleOverrides: {
+        tooltip: {
+          backgroundColor: neutral[800],
+          fontSize: typographyScale.caption.fontSize,
+          borderRadius: radiusPx.sm,
+        },
+        arrow: {
+          color: neutral[800],
+        },
+      },
+    },
+
+    // --- Navigation: the selected route's ListItemButton (NavSidebar) gets
+    // an accent-tinted background and a left accent bar — the one piece of
+    // "where am I" orientation the pre-D1 sidebar had no visual answer for
+    // at all (Task 1 audit).
+    MuiListItemButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: radiusPx.sm,
+          "&.Mui-selected": {
+            backgroundColor: `${accent.main}1A`,
+            borderLeft: `3px solid ${accent.main}`,
+            paddingLeft: 13, // 16px default minus the 3px border, so text doesn't shift
+            "&:hover": {
+              backgroundColor: `${accent.main}26`,
+            },
+          },
+          "&:focus-visible": {
+            outline: `2px solid ${accent.main}`,
+            outlineOffset: -2,
+          },
+        },
       },
     },
   },

@@ -1,4 +1,4 @@
-import { IconButton, MenuItem, Stack, TextField, Tooltip } from "@mui/material";
+import { Box, IconButton, MenuItem, Stack, TextField, Tooltip } from "@mui/material";
 import ClearRoundedIcon from "@mui/icons-material/ClearRounded";
 import { useCurrentActor } from "@/shared/hooks/useCurrentActor";
 import { useNotification } from "@/shared/hooks/useNotification";
@@ -56,35 +56,54 @@ export function RoleSwitcher() {
   }
 
   return (
-    <Stack direction="row" spacing={1} alignItems="center">
-      <TextField
-        select
-        size="small"
-        label="Acting as (dev only)"
-        value={actor.role ?? ""}
-        onChange={(event) => applyRole((event.target.value || null) as ActorRole | null)}
-        sx={{ minWidth: { xs: 140, sm: 200 }, backgroundColor: "background.paper" }}
-      >
-        <MenuItem value="">
-          <em>None selected</em>
-        </MenuItem>
-        {ROLE_OPTIONS.map((option) => (
-          <MenuItem key={option.value} value={option.value}>
-            {option.label}
+    // A dashed, warning-tinted frame — deliberately not the same visual
+    // language as a real control — so this reads at a glance as "preview,
+    // not a real signed-in identity" (Task 1 audit: RoleSwitcher and
+    // AuthStatus sat side by side in the AppBar with no visual distinction
+    // between them).
+    <Box
+      display="flex"
+      alignItems="center"
+      gap={1}
+      sx={{
+        border: "1px dashed",
+        borderColor: "warning.main",
+        borderRadius: 1,
+        px: 1,
+        py: 0.5,
+        backgroundColor: (t) => `${t.palette.warning.main}14`,
+      }}
+    >
+      <Stack direction="row" spacing={1} alignItems="center">
+        <TextField
+          select
+          size="small"
+          label="Acting as (dev only)"
+          value={actor.role ?? ""}
+          onChange={(event) => applyRole((event.target.value || null) as ActorRole | null)}
+          sx={{ minWidth: { xs: 140, sm: 200 }, backgroundColor: "background.paper" }}
+        >
+          <MenuItem value="">
+            <em>None selected</em>
           </MenuItem>
-        ))}
-      </TextField>
-      {actor.role ? (
-        <Tooltip title="Clear role selection">
-          <IconButton
-            size="small"
-            aria-label="Clear role selection"
-            onClick={() => void handleClear()}
-          >
-            <ClearRoundedIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      ) : null}
-    </Stack>
+          {ROLE_OPTIONS.map((option) => (
+            <MenuItem key={option.value} value={option.value}>
+              {option.label}
+            </MenuItem>
+          ))}
+        </TextField>
+        {actor.role ? (
+          <Tooltip title="Clear role selection">
+            <IconButton
+              size="small"
+              aria-label="Clear role selection"
+              onClick={() => void handleClear()}
+            >
+              <ClearRoundedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        ) : null}
+      </Stack>
+    </Box>
   );
 }

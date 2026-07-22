@@ -2,6 +2,7 @@ import { useState } from "react";
 import { IconButton, Stack, Tooltip, Typography } from "@mui/material";
 import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
 import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
+import { monoFontFamily } from "@/app/theme";
 
 export interface CopyableIdProps {
   id: string;
@@ -26,7 +27,7 @@ export function CopyableId({ id }: CopyableIdProps) {
 
   return (
     <Stack direction="row" alignItems="center" spacing={1}>
-      <Typography variant="body1" fontFamily="ui-monospace, monospace" sx={{ wordBreak: "break-all" }}>
+      <Typography variant="body1" fontFamily={monoFontFamily} sx={{ wordBreak: "break-all" }}>
         {id}
       </Typography>
       <Tooltip title={copied ? "Copied" : "Copy id"}>

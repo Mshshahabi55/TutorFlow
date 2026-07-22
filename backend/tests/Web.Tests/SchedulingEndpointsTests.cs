@@ -110,6 +110,24 @@ public class SchedulingEndpointsTests : IClassFixture<TutorFlowWebApplicationFac
         return await _client.SendAsync(request);
     }
 
+    // Sends a literal, hand-written JSON body rather than letting
+    // System.Text.Json serialize a DateTime object — needed to construct
+    // timestamps System.Text.Json itself would never produce (e.g. missing
+    // "Z"), which is exactly what RequireUtcDateTimeJsonConverter must reject.
+    private async Task<HttpResponseMessage> PostRawJsonWithAuthAsync(string url, string rawJsonBody, string? bearerToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = new StringContent(rawJsonBody, System.Text.Encoding.UTF8, "application/json"),
+        };
+        if (bearerToken is not null)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
+        }
+
+        return await _client.SendAsync(request);
+    }
+
     private async Task<Guid> DeclareAvailabilityAsync()
     {
         var (slotId, _) = await DeclareAvailabilityWithTutorAsync();
@@ -203,6 +221,46 @@ public class SchedulingEndpointsTests : IClassFixture<TutorFlowWebApplicationFac
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var body = await ReadBodyAsync(response);
         Assert.True(body.GetProperty("isFailure").GetBoolean());
+    }
+
+    // Phase 3 Task 4: the API boundary must reject any incoming timestamp
+    // lacking an explicit UTC designator ("Z") or numeric offset, rather
+    // than silently treating it as UTC (which for a Tehran caller would be
+    // a silent 3.5-hour error). Sent as a hand-written raw JSON body since
+    // System.Text.Json would never itself produce a "Z"-less string.
+    [Fact]
+    public async Task DeclareAvailability_rejects_a_start_time_without_an_explicit_utc_designator()
+    {
+        var (tutorId, token) = await RegisterAndLoginTutorAsync();
+
+        var response = await PostRawJsonWithAuthAsync(
+            "/availability-slots",
+            $$"""{"TutorId":"{{tutorId}}","StartTimeUtc":"2026-08-01T14:00:00","Duration":"01:00:00","DeliveryMode":0}""",
+            token);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    // The companion acceptance path: a non-"Z" but still explicit numeric
+    // offset must be accepted and converted to the *correct* UTC instant —
+    // not resolved against this test process's own system timezone (the
+    // System.Text.Json default converter's Kind=Local bug this replaces).
+    [Fact]
+    public async Task DeclareAvailability_accepts_a_start_time_with_an_explicit_non_zulu_offset()
+    {
+        var (tutorId, token) = await RegisterAndLoginTutorAsync();
+
+        // 2026-08-01T17:30:00+03:30 is the same instant as 2026-08-01T14:00:00Z.
+        var response = await PostRawJsonWithAuthAsync(
+            "/availability-slots",
+            $$"""{"TutorId":"{{tutorId}}","StartTimeUtc":"2026-08-01T17:30:00+03:30","Duration":"01:00:00","DeliveryMode":0}""",
+            token);
+
+        response.EnsureSuccessStatusCode();
+        var body = await ReadBodyAsync(response);
+        Assert.Equal(
+            DateTime.Parse("2026-08-01T14:00:00Z").ToUniversalTime(),
+            body.GetProperty("value").GetProperty("startTimeUtc").GetDateTime().ToUniversalTime());
     }
 
     [Fact]
@@ -342,6 +400,19 @@ public class SchedulingEndpointsTests : IClassFixture<TutorFlowWebApplicationFac
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         var body = await ReadBodyAsync(response);
         Assert.True(body.GetProperty("isFailure").GetBoolean());
+    }
+
+    [Fact]
+    public async Task RescheduleSession_rejects_a_new_time_without_an_explicit_utc_designator()
+    {
+        var (sessionId, studentToken, _) = await BookSessionAsync();
+
+        var response = await PostRawJsonWithAuthAsync(
+            $"/sessions/{sessionId}/reschedule",
+            """{"NewScheduledTimeUtc":"2026-08-02T14:00:00"}""",
+            studentToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]

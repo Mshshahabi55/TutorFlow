@@ -3,9 +3,22 @@ using TutorFlow.Infrastructure;
 using TutorFlow.Infrastructure.Persistence;
 using TutorFlow.Web;
 using TutorFlow.Web.DependencyInjection;
+using TutorFlow.Web.Json;
 using TutorFlow.Web.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Closes the API boundary Phase 2.5's EF Core UtcDateTimeValueConverter left
+// open (docs/phases/PHASE-03-REPORT.md Task 4): every incoming/outgoing
+// DateTime in a JSON request/response body must carry an explicit UTC
+// designator ("Z") or numeric offset, and is parsed deterministically via
+// DateTimeOffset rather than System.Text.Json's default converter (which
+// resolves a non-"Z" offset against this process's own system timezone).
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new RequireUtcDateTimeJsonConverter());
+    options.SerializerOptions.Converters.Add(new RequireUtcNullableDateTimeJsonConverter());
+});
 
 // The "Testing" environment configures no provider here — a test host
 // (e.g., TutorFlowWebApplicationFactory) supplies its own DbContext

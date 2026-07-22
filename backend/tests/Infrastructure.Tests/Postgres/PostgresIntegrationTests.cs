@@ -62,12 +62,19 @@ public sealed class PostgresIntegrationTests : IClassFixture<PostgresTestFixture
         Assert.Equal(tutor.LockedUntilUtc!.Value, freshTutor.LockedUntilUtc.Value, TimeSpan.FromMilliseconds(1));
     }
 
-    // Names the exact risk the phase brief called out: Npgsql is stricter
-    // than SQLite about DateTime.Kind writing to timestamptz. This proves,
-    // rather than assumes, what actually happens — the assertion below was
-    // written after observing the real exception on first run, not before.
+    // Was DateTime_with_Unspecified_Kind_is_rejected_by_Npgsql, asserting the
+    // exact defect docs/phases/PHASE-025-REPORT.md Task 3 closed: this test
+    // originally proved Npgsql throws DbUpdateException/ArgumentException
+    // ("Cannot write DateTime with Kind=Unspecified...") for a Kind=Unspecified
+    // DateTime, observed on Phase 2's first run, not assumed beforehand. That
+    // was real evidence of a real gap, not a requirement to keep — Phase
+    // 025's TutorFlowDbContext.ConfigureConventions now normalizes
+    // Kind=Unspecified to Utc for every DateTime property before Npgsql ever
+    // sees it (UtcDateTimeValueConverter.cs), so the exact same input this
+    // test used to prove *fails* now must prove it *succeeds*. Mirrors
+    // exactly how Phase 1B corrected TutorRepositoryTests.
     [Fact]
-    public async Task DateTime_with_Unspecified_Kind_is_rejected_by_Npgsql()
+    public async Task DateTime_with_Unspecified_Kind_now_round_trips_as_Utc_instead_of_being_rejected()
     {
         await using var writeContext = await _fixture.CreateFreshDbContextAsync();
         var tutor = Tutor.Register(UniqueEmail(), PasswordHash.Of("irrelevant-hash"));
@@ -76,22 +83,20 @@ public sealed class PostgresIntegrationTests : IClassFixture<PostgresTestFixture
         tutor.RecordFailedLoginAttempt(DateTime.UtcNow);
         tutor.RecordFailedLoginAttempt(DateTime.UtcNow);
         // The 5th call uses an Unspecified-Kind DateTime to set LockedUntilUtc,
-        // simulating what would happen if a future code path ever passed
-        // DateTime.Now (Kind=Local) or a deserialized Unspecified value into
-        // this same code path instead of DateTime.UtcNow.
+        // simulating what would happen if a future code path ever passed a
+        // deserialized Unspecified value into this same code path instead of
+        // DateTime.UtcNow.
         var unspecified = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
         tutor.RecordFailedLoginAttempt(unspecified);
         writeContext.Tutors.Add(tutor);
 
-        // Observed on first run (not assumed beforehand, per this phase's own
-        // "report as fact, not expectation" instruction): EF wraps Npgsql's
-        // rejection in a DbUpdateException, whose InnerException is an
-        // ArgumentException reading "Cannot write DateTime with
-        // Kind=Unspecified to PostgreSQL type 'timestamp with time zone',
-        // only UTC is supported."
-        var exception = await Assert.ThrowsAsync<DbUpdateException>(() => writeContext.SaveChangesAsync());
-        Assert.IsType<ArgumentException>(exception.InnerException);
-        Assert.Contains("Kind=Unspecified", exception.InnerException!.Message, StringComparison.Ordinal);
+        // The point of this test: this must NOT throw.
+        await writeContext.SaveChangesAsync();
+
+        await using var readContext = await _fixture.CreateFreshDbContextAsync();
+        var freshTutor = await readContext.Tutors.AsNoTracking().FirstAsync(t => t.Id == tutor.Id);
+        Assert.NotNull(freshTutor.LockedUntilUtc);
+        Assert.Equal(DateTimeKind.Utc, freshTutor.LockedUntilUtc!.Value.Kind);
     }
 
     [Fact]

@@ -16,6 +16,7 @@ import { PageHeader } from "@/shared/components/PageHeader";
 import { usePagination } from "@/shared/hooks/usePagination";
 import { formatMinutesList } from "@/shared/utils/duration";
 import { fromTehranInput } from "@/shared/time/tehranTime";
+import { formatToman } from "@/shared/money/rial";
 import { paths } from "@/routes/paths";
 import type { TutorDto } from "@/services/api/dtos";
 
@@ -32,9 +33,9 @@ const columns: DataTableColumn<TutorDto>[] = [
   { key: "location", header: "Location", render: (row) => row.location ?? "—" },
   {
     key: "hourlyRate",
-    header: "Hourly rate",
+    header: "Hourly rate (Toman)",
     align: "right",
-    render: (row) => (row.hourlyRate !== null ? row.hourlyRate : "—"),
+    render: (row) => (row.hourlyRate !== null ? formatToman(row.hourlyRate) : "—"),
   },
   {
     key: "offeredDurations",

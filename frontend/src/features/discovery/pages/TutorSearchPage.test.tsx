@@ -104,7 +104,7 @@ describe("TutorSearchPage", () => {
           isApproved: true,
           isSuspended: false,
           isDiscoverable: true,
-          hourlyRate: 40,
+          hourlyRate: 500_000,
           subject: "Mathematics",
           language: "English",
           location: "Remote",

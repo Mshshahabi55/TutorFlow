@@ -20,7 +20,7 @@ describe("TutorDetailPage", () => {
       isApproved: true,
       isSuspended: false,
       isDiscoverable: true,
-      hourlyRate: 40,
+      hourlyRate: 500_000,
       subject: "Mathematics",
       language: "English",
       location: "Remote",
@@ -32,6 +32,8 @@ describe("TutorDetailPage", () => {
     expect(await screen.findByText("Approved")).toBeInTheDocument();
     expect(screen.getByText("Discoverable")).toBeInTheDocument();
     expect(screen.getByText(/Mathematics/)).toBeInTheDocument();
+    // 500,000 Rial (the wire value) displays as 50,000 Toman.
+    expect(screen.getByText("50,000 Toman")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Edit offering" })).toHaveAttribute(
       "href",
       `/identity/tutors/${TUTOR_ID}/edit`,

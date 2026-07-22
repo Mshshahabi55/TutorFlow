@@ -3,6 +3,7 @@ import { Button, Card, CardContent, Stack, Typography } from "@mui/material";
 import { useTutor } from "@/features/identity/hooks/useTutorQueries";
 import { TutorApprovalActions } from "@/features/identity/components/TutorApprovalActions";
 import { formatMinutesList } from "@/shared/utils/duration";
+import { formatToman } from "@/shared/money/rial";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { LoadingState } from "@/shared/components/feedback/LoadingState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
@@ -50,7 +51,9 @@ export function TutorDetailPage() {
               <Stack spacing={1}>
                 <Typography variant="body2">
                   <b>Hourly rate:</b>{" "}
-                  {tutorQuery.data.hourlyRate !== null ? tutorQuery.data.hourlyRate : "Not set"}
+                  {tutorQuery.data.hourlyRate !== null
+                    ? `${formatToman(tutorQuery.data.hourlyRate)} Toman`
+                    : "Not set"}
                 </Typography>
                 <Typography variant="body2">
                   <b>Subject:</b> {tutorQuery.data.subject ?? "Not set"}

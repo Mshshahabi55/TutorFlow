@@ -2,6 +2,7 @@ import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { Button, Stack, Typography } from "@mui/material";
 import { useTutorDirectory } from "@/features/identity/hooks/useTutorQueries";
 import { formatMinutesList } from "@/shared/utils/duration";
+import { formatToman } from "@/shared/money/rial";
 import { DataTable, type DataTableColumn } from "@/shared/components/table/DataTable";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { paths } from "@/routes/paths";
@@ -13,9 +14,9 @@ const columns: DataTableColumn<TutorDto>[] = [
   { key: "location", header: "Location", render: (row) => row.location ?? "—" },
   {
     key: "hourlyRate",
-    header: "Hourly rate",
+    header: "Hourly rate (Toman)",
     align: "right",
-    render: (row) => (row.hourlyRate !== null ? row.hourlyRate : "—"),
+    render: (row) => (row.hourlyRate !== null ? formatToman(row.hourlyRate) : "—"),
   },
   {
     key: "offeredDurations",

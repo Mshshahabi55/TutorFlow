@@ -19,6 +19,7 @@ import {
   minutesToTimeSpan,
   parseMinutesList,
 } from "@/shared/utils/duration";
+import { rialToToman, tomanToRial } from "@/shared/money/rial";
 import { Form } from "@/shared/components/forms/Form";
 import { FormTextField } from "@/shared/components/forms/FormTextField";
 import { PageHeader } from "@/shared/components/PageHeader";
@@ -29,7 +30,7 @@ import type { TutorDto } from "@/services/api/dtos";
 
 function toFormValues(tutor: TutorDto): TutorOfferingFormValues {
   return {
-    hourlyRate: tutor.hourlyRate !== null ? String(tutor.hourlyRate) : "",
+    hourlyRate: tutor.hourlyRate !== null ? String(rialToToman(tutor.hourlyRate)) : "",
     subject: tutor.subject ?? "",
     language: tutor.language ?? "",
     location: tutor.location ?? "",
@@ -73,7 +74,7 @@ function TutorOfferingForm({ tutorId, tutor }: TutorOfferingFormProps) {
     const updates: Promise<void>[] = [];
 
     if (dirtyFields.hourlyRate) {
-      updates.push(setHourlyRate.mutateAsync(Number(values.hourlyRate)));
+      updates.push(setHourlyRate.mutateAsync(tomanToRial(Number(values.hourlyRate))));
     }
     if (dirtyFields.subject) {
       updates.push(setSubject.mutateAsync(values.subject));
@@ -106,7 +107,7 @@ function TutorOfferingForm({ tutorId, tutor }: TutorOfferingFormProps) {
   return (
     <Form form={form} onSubmit={handleSubmit}>
       <Stack spacing={2}>
-        <FormTextField name="hourlyRate" label="Hourly rate" inputMode="decimal" />
+        <FormTextField name="hourlyRate" label="Hourly rate (Toman)" inputMode="numeric" />
         <FormTextField name="subject" label="Subject" />
         <FormTextField name="language" label="Language" />
         <FormTextField name="location" label="Location" />

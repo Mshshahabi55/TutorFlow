@@ -1,0 +1,115 @@
+/**
+ * The single owner of every UTC <-> Asia/Tehran conversion in this app
+ * (PHASE-03). No component may do timezone math inline.
+ *
+ * Tehran is a fixed UTC+03:30 offset with no daylight saving (Iran
+ * abolished DST in 2022 — ADR-018). Because the offset never changes, this
+ * module uses plain millisecond arithmetic rather than the host's/ICU's
+ * IANA timezone database: correctness here does not depend on the
+ * runtime's tz-data being current, and it cannot accidentally inherit a
+ * DST rule from any other zone.
+ */
+
+const TEHRAN_OFFSET_MINUTES = 3 * 60 + 30;
+const TEHRAN_OFFSET_MS = TEHRAN_OFFSET_MINUTES * 60_000;
+
+/** HTML5 `<input type="datetime-local">` value shape: "YYYY-MM-DDTHH:mm" (seconds optional). */
+const LOCAL_INPUT_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/;
+
+function parseUtcIso(utcIsoString: string): number {
+  const ms = Date.parse(utcIsoString);
+  if (Number.isNaN(ms)) {
+    throw new Error(`Invalid UTC ISO date/time: "${utcIsoString}"`);
+  }
+  return ms;
+}
+
+/** The UTC instant, shifted by the fixed Tehran offset, exposed only via UTC-getter reads below. */
+function toTehranShifted(utcIsoString: string): Date {
+  return new Date(parseUtcIso(utcIsoString) + TEHRAN_OFFSET_MS);
+}
+
+function pad2(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
+/**
+ * A UTC ISO 8601 instant -> a human-readable Tehran-local string, e.g.
+ * "Aug 1, 2026, 17:30". Does not append a "(Tehran)" label — callers own
+ * that, matching the existing "(UTC)" label-on-the-field-name convention.
+ */
+export function toTehranDisplay(utcIsoString: string): string {
+  const shifted = toTehranShifted(utcIsoString);
+  // Formatted with timeZone: "UTC" against an already-shifted instant, so
+  // Intl only supplies locale-aware month/weekday names — it never
+  // resolves an actual IANA zone, so it cannot reintroduce a DST rule.
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(shifted);
+}
+
+/**
+ * A UTC ISO 8601 instant -> the value an `<input type="datetime-local">`
+ * should be bound to for display in Tehran local time.
+ */
+export function toTehranInputValue(utcIsoString: string): string {
+  const shifted = toTehranShifted(utcIsoString);
+  return (
+    `${shifted.getUTCFullYear()}-${pad2(shifted.getUTCMonth() + 1)}-${pad2(shifted.getUTCDate())}` +
+    `T${pad2(shifted.getUTCHours())}:${pad2(shifted.getUTCMinutes())}`
+  );
+}
+
+/** True if `value` is a syntactically and calendrically valid datetime-local string. */
+export function isValidTehranLocalInput(value: string): boolean {
+  const match = LOCAL_INPUT_PATTERN.exec(value);
+  if (!match) {
+    return false;
+  }
+  const [, year, month, day, hour, minute, second] = match;
+  const ms = Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second ?? "0"),
+  );
+  const asDate = new Date(ms);
+  // Date.UTC silently rolls invalid fields (e.g. month 13, day 32) into the
+  // next period instead of failing — reject anything that doesn't round-trip.
+  return (
+    asDate.getUTCFullYear() === Number(year) &&
+    asDate.getUTCMonth() === Number(month) - 1 &&
+    asDate.getUTCDate() === Number(day) &&
+    asDate.getUTCHours() === Number(hour) &&
+    asDate.getUTCMinutes() === Number(minute)
+  );
+}
+
+/**
+ * A Tehran-local `<input type="datetime-local">` value -> a UTC ISO 8601
+ * string with an explicit "Z", exactly the wire format the API expects.
+ */
+export function fromTehranInput(localDateTime: string): string {
+  const match = LOCAL_INPUT_PATTERN.exec(localDateTime);
+  if (!match) {
+    throw new Error(`Invalid Tehran local date/time: "${localDateTime}"`);
+  }
+  const [, year, month, day, hour, minute, second] = match;
+  const asUtcMs = Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second ?? "0"),
+  );
+  return new Date(asUtcMs - TEHRAN_OFFSET_MS).toISOString();
+}

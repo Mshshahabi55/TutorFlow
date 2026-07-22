@@ -12,13 +12,18 @@ namespace TutorFlow.Application.Scheduling.Handlers;
 public sealed class CancelSessionCommandHandler
 {
     private readonly ISessionRepository _sessionRepository;
+    private readonly IAvailabilitySlotRepository _availabilitySlotRepository;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IUnitOfWork _unitOfWork;
 
     public CancelSessionCommandHandler(
-        ISessionRepository sessionRepository, ICurrentUserProvider currentUserProvider, IUnitOfWork unitOfWork)
+        ISessionRepository sessionRepository,
+        IAvailabilitySlotRepository availabilitySlotRepository,
+        ICurrentUserProvider currentUserProvider,
+        IUnitOfWork unitOfWork)
     {
         _sessionRepository = sessionRepository;
+        _availabilitySlotRepository = availabilitySlotRepository;
         _currentUserProvider = currentUserProvider;
         _unitOfWork = unitOfWork;
     }
@@ -60,7 +65,30 @@ public sealed class CancelSessionCommandHandler
             return Result.Failure(new Error("CancelSessionCommand.InvalidState", ex.Message, ErrorType.Domain));
         }
 
-        await _unitOfWork.SaveChangesAsync(new IAggregateRoot[] { session }, cancellationToken);
+        // Phase 4.6 (DOMAIN_MODEL.md Open Question 7, resolved): cancelling
+        // reopens the originating Availability Slot. Only reachable once
+        // Session.Cancel() has already succeeded above — mirrors
+        // BookSessionCommandHandler's own shape (which already mutates both
+        // AvailabilitySlot and Session in one SaveChangesAsync call for the
+        // mirror-image operation), and is exactly the atomicity ADR-004's
+        // Transaction Boundaries section already anticipated for this case.
+        var slot = await _availabilitySlotRepository.GetByIdAsync(session.AvailabilitySlotId, cancellationToken);
+        if (slot is null)
+        {
+            // Structurally unreachable in practice (Sessions.AvailabilitySlotId
+            // is a real FK with Restrict delete behavior — see
+            // SessionConfiguration), but the Domain method requires the slot,
+            // so an Infrastructure Failure is surfaced rather than silently
+            // skipping the reopen (ADR-008: never leave a business invariant
+            // ambiguous).
+            throw new InvalidOperationException(
+                $"Availability Slot '{session.AvailabilitySlotId.Value}' referenced by Session " +
+                $"'{session.Id.Value}' was not found while reopening it after cancellation.");
+        }
+
+        slot.Reopen(session.Id);
+
+        await _unitOfWork.SaveChangesAsync(new IAggregateRoot[] { session, slot }, cancellationToken);
 
         return Result.Success();
     }

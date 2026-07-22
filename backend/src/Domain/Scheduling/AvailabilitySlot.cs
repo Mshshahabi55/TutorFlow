@@ -100,4 +100,42 @@ public sealed class AvailabilitySlot : AggregateRoot<AvailabilitySlotId>
 
         return session;
     }
+
+    // Phase 4.6: formally resolves DOMAIN_MODEL.md Open Question 7 —
+    // cancelling a Session does reopen its Availability Slot. The only
+    // legitimate caller is CancelSessionCommandHandler, immediately after
+    // Session.Cancel() succeeds (both persisted in the same
+    // SaveChangesAsync call — ADR-004's Transaction Boundaries already
+    // anticipated this exact atomicity once Question 7 resolved: "what
+    // happens to the associated Availability Slot on cancellation... the
+    // full transactional shape of cancellation is not yet complete").
+    //
+    // AvailabilitySlot has no reference to the Session that consumed it —
+    // by design, aggregates reference each other by identity only, and
+    // only Session holds AvailabilitySlotId, never the reverse — so this
+    // method cannot itself verify "the session that consumed this slot is
+    // really the one being cancelled," or that it's genuinely still active.
+    // That ordering (cancel the Session first, check it actually succeeded,
+    // only then reopen the slot it named) is guaranteed by the calling
+    // handler, not by this aggregate; cancelledSessionId is accepted only
+    // for audit attribution (AvailabilitySlotReopened), not validated here.
+    //
+    // Deliberately does NOT guard against StartTimeUtc already being in the
+    // past: Book() itself has never guarded against booking a past slot
+    // either (no minimum/maximum lead time is established —
+    // DOMAIN_MODEL.md Open Question 8, still open). Adding an asymmetric
+    // "cannot reopen a past slot" rule here, where none exists on the
+    // original booking path, would be inventing a new business rule this
+    // phase is not authorized to decide, not fixing a bug.
+    public void Reopen(SessionId cancelledSessionId)
+    {
+        if (!IsConsumed)
+        {
+            throw new InvalidOperationException(
+                "Only a consumed Availability Slot can be reopened.");
+        }
+
+        IsConsumed = false;
+        RaiseDomainEvent(new AvailabilitySlotReopened(Id, cancelledSessionId));
+    }
 }

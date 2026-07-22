@@ -52,6 +52,11 @@ internal sealed class AuditDomainEventHandler : IDomainEventHandler
             SessionRescheduled e => ((Guid?)e.SessionId.Value, domainEvent.GetType().Name),
             SessionCancelled e => ((Guid?)e.SessionId.Value, domainEvent.GetType().Name),
             AvailabilityDeclared e => ((Guid?)e.AvailabilitySlotId.Value, domainEvent.GetType().Name),
+            // Phase 4.6: the Availability Slot's own lifecycle (declared,
+            // consumed, reopened) gets a direct audit subject keyed by its
+            // own id — distinct from SessionCancelled's Session-keyed
+            // record, which does not itself surface which slot was freed.
+            AvailabilitySlotReopened e => ((Guid?)e.AvailabilitySlotId.Value, domainEvent.GetType().Name),
             TutorApproved e => ((Guid?)e.TutorId.Value, domainEvent.GetType().Name),
             TutorSuspended e => ((Guid?)e.TutorId.Value, domainEvent.GetType().Name),
             // Both outcomes share one event type; the Action string is what

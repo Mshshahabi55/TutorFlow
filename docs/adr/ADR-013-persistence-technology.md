@@ -90,3 +90,29 @@ Does not choose an ORM or data-access library. Does not choose a specific vendor
 ---
 
 *Status: Accepted — 2026-07-20. Technology: PostgreSQL.*
+
+## Addendum: PostgreSQL Version (Appended — 2026-07-22)
+
+**PostgreSQL 17 is the target version**, confirmed during Phase 2
+(`docs/phases/PHASE-02-REPORT.md`) — the first phase to connect this
+project to a real PostgreSQL instance rather than the SQLite substitute
+every test in this repository had used until then. 17.10 was installed and
+verified locally for that phase. This does not reopen or narrow the
+category-level decision above (Relational/SQL, ACID); it records the
+specific version actually exercised, since nothing prior to Phase 2 had
+ever run this codebase against a real PostgreSQL server to confirm one.
+
+This addendum also resolves a stray, unrelated inconsistency Phase 2 found
+while looking for this project's Postgres version story:
+`.devcontainer/docker-compose.yml` (unmodified boilerplate from GitHub's
+`dotnet-postgres` devcontainer template, added in the initial commit and
+never adapted to this project) pins `postgres:14.3` and a `.NET 8.0` base
+image, neither of which matches this ADR (17) or `backend/global.json`
+(.NET 9). Per `docs/adr/ADR-018-regional-deployment-and-market-scope.md`'s
+constraint that this project cannot depend on services that may be
+unreachable from Iran — which includes Docker Hub, the origin of both of
+those images — the `.devcontainer/` directory is marked as unused,
+unsupported scaffolding rather than updated to track this ADR (see the
+banner comments added to its three files in Phase 2). The supported local
+setup path is a natively-installed PostgreSQL instance, documented in
+`README.md`.

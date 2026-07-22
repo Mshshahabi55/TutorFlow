@@ -1,3 +1,15 @@
+# UNUSED SCAFFOLDING — not the supported dev setup path.
+# This is GitHub's unmodified `dotnet-postgres` devcontainer template,
+# added by the initial commit and never adapted to this project: it pins
+# postgres:14.3 and a .NET 8.0 base image, while this project actually
+# targets PostgreSQL 17 (docs/adr/ADR-013-persistence-technology.md's
+# addendum) and .NET 9 (backend/global.json). It also pulls from Docker
+# Hub, which docs/adr/ADR-018-regional-deployment-and-market-scope.md
+# flags as a service that may be unreachable from Iran. The supported
+# local setup is a natively-installed PostgreSQL 17 instance — see
+# README.md's "Database setup" section. Left in place, not deleted, in
+# case a future phase decides to invest in a real devcontainer; do not
+# assume this file works or is maintained until that happens.
 version: '3.8'
 
 services:

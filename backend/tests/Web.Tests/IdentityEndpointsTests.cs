@@ -498,6 +498,66 @@ public class IdentityEndpointsTests : IClassFixture<TutorFlowWebApplicationFacto
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    // ADR-019/Phase 4 Task 5: HourlyRate.Of now also rejects a negative
+    // amount (distinct from "zero", above), a fractional Rial (no minor
+    // unit), and an amount exceeding MaxAmount — all surfaced as a clear
+    // 400 through the same existing catch(ArgumentException) path, at the
+    // real API boundary.
+    [Fact]
+    public async Task SetTutorHourlyRate_returns_failure_for_a_negative_amount()
+    {
+        var (tutorId, token) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync($"/tutors/{tutorId}/hourly-rate", new { Amount = -500_000m }, token);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await ReadBodyAsync(response);
+        Assert.Equal("SetTutorHourlyRateCommand.Amount.Invalid", body.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task SetTutorHourlyRate_returns_failure_for_a_fractional_amount()
+    {
+        var (tutorId, token) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync($"/tutors/{tutorId}/hourly-rate", new { Amount = 500_000.5m }, token);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await ReadBodyAsync(response);
+        Assert.Equal("SetTutorHourlyRateCommand.Amount.Invalid", body.GetProperty("error").GetProperty("code").GetString());
+        Assert.Contains("whole number", body.GetProperty("error").GetProperty("message").GetString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task SetTutorHourlyRate_returns_failure_for_an_amount_exceeding_the_maximum()
+    {
+        var (tutorId, token) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{tutorId}/hourly-rate", new { Amount = HourlyRate.MaxAmount + 1m }, token);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await ReadBodyAsync(response);
+        Assert.Equal("SetTutorHourlyRateCommand.Amount.Invalid", body.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task SetTutorHourlyRate_returns_success_for_the_maximum_amount()
+    {
+        var (tutorId, token) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{tutorId}/hourly-rate", new { Amount = HourlyRate.MaxAmount }, token);
+
+        response.EnsureSuccessStatusCode();
+        var body = await ReadBodyAsync(response);
+        Assert.True(body.GetProperty("isSuccess").GetBoolean());
+
+        var getResponse = await GetWithAuthAsync($"/tutors/{tutorId}", token);
+        var getBody = await ReadBodyAsync(getResponse);
+        Assert.Equal(HourlyRate.MaxAmount, getBody.GetProperty("value").GetProperty("hourlyRate").GetDecimal());
+    }
+
     [Fact]
     public async Task SetTutorHourlyRate_requires_authentication()
     {

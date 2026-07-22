@@ -8,12 +8,17 @@ import { IdLookupForm } from "@/shared/components/forms/IdLookupForm";
 import { DataTable, type DataTableColumn } from "@/shared/components/table/DataTable";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { StatusPill } from "@/shared/components/feedback/StatusPill";
+import { toTehranDisplay } from "@/shared/time/tehranTime";
 import type { SessionDto } from "@/services/api/dtos";
 import { paths } from "@/routes/paths";
 
 const columns: DataTableColumn<SessionDto>[] = [
   { key: "studentId", header: "Student id", render: (row) => row.studentId },
-  { key: "scheduledTimeUtc", header: "Scheduled (UTC)", render: (row) => row.scheduledTimeUtc },
+  {
+    key: "scheduledTimeUtc",
+    header: "Scheduled (Tehran)",
+    render: (row) => toTehranDisplay(row.scheduledTimeUtc),
+  },
   {
     key: "status",
     header: "Status",

@@ -7,6 +7,7 @@ import { LoadingState } from "@/shared/components/feedback/LoadingState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { StatusPill } from "@/shared/components/feedback/StatusPill";
 import { timeSpanToMinutes } from "@/shared/utils/duration";
+import { toTehranDisplay } from "@/shared/time/tehranTime";
 import { DeliveryMode } from "@/services/api/dtos";
 import { paths } from "@/routes/paths";
 
@@ -62,10 +63,10 @@ export function AvailabilitySlotDetailPage() {
                     <b>Tutor id:</b> {slotQuery.data.tutorId}
                   </Typography>
                   <Typography variant="body2">
-                    <b>Start (UTC):</b> {slotQuery.data.startTimeUtc}
+                    <b>Start (Tehran):</b> {toTehranDisplay(slotQuery.data.startTimeUtc)}
                   </Typography>
                   <Typography variant="body2">
-                    <b>End (UTC):</b> {slotQuery.data.endTimeUtc}
+                    <b>End (Tehran):</b> {toTehranDisplay(slotQuery.data.endTimeUtc)}
                   </Typography>
                   <Typography variant="body2">
                     <b>Duration:</b> {timeSpanToMinutes(slotQuery.data.duration)} minutes

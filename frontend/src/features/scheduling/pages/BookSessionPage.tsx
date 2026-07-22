@@ -13,6 +13,7 @@ import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { CopyableId } from "@/shared/components/CopyableId";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { useNotification } from "@/shared/hooks/useNotification";
+import { toTehranDisplay } from "@/shared/time/tehranTime";
 import { paths } from "@/routes/paths";
 
 /**
@@ -71,7 +72,8 @@ export function BookSessionPage() {
               </Typography>
               <CopyableId id={bookSession.data.sessionId} />
               <Typography variant="body2" color="text.secondary">
-                {bookSession.data.scheduledTimeUtc} – {bookSession.data.endTimeUtc}
+                {toTehranDisplay(bookSession.data.scheduledTimeUtc)} –{" "}
+                {toTehranDisplay(bookSession.data.endTimeUtc)} (Tehran)
               </Typography>
               <Button
                 component={RouterLink}

@@ -8,13 +8,18 @@ import { DataTable, type DataTableColumn } from "@/shared/components/table/DataT
 import { PageHeader } from "@/shared/components/PageHeader";
 import { StatusPill } from "@/shared/components/feedback/StatusPill";
 import { usePagination } from "@/shared/hooks/usePagination";
+import { toTehranDisplay } from "@/shared/time/tehranTime";
 import { paths } from "@/routes/paths";
 import type { SessionDto } from "@/services/api/dtos";
 
 const columns: DataTableColumn<SessionDto>[] = [
   { key: "tutorId", header: "Tutor id", render: (row) => row.tutorId },
   { key: "studentId", header: "Student id", render: (row) => row.studentId },
-  { key: "scheduledTimeUtc", header: "Scheduled (UTC)", render: (row) => row.scheduledTimeUtc },
+  {
+    key: "scheduledTimeUtc",
+    header: "Scheduled (Tehran)",
+    render: (row) => toTehranDisplay(row.scheduledTimeUtc),
+  },
   {
     key: "status",
     header: "Status",

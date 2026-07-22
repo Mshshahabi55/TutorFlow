@@ -28,7 +28,40 @@ Exact versions verified in this session's environment:
 
 - **.NET SDK 9.0.x** — this repo targets `net9.0` (`backend/Directory.Build.props`); verified working with SDK `9.0.300`.
 - **Node.js** — no strict minimum is pinned anywhere in the repo (no `.nvmrc`, no `engines` field in `package.json`); verified working with Node `v24.13.0` in this session. `@types/node` is pinned to `^22.10.2`, so Node 22+ is the safest assumption if you're not on 24.
-- **PostgreSQL** — required for real backend usage (`docs/adr/ADR-013-persistence-technology.md`). No specific version is pinned by any project document. **Not verified in this session** — no local Postgres instance was available; every backend test in this repo currently runs against an isolated in-memory SQLite database instead. See "Current status" below.
+- **PostgreSQL 17** — required for real backend usage (`docs/adr/ADR-013-persistence-technology.md`, addendum). Verified against 17.10, installed natively (not via `.devcontainer/`, which is unused scaffolding — see the banner comments in that directory). Every backend *test* still runs against an isolated in-memory SQLite database (`tests/Web.Tests/TutorFlowWebApplicationFactory.cs`); PostgreSQL is required only to run the API itself and the Postgres-backed integration tests (`docs/phases/PHASE-02-REPORT.md`).
+
+## Database setup
+
+A new machine needs a running PostgreSQL 17 server and two databases:
+`tutorflow_dev` (the API's own database) and `tutorflow_test` (used only by
+the Postgres-backed integration tests in `backend/tests/Infrastructure.Tests/Postgres/`).
+
+1. Create both databases (adjust `-U`/`-h` to match your install):
+   ```bash
+   psql -U postgres -h localhost -c "CREATE DATABASE tutorflow_dev;"
+   psql -U postgres -h localhost -c "CREATE DATABASE tutorflow_test;"
+   ```
+2. Initialize user-secrets for the Web project (one-time per checkout — adds
+   only a `<UserSecretsId>` to `TutorFlow.Web.csproj`, never a credential):
+   ```bash
+   cd backend/src/Web
+   dotnet user-secrets init
+   ```
+3. Store your real connection string as a secret — **never** in
+   `appsettings.json`, which must keep its `REPLACE_ME` placeholder:
+   ```bash
+   dotnet user-secrets set "ConnectionStrings:TutorFlow" "Host=localhost;Database=tutorflow_dev;Username=postgres;Password=<your-password>"
+   ```
+4. The Postgres-backed integration tests (Task 4, `docs/phases/PHASE-02-REPORT.md`)
+   read their own connection string from the `TUTORFLOW_TEST_CONNECTION`
+   environment variable, pointed at `tutorflow_test` — set it in your shell
+   profile, not committed anywhere:
+   ```bash
+   export TUTORFLOW_TEST_CONNECTION="Host=localhost;Database=tutorflow_test;Username=postgres;Password=<your-password>"
+   ```
+   If this variable is unset, those tests fail loudly with a clear message
+   rather than silently skipping (`docs/phases/PHASE-02-REPORT.md` Section 4).
+5. Apply migrations (see "Running the backend" below).
 
 ## Running the backend
 

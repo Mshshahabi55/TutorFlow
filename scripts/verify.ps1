@@ -12,9 +12,16 @@
       1. dotnet restore + dotnet build TutorFlow.sln  — 0 warnings, 0 errors
       2. dotnet test TutorFlow.sln, run TWICE          — both runs must pass
          (a determinism guard: a suite that only passes once is not proven
-         green, per docs/phases/PHASE-01-REPORT.md)
-      3. frontend: npm ci, npm run lint, npm run build, npm test -- --run
-      4. a PASS/FAIL summary, per-step and total elapsed time, and a
+         green, per docs/phases/PHASE-01-REPORT.md). Excludes the
+         Postgres-backed integration tests (Category!=Postgres) — those run
+         as their own step below, since they need a real PostgreSQL
+         instance neither this default run nor CI can assume is present.
+      3. the Postgres-backed integration tests (Category=Postgres) against
+         TUTORFLOW_TEST_CONNECTION (see README.md "Database setup") — these
+         fail loudly, not skip, if that variable isn't set
+         (docs/phases/PHASE-02-REPORT.md Task 4)
+      4. frontend: npm ci, npm run lint, npm run build, npm test -- --run
+      5. a PASS/FAIL summary, per-step and total elapsed time, and a
          non-zero exit code on any failure
 
     .github/workflows/*.yml mirror this pipeline for convenience, but per
@@ -118,6 +125,10 @@ if ($restoreExitCode -eq 0) {
 }
 
 # --- Backend: test, twice (determinism guard) ---
+# Category!=Postgres: the Postgres-backed integration tests run as their
+# own, separately-labelled step below (Task 4/Task 7,
+# docs/phases/PHASE-02-REPORT.md) — neither this default run nor CI can
+# assume a real PostgreSQL instance is present.
 for ($run = 1; $run -le 2; $run++) {
     $stepName = "Backend: dotnet test TutorFlow.sln (run $run of 2)"
     if ($buildOk) {
@@ -125,7 +136,7 @@ for ($run = 1; $run -le 2; $run++) {
         $stepWatch = [System.Diagnostics.Stopwatch]::StartNew()
         Push-Location $backendDir -ErrorAction Stop
         try {
-            dotnet test TutorFlow.sln --no-build
+            dotnet test TutorFlow.sln --no-build --filter "Category!=Postgres"
             $testExitCode = $LASTEXITCODE
         } finally {
             Pop-Location
@@ -139,6 +150,33 @@ for ($run = 1; $run -le 2; $run++) {
     } else {
         Add-StepResult -Name $stepName -Status 'SKIPPED (build failed)' -Seconds 0
     }
+}
+
+# --- Backend: Postgres-backed integration tests (own step, not part of the
+# determinism-guard runs above) — requires TUTORFLOW_TEST_CONNECTION
+# (README.md "Database setup"). PostgresTestFixture's constructor throws a
+# clear message if it's unset, so this step FAILS rather than silently
+# passing/skipping when Postgres isn't configured (docs/phases/PHASE-02-REPORT.md
+# Task 4) — that failure is real signal, not a false negative to work around.
+$stepName = 'Backend: Postgres integration tests'
+if ($buildOk) {
+    Write-StepHeader $stepName
+    $stepWatch = [System.Diagnostics.Stopwatch]::StartNew()
+    Push-Location $backendDir -ErrorAction Stop
+    try {
+        dotnet test TutorFlow.sln --no-build --filter "Category=Postgres"
+        $postgresTestExitCode = $LASTEXITCODE
+    } finally {
+        Pop-Location
+    }
+    $stepWatch.Stop()
+    if ($postgresTestExitCode -eq 0) {
+        Add-StepResult -Name $stepName -Status 'PASS' -Seconds $stepWatch.Elapsed.TotalSeconds
+    } else {
+        Add-StepResult -Name $stepName -Status 'FAIL' -Seconds $stepWatch.Elapsed.TotalSeconds
+    }
+} else {
+    Add-StepResult -Name $stepName -Status 'SKIPPED (build failed)' -Seconds 0
 }
 
 # --- Frontend: npm ci ---

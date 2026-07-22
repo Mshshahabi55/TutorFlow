@@ -13,13 +13,15 @@ const RIAL_PER_TOMAN = 10;
 
 /**
  * Matches HourlyRate.MaxAmount exactly
- * (backend/src/Domain/Identity/ValueObjects/HourlyRate.cs) — numeric(12,0)'s
- * ceiling, twelve nines.
+ * (backend/src/Domain/Identity/ValueObjects/HourlyRate.cs) — the largest
+ * multiple of 10 within numeric(12,0)'s ceiling (ADR-019 Addendum 1 /
+ * Phase 4.5: the true schema ceiling of 999,999,999,999 is itself not a
+ * legal HourlyRate, since it isn't divisible by 10).
  */
-export const MAX_RIAL = 999_999_999_999;
+export const MAX_RIAL = 999_999_999_990;
 
-/** The largest whole-Toman amount that converts to a Rial value within MAX_RIAL. */
-export const MAX_TOMAN = Math.floor(MAX_RIAL / RIAL_PER_TOMAN);
+/** The Toman value of MAX_RIAL — exact, since MAX_RIAL is now always divisible by 10. */
+export const MAX_TOMAN = MAX_RIAL / RIAL_PER_TOMAN;
 
 /**
  * A whole Toman amount (as entered by a user) -> the Rial value sent over
@@ -36,12 +38,16 @@ export function tomanToRial(toman: number): number {
 /**
  * A Rial amount (from the wire) -> the whole Toman value to display.
  *
- * Throws rather than rounding if `rial` is not evenly divisible by 10
- * (PHASE-04-REPORT.md Section 4: the phase's own absolute rule is to
- * report such a path, not silently choose a rounding rule). The only way
- * this can happen in practice is a raw API write bypassing the Toman-only
- * UI this module backs — every write this product itself makes goes
- * through `tomanToRial`, which always produces a multiple of 10.
+ * STRICT — throws (does not round) if `rial` is not evenly divisible by
+ * 10, a programmer-error guard, not a UI-facing function: since
+ * `HourlyRate.Of` now enforces divisibility by 10 in Domain (ADR-019
+ * Addendum 1 / Phase 4.5), no conforming write can ever produce a
+ * non-divisible Rial amount, so a caller receiving one here has a real
+ * bug to fix, not a value to gracefully paper over. Used for round-trip
+ * correctness (tests, `tomanToRial`'s own inverse) — **no page render
+ * path may call this directly**; use `formatToman`/`toTomanInputValue`
+ * instead, which are safe for any value this system has ever persisted,
+ * including data written before this invariant existed.
  */
 export function rialToToman(rial: number): number {
   if (!Number.isInteger(rial) || rial < 0 || rial > MAX_RIAL) {
@@ -57,13 +63,39 @@ export function rialToToman(rial: number): number {
 }
 
 /**
+ * A Rial amount -> the whole Toman value to render, safe for any page
+ * render path: rounds to the nearest Toman instead of throwing if `rial`
+ * isn't evenly divisible by 10, rather than crashing on legacy data
+ * written before Domain enforced the whole-Toman invariant (ADR-019
+ * Addendum 1). The stored Rial amount is never altered by this — only the
+ * displayed/edited Toman figure is rounded, and the moment that Tutor's
+ * rate is next saved through this UI, it becomes an exact multiple of 10
+ * again.
+ */
+function rialToTomanForDisplay(rial: number): number {
+  if (!Number.isInteger(rial) || rial < 0 || rial > MAX_RIAL) {
+    throw new Error(`Invalid Rial amount: ${rial}`);
+  }
+  return Math.round(rial / RIAL_PER_TOMAN);
+}
+
+/**
  * A Rial amount -> a thousand-separated Toman string for display, e.g.
  * `formatToman(500_000)` -> `"50,000"`. Does not append a "Toman" label —
  * callers own that, matching `toTehranDisplay`'s "no (Tehran) suffix"
- * convention.
+ * convention. Safe for any render path — see `rialToTomanForDisplay`.
  */
 export function formatToman(rial: number): string {
-  return new Intl.NumberFormat("en-US").format(rialToToman(rial));
+  return new Intl.NumberFormat("en-US").format(rialToTomanForDisplay(rial));
+}
+
+/**
+ * A Rial amount -> the string an editable Toman `<input>` should be bound
+ * to (e.g. the Tutor Offering form's default value). Safe for any render
+ * path — see `rialToTomanForDisplay`.
+ */
+export function toTomanInputValue(rial: number): string {
+  return String(rialToTomanForDisplay(rial));
 }
 
 /** True if `value` is a positive whole Toman amount within the schema's maximum. */

@@ -5,6 +5,7 @@ import {
   formatToman,
   isValidTomanAmount,
   rialToToman,
+  toTomanInputValue,
   tomanToRial,
 } from "@/shared/money/rial";
 
@@ -19,9 +20,10 @@ describe("tomanToRial / rialToToman — exact round-tripping", () => {
   );
 
   it("round-trips the largest value the schema allows", () => {
+    // MAX_RIAL is itself a multiple of 10 (ADR-019 Addendum 1 / Phase
+    // 4.5), so this is now exact with no remainder to account for.
     const rial = tomanToRial(MAX_TOMAN);
-    expect(rial).toBe(MAX_RIAL - (MAX_RIAL % 10));
-    expect(rial).toBeLessThanOrEqual(MAX_RIAL);
+    expect(rial).toBe(MAX_RIAL);
     expect(rialToToman(rial)).toBe(MAX_TOMAN);
   });
 });
@@ -54,8 +56,7 @@ describe("formatToman — thousand-separator formatting", () => {
   });
 
   it("formats the largest value the schema allows with thousand separators", () => {
-    const maxRialAsToman = tomanToRial(MAX_TOMAN);
-    expect(formatToman(maxRialAsToman)).toBe(MAX_TOMAN.toLocaleString("en-US"));
+    expect(formatToman(MAX_RIAL)).toBe(MAX_TOMAN.toLocaleString("en-US"));
   });
 });
 
@@ -86,19 +87,41 @@ describe("rialToToman validation", () => {
     expect(() => rialToToman(MAX_RIAL + 1)).toThrow();
   });
 
-  // The path this phase's absolute rule requires flagging rather than
-  // silently resolving: a Rial amount not evenly divisible by 10 cannot be
-  // expressed as a whole Toman value. This can only happen via a raw API
-  // write bypassing the Toman-only UI (every write this product makes goes
-  // through tomanToRial, always a multiple of 10) — reported explicitly in
-  // docs/phases/PHASE-04-REPORT.md Section 4, not silently rounded here.
+  // As of Phase 4.5 (ADR-019 Addendum 1), HourlyRate.Of enforces
+  // divisibility by 10 in Domain, so no conforming write can produce a
+  // non-divisible Rial amount here — a value like 45 can only be legacy
+  // data written before that invariant existed. rialToToman is the strict
+  // primitive (a programmer-error guard, not UI-facing): it still throws
+  // rather than rounding one. See "safe display functions" below for the
+  // page-facing functions, which must never throw on this same input.
   it("throws rather than rounding when the Rial amount is not divisible by 10", () => {
     expect(() => rialToToman(45)).toThrow(/not evenly divisible/);
   });
+});
 
-  it("throws for the true schema maximum (999,999,999,999), which is not divisible by 10", () => {
-    expect(MAX_RIAL % 10).not.toBe(0);
-    expect(() => rialToToman(MAX_RIAL)).toThrow(/not evenly divisible/);
+describe("safe display functions never throw on a legacy non-divisible amount", () => {
+  // 45 Rial predates the Phase 4.5 Domain invariant and has no exact
+  // Toman representation (4.5) — formatToman/toTomanInputValue must
+  // degrade (round) rather than crash any page that renders it, since a
+  // Tutor's whole profile page must not become permanently unviewable
+  // over a display nicety. The stored Rial amount itself is never altered.
+  it("formatToman rounds instead of throwing", () => {
+    expect(() => formatToman(45)).not.toThrow();
+    expect(formatToman(45)).toBe("5"); // 4.5 rounds to 5
+  });
+
+  it("toTomanInputValue rounds instead of throwing", () => {
+    expect(() => toTomanInputValue(45)).not.toThrow();
+    expect(toTomanInputValue(45)).toBe("5");
+  });
+
+  it("rounds down when the fractional Toman part is below .5", () => {
+    expect(formatToman(44)).toBe("4"); // 4.4 rounds to 4
+  });
+
+  it("still throws for a genuinely invalid amount (negative/out-of-range), not just non-divisible", () => {
+    expect(() => formatToman(-10)).toThrow();
+    expect(() => formatToman(MAX_RIAL + 10)).toThrow();
   });
 });
 

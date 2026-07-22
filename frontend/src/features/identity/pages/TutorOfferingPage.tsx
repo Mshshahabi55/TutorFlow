@@ -19,7 +19,7 @@ import {
   minutesToTimeSpan,
   parseMinutesList,
 } from "@/shared/utils/duration";
-import { rialToToman, tomanToRial } from "@/shared/money/rial";
+import { toTomanInputValue, tomanToRial } from "@/shared/money/rial";
 import { Form } from "@/shared/components/forms/Form";
 import { FormTextField } from "@/shared/components/forms/FormTextField";
 import { PageHeader } from "@/shared/components/PageHeader";
@@ -30,7 +30,7 @@ import type { TutorDto } from "@/services/api/dtos";
 
 function toFormValues(tutor: TutorDto): TutorOfferingFormValues {
   return {
-    hourlyRate: tutor.hourlyRate !== null ? String(rialToToman(tutor.hourlyRate)) : "",
+    hourlyRate: tutor.hourlyRate !== null ? toTomanInputValue(tutor.hourlyRate) : "",
     subject: tutor.subject ?? "",
     language: tutor.language ?? "",
     location: tutor.location ?? "",

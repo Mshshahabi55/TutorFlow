@@ -154,18 +154,26 @@ public sealed class PostgresIntegrationTests : IClassFixture<PostgresTestFixture
         Assert.Equal("23505", exception.SqlState); // unique_violation
     }
 
+    // Phase 4/ADR-019 inverts this test: HourlyRate's column is now
+    // numeric(12,0), not numeric(10,2) — Rial has no minor unit, so
+    // HourlyRate.Of(123456.78m) (the old value here) now throws before this
+    // test could even reach the database (proven at the Domain level by
+    // HourlyRateTests.Of_with_a_fractional_amount_throws). What's still
+    // worth proving against a real Postgres instance is that a whole-number
+    // amount — specifically the largest one the column allows — round-trips
+    // with no precision loss or silent truncation.
     [Fact]
-    public async Task HourlyRate_decimal_precision_round_trips_exactly()
+    public async Task HourlyRate_whole_Rial_amount_round_trips_exactly_at_the_maximum()
     {
         await using var writeContext = await _fixture.CreateFreshDbContextAsync();
         var tutor = Tutor.Register(UniqueEmail(), PasswordHash.Of("irrelevant-hash"));
-        tutor.SetHourlyRate(HourlyRate.Of(123456.78m));
+        tutor.SetHourlyRate(HourlyRate.Of(HourlyRate.MaxAmount));
         writeContext.Tutors.Add(tutor);
         await writeContext.SaveChangesAsync();
 
         await using var readContext = await _fixture.CreateFreshDbContextAsync();
         var freshTutor = await readContext.Tutors.AsNoTracking().FirstAsync(t => t.Id == tutor.Id);
-        Assert.Equal(123456.78m, freshTutor.HourlyRate!.Amount);
+        Assert.Equal(HourlyRate.MaxAmount, freshTutor.HourlyRate!.Amount);
     }
 
     [Fact]

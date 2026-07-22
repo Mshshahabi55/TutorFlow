@@ -55,11 +55,11 @@ describe("SessionDetailPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Look up" }));
 
     expect(await screen.findByText("Scheduled")).toBeInTheDocument();
-    expect(screen.getByLabelText("New start time (UTC, ISO 8601)")).toBeInTheDocument();
+    expect(screen.getByLabelText("New start time (Tehran)")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Complete" })).toBeEnabled();
   });
 
-  it("reschedules a session to a new UTC time", async () => {
+  it("reschedules a session to a new Tehran-entered time, converted to UTC", async () => {
     vi.spyOn(schedulingService, "fetchSessionById").mockResolvedValue(SCHEDULED_SESSION);
     const rescheduleSession = vi
       .spyOn(schedulingService, "rescheduleSession")
@@ -71,13 +71,11 @@ describe("SessionDetailPage", () => {
     });
 
     await screen.findByText("Scheduled");
-    await userEvent.type(
-      screen.getByLabelText("New start time (UTC, ISO 8601)"),
-      "2026-08-02T14:00:00Z",
-    );
+    // 2026-08-02T17:30 Tehran (UTC+03:30) is 2026-08-02T14:00:00Z.
+    await userEvent.type(screen.getByLabelText("New start time (Tehran)"), "2026-08-02T17:30");
     await userEvent.click(screen.getByRole("button", { name: "Reschedule" }));
 
-    expect(rescheduleSession).toHaveBeenCalledWith(SESSION_ID, "2026-08-02T14:00:00Z");
+    expect(rescheduleSession).toHaveBeenCalledWith(SESSION_ID, "2026-08-02T14:00:00.000Z");
     expect(await screen.findByText("Session rescheduled.")).toBeInTheDocument();
   });
 
@@ -93,7 +91,7 @@ describe("SessionDetailPage", () => {
     });
 
     expect(await screen.findByText("Completed")).toBeInTheDocument();
-    expect(screen.queryByLabelText("New start time (UTC, ISO 8601)")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("New start time (Tehran)")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Complete" })).toBeDisabled();
   });
 });

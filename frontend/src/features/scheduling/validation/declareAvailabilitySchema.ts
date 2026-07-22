@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { guidSchema } from "@/shared/validation/guid";
-import { isoDateTimeUtcSchema } from "@/shared/validation/isoDateTime";
+import { tehranLocalDateTimeSchema } from "@/shared/validation/tehranDateTime";
 
 function isPositiveNumber(value: string): boolean {
   const parsed = Number(value);
@@ -9,10 +9,12 @@ function isPositiveNumber(value: string): boolean {
 
 // Mirrors DeclareAvailabilityCommandValidator's structural checks (TutorId,
 // StartTimeUtc, Duration all required) plus SessionDuration.Of's Domain
-// constraint (duration must be positive).
+// constraint (duration must be positive). startTimeLocal holds the Tehran
+// local `<input type="datetime-local">` value; it is converted to the UTC
+// wire value (fromTehranInput) at submit time, in the page component.
 export const declareAvailabilitySchema = z.object({
   tutorId: guidSchema,
-  startTimeUtc: isoDateTimeUtcSchema,
+  startTimeLocal: tehranLocalDateTimeSchema,
   durationMinutes: z
     .string()
     .trim()

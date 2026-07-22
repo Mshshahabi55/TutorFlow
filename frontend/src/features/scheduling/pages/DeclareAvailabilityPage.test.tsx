@@ -25,10 +25,8 @@ describe("DeclareAvailabilityPage", () => {
     renderWithProviders(<DeclareAvailabilityPage />);
 
     await userEvent.type(screen.getByLabelText("Tutor id"), TUTOR_ID);
-    await userEvent.type(
-      screen.getByLabelText("Start time (UTC, ISO 8601)"),
-      "2026-08-01T14:00:00Z",
-    );
+    // 2026-08-01T17:30 Tehran (UTC+03:30) is 2026-08-01T14:00:00Z.
+    await userEvent.type(screen.getByLabelText("Start time (Tehran)"), "2026-08-01T17:30");
     await userEvent.type(screen.getByLabelText("Duration (minutes)"), "60");
     await userEvent.click(screen.getByLabelText("Delivery mode"));
     await userEvent.click(await screen.findByRole("option", { name: "Online" }));
@@ -36,7 +34,7 @@ describe("DeclareAvailabilityPage", () => {
 
     expect(declareAvailability).toHaveBeenCalledWith({
       tutorId: TUTOR_ID,
-      startTimeUtc: "2026-08-01T14:00:00Z",
+      startTimeUtc: "2026-08-01T14:00:00.000Z",
       duration: "01:00:00",
       deliveryMode: 0,
     });
@@ -46,19 +44,24 @@ describe("DeclareAvailabilityPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("rejects a malformed UTC timestamp instead of submitting", async () => {
+  // Phase 3 replaced the free-typed UTC ISO-string field with a native
+  // `<input type="datetime-local">`, so a user can no longer type an
+  // arbitrary malformed string into it — the browser widget only ever
+  // produces a well-formed value or an empty one. This inverts the old
+  // "rejects a malformed UTC timestamp" assertion (Phase 1B/2.5 precedent)
+  // into "rejects a missing one".
+  it("rejects a missing start time instead of submitting", async () => {
     const declareAvailability = vi.spyOn(schedulingService, "declareAvailability");
 
     renderWithProviders(<DeclareAvailabilityPage />);
 
     await userEvent.type(screen.getByLabelText("Tutor id"), TUTOR_ID);
-    await userEvent.type(screen.getByLabelText("Start time (UTC, ISO 8601)"), "not-a-timestamp");
     await userEvent.type(screen.getByLabelText("Duration (minutes)"), "60");
     await userEvent.click(screen.getByLabelText("Delivery mode"));
     await userEvent.click(await screen.findByRole("option", { name: "Online" }));
     await userEvent.click(screen.getByRole("button", { name: "Declare availability" }));
 
-    expect(await screen.findByText(/enter a utc date\/time/i)).toBeInTheDocument();
+    expect(await screen.findByText(/a date and time is required/i)).toBeInTheDocument();
     expect(declareAvailability).not.toHaveBeenCalled();
   });
 });

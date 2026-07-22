@@ -18,6 +18,7 @@ import { LoadingState } from "@/shared/components/feedback/LoadingState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { StatusPill } from "@/shared/components/feedback/StatusPill";
 import { useNotification } from "@/shared/hooks/useNotification";
+import { fromTehranInput, toTehranDisplay } from "@/shared/time/tehranTime";
 import { DeliveryMode, SessionStatus } from "@/services/api/dtos";
 import { paths } from "@/routes/paths";
 
@@ -26,11 +27,11 @@ function RescheduleSessionForm({ sessionId }: { sessionId: string }) {
   const { notify } = useNotification();
   const form = useForm<RescheduleSessionFormValues>({
     resolver: zodResolver(rescheduleSessionSchema),
-    defaultValues: { newScheduledTimeUtc: "" },
+    defaultValues: { newScheduledTimeLocal: "" },
   });
 
   function handleSubmit(values: RescheduleSessionFormValues) {
-    rescheduleSession.mutate(values.newScheduledTimeUtc, {
+    rescheduleSession.mutate(fromTehranInput(values.newScheduledTimeLocal), {
       onSuccess: () => {
         notify({ message: "Session rescheduled.", severity: "success" });
         form.reset();
@@ -42,9 +43,10 @@ function RescheduleSessionForm({ sessionId }: { sessionId: string }) {
     <Form form={form} onSubmit={handleSubmit}>
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="flex-start">
         <FormTextField
-          name="newScheduledTimeUtc"
-          label="New start time (UTC, ISO 8601)"
-          placeholder="2026-08-02T14:00:00Z"
+          name="newScheduledTimeLocal"
+          label="New start time (Tehran)"
+          type="datetime-local"
+          slotProps={{ inputLabel: { shrink: true } }}
         />
         <Button type="submit" variant="outlined" disabled={rescheduleSession.isPending}>
           {rescheduleSession.isPending ? "Rescheduling…" : "Reschedule"}
@@ -111,10 +113,10 @@ export function SessionDetailPage() {
                     <b>Parent/Guardian id:</b> {sessionQuery.data.parentGuardianId ?? "None"}
                   </Typography>
                   <Typography variant="body2">
-                    <b>Scheduled (UTC):</b> {sessionQuery.data.scheduledTimeUtc}
+                    <b>Scheduled (Tehran):</b> {toTehranDisplay(sessionQuery.data.scheduledTimeUtc)}
                   </Typography>
                   <Typography variant="body2">
-                    <b>End (UTC):</b> {sessionQuery.data.endTimeUtc}
+                    <b>End (Tehran):</b> {toTehranDisplay(sessionQuery.data.endTimeUtc)}
                   </Typography>
                 </Stack>
 

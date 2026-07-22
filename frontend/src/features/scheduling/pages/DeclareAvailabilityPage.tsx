@@ -14,6 +14,7 @@ import { FormSelect } from "@/shared/components/forms/FormSelect";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { useNotification } from "@/shared/hooks/useNotification";
+import { fromTehranInput, toTehranDisplay } from "@/shared/time/tehranTime";
 import { paths } from "@/routes/paths";
 
 const DELIVERY_MODE_OPTIONS = [
@@ -34,14 +35,14 @@ export function DeclareAvailabilityPage() {
 
   const form = useForm<DeclareAvailabilityFormValues>({
     resolver: zodResolver(declareAvailabilitySchema),
-    defaultValues: { tutorId: "", startTimeUtc: "", durationMinutes: "", deliveryMode: "" },
+    defaultValues: { tutorId: "", startTimeLocal: "", durationMinutes: "", deliveryMode: "" },
   });
 
   function handleSubmit(values: DeclareAvailabilityFormValues) {
     declareAvailability.mutate(
       {
         tutorId: values.tutorId,
-        startTimeUtc: values.startTimeUtc,
+        startTimeUtc: fromTehranInput(values.startTimeLocal),
         duration: minutesToTimeSpan(Number(values.durationMinutes)),
         deliveryMode: Number(values.deliveryMode),
       },
@@ -57,8 +58,8 @@ export function DeclareAvailabilityPage() {
         title="Declare availability"
         subtitle={
           <Typography variant="body1" color="text.secondary">
-            Times are UTC (ISO 8601) — exactly what the backend stores, no timezone conversion is
-            applied.
+            Times are entered in Tehran local time and converted to UTC before being sent — the
+            backend still stores and receives UTC.
           </Typography>
         }
       />
@@ -74,7 +75,8 @@ export function DeclareAvailabilityPage() {
                 {declareAvailability.data.availabilitySlotId}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {declareAvailability.data.startTimeUtc} – {declareAvailability.data.endTimeUtc}
+                {toTehranDisplay(declareAvailability.data.startTimeUtc)} –{" "}
+                {toTehranDisplay(declareAvailability.data.endTimeUtc)} (Tehran)
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 There is no way to browse open slots — share this id with whoever should book it.
@@ -95,9 +97,10 @@ export function DeclareAvailabilityPage() {
               <Stack spacing={2} alignItems="flex-start">
                 <FormTextField name="tutorId" label="Tutor id" />
                 <FormTextField
-                  name="startTimeUtc"
-                  label="Start time (UTC, ISO 8601)"
-                  placeholder="2026-08-01T14:00:00Z"
+                  name="startTimeLocal"
+                  label="Start time (Tehran)"
+                  type="datetime-local"
+                  slotProps={{ inputLabel: { shrink: true } }}
                 />
                 <FormTextField name="durationMinutes" label="Duration (minutes)" />
                 <FormSelect

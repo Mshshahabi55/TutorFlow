@@ -30,6 +30,7 @@ When any two documents disagree, the higher one in this list wins. Do not averag
 - **English is the only UI language. Never introduce i18n in v1.**
 - **Never add a dependency on a service unreachable from Iran.**
 - **All timestamps are stored in UTC. Tehran is UTC+03:30 with no DST — never assume whole-hour offsets.**
+- **All times are stored and transmitted in UTC. All times displayed to or entered by a user are Asia/Tehran (UTC+03:30, no DST). Conversion happens only in `frontend/src/shared/time/` — never inline.**
 - **Single currency. Never introduce multi-currency logic in v1.**
 
 See `docs/adr/ADR-018-regional-deployment-and-market-scope.md` for the full market-scope decision these four rules restate.

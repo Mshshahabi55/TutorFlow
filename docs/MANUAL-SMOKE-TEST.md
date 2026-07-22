@@ -126,21 +126,22 @@ require the Tutor to be logged in as themselves.
 3. Navigate to **Declare Availability**
    (`/scheduling/availability/declare`).
    - **Tutor id**: `TUTOR_ID`
-   - **Start time (UTC, ISO 8601)**: see the worked example below — **do
-     not type a local time here**, the field is literally the UTC instant
-     the backend stores.
+   - **Start time (Tehran)**: use the date/time picker to choose **5:30 PM
+     on August 1, 2026** — enter it exactly as you'd say it out loud in
+     Tehran; the picker converts it to UTC for you before the request is
+     sent, so you never compute an offset by hand.
    - **Duration (minutes)**: `60`
    - **Delivery mode**: `Online`
 
-   **Worked example, since this is the known timezone gap the UI doesn't
-   hide (Phase 0.5's finding — there is no local-time picker; what you type
-   is exactly what's stored, per `frontend/src/shared/validation/isoDateTime.ts`'s
-   own comment):** say you want the session to happen at **5:30 PM Tehran
-   time** on August 1, 2026. Tehran is `UTC+03:30` year-round (no DST). To
-   get the UTC value: `17:30 − 03:30 = 14:00`. Type:
-   ```
-   2026-08-01T14:00:00Z
-   ```
+   **What's actually happening under the hood (worked example, kept for
+   anyone debugging a mismatch):** Tehran is `UTC+03:30` year-round (no
+   DST — Iran abolished it in 2022). 5:30 PM Tehran on August 1, 2026 is
+   `17:30 − 03:30 = 14:00` UTC, i.e. the wire value
+   `2026-08-01T14:00:00Z` — this is the value
+   `frontend/src/shared/time/tehranTime.ts`'s `fromTehranInput` computes
+   and what the backend actually stores; it's what you should expect to see
+   if you inspect the request body or the database directly (Step 7 below).
+
    Submit. **Expect:** a success message with the new **Availability Slot
    id** and a copy button — copy it, call it `SLOT_ID`.
 
@@ -205,8 +206,6 @@ this time for the whole booking flow.
 ---
 
 **If every step above matched its "Expect," the full stack — frontend,
-API, real PostgreSQL, the Phase 1B persistence fix, and CORS
-(`docs/phases/PHASE-025-REPORT.md` Task 1) — works together end to end.**
-This walkthrough deliberately does not touch the timezone UX gap (typing a
-raw UTC string instead of a local-time picker) — that's real, known, and
-explicitly left for a later phase, not this one.
+API, real PostgreSQL, the Phase 1B persistence fix, CORS
+(`docs/phases/PHASE-025-REPORT.md` Task 1), and the Tehran-local time UX
+(`docs/phases/PHASE-03-REPORT.md`) — works together end to end.**

@@ -121,8 +121,12 @@ require the Tutor to be logged in as themselves.
    registered with.
 2. Navigate to the Tutor's offering page
    (`/identity/tutors/TUTOR_ID/edit`). Set a Subject (e.g. `Mathematics`),
-   Language, Location, and Hourly Rate — whatever values you like.
-   **Expect:** each field saves independently with a success notification.
+   Language, Location, and **Hourly rate (Toman)** — e.g. type `50000` for
+   50,000 Toman. **Expect:** each field saves independently with a success
+   notification. Under the hood, what's actually sent and stored is
+   500,000 Rial (1 Toman = 10 Rial, ADR-019) — you never compute that
+   conversion by hand, the picker does it for you, same as the Tehran time
+   picker below.
 3. Navigate to **Declare Availability**
    (`/scheduling/availability/declare`).
    - **Tutor id**: `TUTOR_ID`

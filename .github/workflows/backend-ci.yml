@@ -34,10 +34,16 @@ jobs:
 
       # Run twice: a determinism guard (docs/phases/PHASE-01-REPORT.md) — a
       # suite that only passes once is not proven green.
+      #
+      # Category!=Postgres excludes the Postgres-backed integration tests
+      # (docs/phases/PHASE-02-REPORT.md Task 4) — this workflow has no
+      # PostgreSQL service available, and per ADR-018 this project cannot
+      # depend on one being reachable in CI at all. scripts/verify.ps1 runs
+      # them locally as their own step.
       - name: Test (run 1 of 2)
         working-directory: backend
-        run: dotnet test TutorFlow.sln --no-build --configuration Release
+        run: dotnet test TutorFlow.sln --no-build --configuration Release --filter "Category!=Postgres"
 
       - name: Test (run 2 of 2)
         working-directory: backend
-        run: dotnet test TutorFlow.sln --no-build --configuration Release
+        run: dotnet test TutorFlow.sln --no-build --configuration Release --filter "Category!=Postgres"

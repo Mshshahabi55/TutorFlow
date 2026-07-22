@@ -154,6 +154,43 @@ public sealed class PostgresIntegrationTests : IClassFixture<PostgresTestFixture
         Assert.Equal("23505", exception.SqlState); // unique_violation
     }
 
+    // Phase 4.6 (DOMAIN_MODEL.md Open Question 7, resolved): the unique
+    // index on Sessions.AvailabilitySlotId is now filtered (WHERE "Status"
+    // <> 2) rather than unconditional, so a Cancelled Session no longer
+    // permanently occupies its slot's unique key. This proves the physical
+    // constraint against the real column/index the migration created, not
+    // just Domain-level behavior (already covered by
+    // AvailabilitySlotTests.A_reopened_slot_can_be_booked_again on SQLite).
+    [Fact]
+    public async Task Sessions_AvailabilitySlotId_filtered_unique_index_permits_rebooking_a_cancelled_slot()
+    {
+        await using var context = await _fixture.CreateFreshDbContextAsync();
+        var slot = AvailabilitySlot.Declare(
+            TutorId.From(Guid.NewGuid()), DateTime.UtcNow.AddDays(1), SessionDuration.Of(TimeSpan.FromHours(1)), DeliveryMode.Online);
+        context.AvailabilitySlots.Add(slot);
+        var firstSession = slot.Book(StudentId.From(Guid.NewGuid()), null);
+        context.Sessions.Add(firstSession);
+        await context.SaveChangesAsync();
+
+        firstSession.Cancel();
+        slot.Reopen(firstSession.Id);
+        await context.SaveChangesAsync();
+
+        var secondSession = slot.Book(StudentId.From(Guid.NewGuid()), null);
+        context.Sessions.Add(secondSession);
+
+        // Must not throw: the filtered index excludes the now-Cancelled
+        // first Session, so a second, live Session for the same slot is
+        // permitted to coexist with it in the same table.
+        await context.SaveChangesAsync();
+
+        var liveCount = await context.Sessions.CountAsync(
+            s => s.AvailabilitySlotId == slot.Id && s.Status != SessionStatus.Cancelled);
+        Assert.Equal(1, liveCount);
+        var totalCount = await context.Sessions.CountAsync(s => s.AvailabilitySlotId == slot.Id);
+        Assert.Equal(2, totalCount);
+    }
+
     // Phase 4/ADR-019 inverts this test: HourlyRate's column is now
     // numeric(12,0), not numeric(10,2) — Rial has no minor unit, so
     // HourlyRate.Of(123456.78m) (the old value here) now throws before this

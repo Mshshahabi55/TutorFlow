@@ -32,10 +32,22 @@ internal sealed class SessionConfiguration : IEntityTypeConfiguration<Session>
             .HasConversion(new ValueConverter<AvailabilitySlotId, Guid>(id => id.Value, value => AvailabilitySlotId.From(value)));
 
         // ADR-014: the physical, storage-layer enforcement of CONST-1. At
-        // most one Session may reference a given Availability Slot; a second
-        // concurrent booking attempt's INSERT is rejected by the database
-        // itself, independent of the in-memory check-then-act race.
-        builder.HasIndex(s => s.AvailabilitySlotId).IsUnique();
+        // most one *live* Session may reference a given Availability Slot;
+        // a second concurrent booking attempt's INSERT is rejected by the
+        // database itself, independent of the in-memory check-then-act
+        // race. Filtered (Phase 4.6, DOMAIN_MODEL.md Open Question 7
+        // resolved) to exclude Cancelled (2): cancelling a Session reopens
+        // its slot (AvailabilitySlot.Reopen()), so a slot may accumulate
+        // any number of Cancelled Session rows over time — the constraint
+        // only needs to prevent two *live* (Scheduled/Completed/NoShow)
+        // Sessions from ever referencing the same slot at once, which is
+        // the actual invariant CONST-1 protects. Completed and NoShow
+        // deliberately remain inside the constraint (still "live" in this
+        // sense) — see docs/phases/PHASE-046-REPORT.md Section 6 for why
+        // only Cancelled was decided to reopen a slot, not those two.
+        builder.HasIndex(s => s.AvailabilitySlotId)
+            .IsUnique()
+            .HasFilter("\"Status\" <> 2");
 
         // Same-bounded-context referential integrity (Session and
         // AvailabilitySlot are both owned by Scheduling & Booking, so a real

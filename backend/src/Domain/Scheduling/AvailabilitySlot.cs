@@ -79,7 +79,12 @@ public sealed class AvailabilitySlot : AggregateRoot<AvailabilitySlotId>
     // another Session (CONST-1) — this is checked here, not by Session, and
     // not by any caller: Session.Book(...) is internal to this bounded
     // context, so this is the only path by which a Session can come to exist.
-    public Session Book(StudentId studentId, ParentGuardianId? parentGuardianId)
+    // price: Phase 4.6, the Tutor's HourlyRate as read by the Application
+    // layer at booking time (or null if the Tutor has none configured) —
+    // AvailabilitySlot only knows TutorId, never the Tutor's rate itself
+    // (a different aggregate, owned by Identity & Relationship), so this
+    // must be supplied by the caller, exactly like studentId/parentGuardianId.
+    public Session Book(StudentId studentId, ParentGuardianId? parentGuardianId, SessionPrice? price = null)
     {
         if (IsConsumed)
         {
@@ -94,7 +99,8 @@ public sealed class AvailabilitySlot : AggregateRoot<AvailabilitySlotId>
             Id,
             StartTimeUtc,
             Duration,
-            DeliveryMode);
+            DeliveryMode,
+            price);
 
         IsConsumed = true;
 

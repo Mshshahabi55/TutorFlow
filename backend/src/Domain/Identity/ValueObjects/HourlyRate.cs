@@ -25,18 +25,14 @@ namespace TutorFlow.Domain.Identity.ValueObjects;
 public sealed class HourlyRate : ValueObject
 {
     /// <summary>ISO 4217 code for the only currency this model represents (ADR-019).</summary>
-    public const string CurrencyCode = "IRR";
+    public const string CurrencyCode = RialAmount.CurrencyCode;
 
-    // The largest multiple of 10 within numeric(12,0)'s ceiling (twelve
-    // nines) — 999,999,999,999 itself is not a legal Amount under the
-    // whole-Toman invariant below, so the true maximum is one Rial short of
-    // it. Still roughly four orders of magnitude above any
-    // currently-plausible hourly rate even accounting for Rial's history of
-    // rapid devaluation, chosen deliberately generous so this column does
-    // not need a second migration for a long time.
-    public const decimal MaxAmount = 999_999_999_990m;
-
-    private const decimal RialPerToman = 10m;
+    // Roughly four orders of magnitude above any currently-plausible hourly
+    // rate even accounting for Rial's history of rapid devaluation, chosen
+    // deliberately generous so this column does not need a second
+    // migration for a long time. See RialAmount for why the true ceiling
+    // is one Rial short of numeric(12,0)'s literal twelve-nines maximum.
+    public const decimal MaxAmount = RialAmount.MaxAmount;
 
     private HourlyRate(decimal amount) => Amount = amount;
 
@@ -44,27 +40,11 @@ public sealed class HourlyRate : ValueObject
 
     public string Currency => CurrencyCode;
 
-    public static HourlyRate Of(decimal amount)
-    {
-        Guard.Against.NegativeOrZero(amount, nameof(amount));
-
-        // Subsumes the old "must be a whole number" check: anything that
-        // divides 10 exactly is necessarily an integer itself.
-        if (amount % RialPerToman != 0)
-        {
-            throw new ArgumentException(
-                "TutorFlow prices in whole Toman (1 Toman = 10 Rial); amount must be a whole " +
-                "number evenly divisible by 10.", nameof(amount));
-        }
-
-        if (amount > MaxAmount)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(amount), amount, $"Amount must not exceed {MaxAmount:N0} Rial.");
-        }
-
-        return new HourlyRate(amount);
-    }
+    // Phase 4.6: the whole-Toman validation itself moved to
+    // Domain.Common.RialAmount, shared with SessionPrice
+    // (Domain.Scheduling) rather than each keeping its own copy of the same
+    // rule. No behavior or public API change to HourlyRate here.
+    public static HourlyRate Of(decimal amount) => new(RialAmount.Validate(amount, nameof(amount)));
 
     protected override IEnumerable<object?> GetEqualityComponents()
     {

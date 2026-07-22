@@ -20,6 +20,7 @@ public sealed class BookSessionCommandHandler
     private readonly ISessionRepository _sessionRepository;
     private readonly IStudentRepository _studentRepository;
     private readonly IRelationshipRepository _relationshipRepository;
+    private readonly ITutorRepository _tutorRepository;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IUnitOfWork _unitOfWork;
 
@@ -28,6 +29,7 @@ public sealed class BookSessionCommandHandler
         ISessionRepository sessionRepository,
         IStudentRepository studentRepository,
         IRelationshipRepository relationshipRepository,
+        ITutorRepository tutorRepository,
         ICurrentUserProvider currentUserProvider,
         IUnitOfWork unitOfWork)
     {
@@ -35,6 +37,7 @@ public sealed class BookSessionCommandHandler
         _sessionRepository = sessionRepository;
         _studentRepository = studentRepository;
         _relationshipRepository = relationshipRepository;
+        _tutorRepository = tutorRepository;
         _currentUserProvider = currentUserProvider;
         _unitOfWork = unitOfWork;
     }
@@ -107,6 +110,19 @@ public sealed class BookSessionCommandHandler
                 ErrorType.Domain));
         }
 
+        // Phase 4.6: captures what this Session costs at the moment it's
+        // booked, from the Tutor's HourlyRate as it stands right now — a
+        // cross-context read through Identity & Relationship's own
+        // repository interface (ADR-002: Integration Rules), the same
+        // established pattern _studentRepository/_relationshipRepository
+        // already use above. Null if the Tutor has no rate configured
+        // (still bookable today; no rule requires one) or, structurally,
+        // if the Tutor record is somehow missing — neither blocks booking,
+        // since requiring a price would be a new business rule this task
+        // does not authorize.
+        var tutor = await _tutorRepository.GetByIdAsync(AccountId.From(slot.TutorId.Value), cancellationToken);
+        var price = tutor?.HourlyRate is null ? null : SessionPrice.Of(tutor.HourlyRate.Amount);
+
         Session session;
         try
         {
@@ -115,7 +131,8 @@ public sealed class BookSessionCommandHandler
             // AvailabilitySlot.Book(...) (docs/adr — Phase 11: Booking Domain Rules).
             session = slot.Book(
                 StudentId.From(command.StudentId),
-                command.ParentGuardianId.HasValue ? ParentGuardianId.From(command.ParentGuardianId.Value) : null);
+                command.ParentGuardianId.HasValue ? ParentGuardianId.From(command.ParentGuardianId.Value) : null,
+                price);
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {

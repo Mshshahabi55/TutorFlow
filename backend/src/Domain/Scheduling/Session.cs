@@ -20,7 +20,8 @@ public sealed class Session : AggregateRoot<SessionId>
         DateTime scheduledTimeUtc,
         SessionDuration duration,
         DeliveryMode deliveryMode,
-        SessionStatus status) : base(id)
+        SessionStatus status,
+        SessionPrice? price) : base(id)
     {
         TutorId = tutorId;
         StudentId = studentId;
@@ -30,6 +31,7 @@ public sealed class Session : AggregateRoot<SessionId>
         Duration = duration;
         DeliveryMode = deliveryMode;
         Status = status;
+        Price = price;
     }
 
     // Every Session identifies exactly one Tutor, referenced by identity only
@@ -61,6 +63,15 @@ public sealed class Session : AggregateRoot<SessionId>
     // (PRODUCT_REQUIREMENTS.md SCH-6).
     public SessionStatus Status { get; private set; }
 
+    // Phase 4.6: what this Session cost, captured from the Tutor's
+    // HourlyRate at booking time — fixed forever after, immune to the
+    // Tutor later changing their rate. Nullable, mirroring Tutor.HourlyRate's
+    // own nullability exactly: a Tutor with no rate configured is still
+    // bookable today (no rule requires one), so a Session booked against
+    // such a Tutor simply has no price to capture, not an invented one.
+    // Not yet exposed via SessionDto or any endpoint (Phase 4.6's own scope).
+    public SessionPrice? Price { get; }
+
     // Internal: the only caller is AvailabilitySlot.Book(...). A consumed
     // slot can never produce more than one Session (CONST-1) — AvailabilitySlot
     // owns that check, so Session must never be created independently of it
@@ -72,7 +83,8 @@ public sealed class Session : AggregateRoot<SessionId>
         AvailabilitySlotId availabilitySlotId,
         DateTime scheduledTimeUtc,
         SessionDuration duration,
-        DeliveryMode deliveryMode)
+        DeliveryMode deliveryMode,
+        SessionPrice? price)
     {
         Guard.Against.Null(tutorId, nameof(tutorId));
         Guard.Against.Null(studentId, nameof(studentId));
@@ -89,7 +101,8 @@ public sealed class Session : AggregateRoot<SessionId>
             scheduledTimeUtc,
             duration,
             deliveryMode,
-            SessionStatus.Scheduled);
+            SessionStatus.Scheduled,
+            price);
 
         session.RaiseDomainEvent(new SessionBooked(session.Id, tutorId, studentId, availabilitySlotId));
 

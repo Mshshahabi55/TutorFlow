@@ -78,6 +78,21 @@ internal sealed class SessionConfiguration : IEntityTypeConfiguration<Session>
 
         builder.Property(s => s.Status);
 
+        // Phase 4.6: what this Session cost, captured at booking time.
+        // Nullable — mirrors Tutor.HourlyRate's own nullability exactly
+        // (see Session.Price's own doc comment) — and existing rows (none
+        // in tutorflow_dev; 34 disposable test rows in tutorflow_test as of
+        // this migration) get NULL, which is not a guessed default but an
+        // honest "this historical fact was never recorded" marker, the
+        // same reasoning that already makes HourlyRate itself nullable.
+        // Precision matches HourlyRate/RialAmount's own numeric(12,0)
+        // exactly, for the identical reason (ADR-019 Addendum 1).
+        builder.Property(s => s.Price)
+            .HasConversion(new ValueConverter<SessionPrice?, decimal?>(
+                price => price == null ? null : price.Amount,
+                amount => amount == null ? null : SessionPrice.Of(amount.Value)))
+            .HasPrecision(12, 0);
+
         builder.Ignore(s => s.DomainEvents);
     }
 }

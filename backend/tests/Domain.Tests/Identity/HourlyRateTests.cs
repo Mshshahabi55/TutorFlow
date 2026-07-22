@@ -43,6 +43,25 @@ public class HourlyRateTests
         Assert.Contains("whole number", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    // Phase 4.5 (ADR-019 Addendum 1): a whole number that isn't a multiple
+    // of 10 is a distinct, newer rejection reason from "fractional" above —
+    // 45 is already an integer, but has no whole-Toman price a user could
+    // have entered.
+    [Fact]
+    public void Of_with_a_whole_amount_not_divisible_by_ten_throws()
+    {
+        var ex = Assert.Throws<ArgumentException>(() => HourlyRate.Of(45m));
+        Assert.Contains("Toman", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Of_with_an_amount_divisible_by_ten_succeeds()
+    {
+        var rate = HourlyRate.Of(50m);
+
+        Assert.Equal(50m, rate.Amount);
+    }
+
     [Fact]
     public void Of_with_the_maximum_amount_succeeds()
     {

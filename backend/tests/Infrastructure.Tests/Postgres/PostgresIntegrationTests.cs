@@ -161,7 +161,11 @@ public sealed class PostgresIntegrationTests : IClassFixture<PostgresTestFixture
     // HourlyRateTests.Of_with_a_fractional_amount_throws). What's still
     // worth proving against a real Postgres instance is that a whole-number
     // amount — specifically the largest one the column allows — round-trips
-    // with no precision loss or silent truncation.
+    // with no precision loss or silent truncation. Referencing
+    // HourlyRate.MaxAmount symbolically (not a hardcoded literal) means this
+    // test needed no change at all when Phase 4.5 (ADR-019 Addendum 1)
+    // corrected that constant from 999,999,999,999 to 999,999,999,990 — it
+    // now proves the corrected maximum round-trips exactly, automatically.
     [Fact]
     public async Task HourlyRate_whole_Rial_amount_round_trips_exactly_at_the_maximum()
     {

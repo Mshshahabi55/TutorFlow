@@ -40,6 +40,31 @@ describe("TutorDetailPage", () => {
     );
   });
 
+  // Phase 4.5: Domain now rejects a new HourlyRate not divisible by 10, but
+  // this page must still render a legacy row written before that
+  // invariant existed without crashing — formatToman rounds instead of
+  // throwing (frontend/src/shared/money/rial.ts).
+  it("renders without throwing for a legacy hourly rate not divisible by 10", async () => {
+    vi.spyOn(identityService, "fetchTutorById").mockResolvedValue({
+      tutorId: TUTOR_ID,
+      isApproved: true,
+      isSuspended: false,
+      isDiscoverable: true,
+      hourlyRate: 45,
+      subject: "Mathematics",
+      language: "English",
+      location: "Remote",
+      offeredDurations: ["00:30:00"],
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("Approved")).toBeInTheDocument();
+    // 45 Rial rounds to 5 Toman for display (4.5 rounds up) rather than
+    // throwing.
+    expect(screen.getByText("5 Toman")).toBeInTheDocument();
+  });
+
   it("shows Admin approve/suspend actions", async () => {
     vi.spyOn(identityService, "fetchTutorById").mockResolvedValue({
       tutorId: TUTOR_ID,

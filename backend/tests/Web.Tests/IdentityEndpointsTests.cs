@@ -528,6 +528,22 @@ public class IdentityEndpointsTests : IClassFixture<TutorFlowWebApplicationFacto
         Assert.Contains("whole number", body.GetProperty("error").GetProperty("message").GetString(), StringComparison.OrdinalIgnoreCase);
     }
 
+    // Phase 4.5 (ADR-019 Addendum 1): a whole amount that isn't a multiple
+    // of 10 is a distinct rejection reason from "fractional" above — 45 is
+    // already an integer, but has no whole-Toman price a user could enter.
+    [Fact]
+    public async Task SetTutorHourlyRate_returns_failure_for_an_amount_not_divisible_by_ten()
+    {
+        var (tutorId, token) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync($"/tutors/{tutorId}/hourly-rate", new { Amount = 45m }, token);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await ReadBodyAsync(response);
+        Assert.Equal("SetTutorHourlyRateCommand.Amount.Invalid", body.GetProperty("error").GetProperty("code").GetString());
+        Assert.Contains("Toman", body.GetProperty("error").GetProperty("message").GetString(), StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task SetTutorHourlyRate_returns_failure_for_an_amount_exceeding_the_maximum()
     {

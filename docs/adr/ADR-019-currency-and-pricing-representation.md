@@ -84,3 +84,19 @@ Does not implement any payment gateway, invoice, order, or billing concept — `
 ---
 
 *Status: Accepted — 2026-07-22. Single currency (Iranian Rial), stored in Rial as whole numbers (no minor unit), displayed and entered in Toman (1 Toman = 10 Rial), currency represented as an explicit named fact for forward compatibility, no payment integration introduced.*
+
+---
+
+## Addendum 1: Whole-Toman Divisibility Invariant (Appended — 2026-07-22)
+
+Raised by Phase 4.5, auditing Phase 4's own implementation of this ADR. Nothing above this section is altered.
+
+**The gap.** Phase 4 gave `HourlyRate.Of` a "whole number" invariant (Decision 4: "Rial has no minor unit... no fractional Rial is valid at any layer") but stopped there — it did not require that whole number be a multiple of 10. `45` Rial is a whole number, so `HourlyRate.Of(45m)` was legal Domain state, yet has no corresponding whole-Toman price (`4.5` Toman) a user could have actually entered through the Toman-only UI this ADR's Decision 3 requires. The frontend's `rialToToman` (`frontend/src/shared/money/rial.ts`) caught this at the *display* boundary by throwing — correct as a last resort, but the wrong layer: `ADR-007` (this project's validation-strategy ADR, listed among this ADR's own authoritative sources) requires a business rule be enforced in exactly one place, the owning aggregate's Domain layer, not discovered as an exception path in a presentation-layer conversion function three layers removed from where the value was actually accepted.
+
+**The correction.** `HourlyRate.Of` now rejects any amount not evenly divisible by 10, with a message stating plainly that the product prices in whole Toman. This subsumes Phase 4's original "whole number" check (anything divisible by 10 is necessarily an integer) rather than sitting alongside it as a second condition. `MaxAmount` moves from `999,999,999,999` to `999,999,999,990` — the original value was itself not a legal `HourlyRate` under this corrected invariant, which would have been a real, reachable bug (an Admin/Tutor setting the literal maximum would have been silently impossible, or worse, inconsistently accepted depending on which check ran first). `999,999,999,990` remains comfortably within `numeric(12,0)`'s ceiling and the same four-orders-of-magnitude margin over any plausible hourly rate that motivated the original figure.
+
+**Why this doesn't reopen Decision 4 or Decision 2.** Decision 4 already established "no fractional Rial, ever" — this addendum sharpens *how* that's checked (divisibility, not merely integrality), it does not change what currency, storage unit, or display unit v1 uses. Decision 2 (store in Rial, because Iranian PSPs settle in Rial) is unaffected: Rial remains the stored and transmitted unit; this addendum only narrows which Rial values are legal, for the same reason Decision 3 already gave (Toman is what a user actually enters).
+
+**Consequence for the frontend seam.** With Domain now the sole and final authority on divisibility (`ADR-007`), `frontend/src/shared/money/rial.ts`'s display path no longer needs to reject a value it should never receive from a conforming write — but must still not crash if handed one written before this invariant existed. See `docs/phases/PHASE-045-REPORT.md` Section 3 for the specific display-layer decision and its justification.
+
+*Status: Accepted — 2026-07-22. Addendum 1 recorded above; nothing else in this ADR is changed. `HourlyRate.MaxAmount` is now `999,999,999,990`; every `HourlyRate.Amount` must be evenly divisible by 10.*

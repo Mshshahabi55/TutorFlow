@@ -469,7 +469,7 @@ public class IdentityEndpointsTests : IClassFixture<TutorFlowWebApplicationFacto
     {
         var (tutorId, token) = await RegisterAndLoginTutorAsync();
 
-        var response = await PatchWithAuthAsync($"/tutors/{tutorId}/hourly-rate", new { Amount = 45m }, token);
+        var response = await PatchWithAuthAsync($"/tutors/{tutorId}/hourly-rate", new { Amount = 50m }, token);
 
         response.EnsureSuccessStatusCode();
         var body = await ReadBodyAsync(response);
@@ -481,7 +481,7 @@ public class IdentityEndpointsTests : IClassFixture<TutorFlowWebApplicationFacto
     {
         var (_, token) = await RegisterAndLoginTutorAsync();
 
-        var response = await PatchWithAuthAsync($"/tutors/{Guid.NewGuid()}/hourly-rate", new { Amount = 45m }, token);
+        var response = await PatchWithAuthAsync($"/tutors/{Guid.NewGuid()}/hourly-rate", new { Amount = 50m }, token);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         var body = await ReadBodyAsync(response);
@@ -534,7 +534,7 @@ public class IdentityEndpointsTests : IClassFixture<TutorFlowWebApplicationFacto
         var (tutorId, token) = await RegisterAndLoginTutorAsync();
 
         var response = await PatchWithAuthAsync(
-            $"/tutors/{tutorId}/hourly-rate", new { Amount = HourlyRate.MaxAmount + 1m }, token);
+            $"/tutors/{tutorId}/hourly-rate", new { Amount = HourlyRate.MaxAmount + 10m }, token);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var body = await ReadBodyAsync(response);
@@ -563,7 +563,7 @@ public class IdentityEndpointsTests : IClassFixture<TutorFlowWebApplicationFacto
     {
         var (tutorId, _) = await RegisterAndLoginTutorAsync();
 
-        var response = await PatchWithAuthAsync($"/tutors/{tutorId}/hourly-rate", new { Amount = 45m }, bearerToken: null);
+        var response = await PatchWithAuthAsync($"/tutors/{tutorId}/hourly-rate", new { Amount = 50m }, bearerToken: null);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         var body = await ReadBodyAsync(response);
@@ -576,7 +576,7 @@ public class IdentityEndpointsTests : IClassFixture<TutorFlowWebApplicationFacto
         var (tutorId, _) = await RegisterAndLoginTutorAsync();
         var adminToken = await SeedAndLoginAdminAsync();
 
-        var response = await PatchWithAuthAsync($"/tutors/{tutorId}/hourly-rate", new { Amount = 45m }, adminToken);
+        var response = await PatchWithAuthAsync($"/tutors/{tutorId}/hourly-rate", new { Amount = 50m }, adminToken);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         var body = await ReadBodyAsync(response);
@@ -596,7 +596,7 @@ public class IdentityEndpointsTests : IClassFixture<TutorFlowWebApplicationFacto
         var (ownerTutorId, _) = await RegisterAndLoginTutorAsync();
         var (_, otherTutorToken) = await RegisterAndLoginTutorAsync();
 
-        var response = await PatchWithAuthAsync($"/tutors/{ownerTutorId}/hourly-rate", new { Amount = 45m }, otherTutorToken);
+        var response = await PatchWithAuthAsync($"/tutors/{ownerTutorId}/hourly-rate", new { Amount = 50m }, otherTutorToken);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         var body = await ReadBodyAsync(response);

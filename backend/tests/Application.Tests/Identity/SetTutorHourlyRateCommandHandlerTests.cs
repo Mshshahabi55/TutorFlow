@@ -16,10 +16,10 @@ public class SetTutorHourlyRateCommandHandlerTests
         await repository.AddAsync(tutor);
         var handler = new SetTutorHourlyRateCommandHandler(repository, StubCurrentUserProvider.AsTutor(tutor.Id.Value), unitOfWork);
 
-        var result = await handler.Handle(new SetTutorHourlyRateCommand(tutor.Id.Value, 45m));
+        var result = await handler.Handle(new SetTutorHourlyRateCommand(tutor.Id.Value, 50m));
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(45m, tutor.HourlyRate!.Amount);
+        Assert.Equal(50m, tutor.HourlyRate!.Amount);
         Assert.Equal(1, unitOfWork.SaveChangesCallCount);
     }
 
@@ -31,7 +31,7 @@ public class SetTutorHourlyRateCommandHandlerTests
         var targetId = Guid.NewGuid();
         var handler = new SetTutorHourlyRateCommandHandler(repository, StubCurrentUserProvider.AsTutor(targetId), unitOfWork);
 
-        var result = await handler.Handle(new SetTutorHourlyRateCommand(targetId, 45m));
+        var result = await handler.Handle(new SetTutorHourlyRateCommand(targetId, 50m));
 
         Assert.True(result.IsFailure);
         Assert.Equal(0, unitOfWork.SaveChangesCallCount);
@@ -78,7 +78,7 @@ public class SetTutorHourlyRateCommandHandlerTests
         var handler = new SetTutorHourlyRateCommandHandler(repository, StubCurrentUserProvider.AsTutor(tutor.Id.Value), unitOfWork);
 
         var result = await handler.Handle(
-            new SetTutorHourlyRateCommand(tutor.Id.Value, TutorFlow.Domain.Identity.ValueObjects.HourlyRate.MaxAmount + 1m));
+            new SetTutorHourlyRateCommand(tutor.Id.Value, TutorFlow.Domain.Identity.ValueObjects.HourlyRate.MaxAmount + 10m));
 
         Assert.True(result.IsFailure);
         Assert.Equal("SetTutorHourlyRateCommand.Amount.Invalid", result.Error.Code);
@@ -92,7 +92,7 @@ public class SetTutorHourlyRateCommandHandlerTests
         var unitOfWork = new FakeUnitOfWork();
         var handler = new SetTutorHourlyRateCommandHandler(repository, StubCurrentUserProvider.AsTutor(Guid.NewGuid()), unitOfWork);
 
-        var result = await handler.Handle(new SetTutorHourlyRateCommand(Guid.Empty, 45m));
+        var result = await handler.Handle(new SetTutorHourlyRateCommand(Guid.Empty, 50m));
 
         Assert.True(result.IsFailure);
         Assert.Equal(0, unitOfWork.SaveChangesCallCount);
@@ -107,7 +107,7 @@ public class SetTutorHourlyRateCommandHandlerTests
         await repository.AddAsync(tutor);
         var handler = new SetTutorHourlyRateCommandHandler(repository, StubCurrentUserProvider.AsTutor(Guid.NewGuid()), unitOfWork);
 
-        var result = await handler.Handle(new SetTutorHourlyRateCommand(tutor.Id.Value, 45m));
+        var result = await handler.Handle(new SetTutorHourlyRateCommand(tutor.Id.Value, 50m));
 
         Assert.True(result.IsFailure);
         Assert.Equal(TutorFlow.Application.Common.ErrorType.Authorization, result.Error.Type);

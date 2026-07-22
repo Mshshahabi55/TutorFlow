@@ -3,11 +3,14 @@ using TutorFlow.Domain.Common;
 namespace TutorFlow.Domain.Identity.ValueObjects;
 
 // A Tutor's rate, visible to Students/Parents (PRODUCT_REQUIREMENTS.md DISC-2).
-// ADR-019: v1 prices exclusively in Iranian Rial (IRR), stored as whole
-// numbers — Rial has no practical minor unit, so there is no fractional
-// Rial anywhere in this model. Toman (1 Toman = 10 Rial) is a presentation-
-// only concern, converted at exactly one seam (frontend/src/shared/money/),
-// never assumed here.
+// ADR-019 (+ Addendum 1, Phase 4.5): v1 prices exclusively in Iranian Rial
+// (IRR), stored as whole numbers evenly divisible by 10 — the product is
+// priced in whole Toman (1 Toman = 10 Rial), and Rial has no practical
+// minor unit of its own, so an Amount that isn't a multiple of 10 has no
+// price a user could have actually entered. Toman is a presentation-only
+// concern, converted at exactly one seam (frontend/src/shared/money/),
+// never assumed here — but the divisibility invariant itself belongs in
+// Domain, not in that presentation seam's exception path (Addendum 1).
 //
 // CurrencyCode is a constant, not a per-instance field/value object,
 // deliberately: v1 has exactly one currency, so per-instance state would be
@@ -24,12 +27,16 @@ public sealed class HourlyRate : ValueObject
     /// <summary>ISO 4217 code for the only currency this model represents (ADR-019).</summary>
     public const string CurrencyCode = "IRR";
 
-    // numeric(12,0)'s ceiling (see TutorConfiguration/the Phase 4 migration)
-    // — twelve nines. Roughly four orders of magnitude above any
+    // The largest multiple of 10 within numeric(12,0)'s ceiling (twelve
+    // nines) — 999,999,999,999 itself is not a legal Amount under the
+    // whole-Toman invariant below, so the true maximum is one Rial short of
+    // it. Still roughly four orders of magnitude above any
     // currently-plausible hourly rate even accounting for Rial's history of
     // rapid devaluation, chosen deliberately generous so this column does
     // not need a second migration for a long time.
-    public const decimal MaxAmount = 999_999_999_999m;
+    public const decimal MaxAmount = 999_999_999_990m;
+
+    private const decimal RialPerToman = 10m;
 
     private HourlyRate(decimal amount) => Amount = amount;
 
@@ -41,10 +48,13 @@ public sealed class HourlyRate : ValueObject
     {
         Guard.Against.NegativeOrZero(amount, nameof(amount));
 
-        if (amount != decimal.Truncate(amount))
+        // Subsumes the old "must be a whole number" check: anything that
+        // divides 10 exactly is necessarily an integer itself.
+        if (amount % RialPerToman != 0)
         {
             throw new ArgumentException(
-                "Iranian Rial has no minor unit; amount must be a whole number.", nameof(amount));
+                "TutorFlow prices in whole Toman (1 Toman = 10 Rial); amount must be a whole " +
+                "number evenly divisible by 10.", nameof(amount));
         }
 
         if (amount > MaxAmount)

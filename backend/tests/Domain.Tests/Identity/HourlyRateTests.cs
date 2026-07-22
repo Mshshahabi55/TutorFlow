@@ -54,6 +54,9 @@ public class HourlyRateTests
     [Fact]
     public void Of_with_an_amount_exceeding_the_maximum_throws()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => HourlyRate.Of(HourlyRate.MaxAmount + 1m));
+        // +10, not +1: MaxAmount is itself a multiple of 10 (Phase 4.5), so
+        // +10 is the next value that violates *only* the maximum check,
+        // isolating it from the divisibility check below.
+        Assert.Throws<ArgumentOutOfRangeException>(() => HourlyRate.Of(HourlyRate.MaxAmount + 10m));
     }
 }

@@ -36,8 +36,9 @@ internal sealed class TutorConfiguration : IEntityTypeConfiguration<Tutor>
 
         // ADR-019: Rial has no minor unit — scale 0, not the old scale-2
         // (numeric(10,2), a leftover from before currency/precision were
-        // decided). Precision 12 matches HourlyRate.MaxAmount's ceiling
-        // exactly (twelve nines).
+        // decided). Precision 12 comfortably contains HourlyRate.MaxAmount
+        // (999,999,999,990 — see HourlyRate.cs for why it's one Rial short
+        // of numeric(12,0)'s own twelve-nines ceiling).
         builder.Property(t => t.HourlyRate)
             .HasConversion(new ValueConverter<HourlyRate?, decimal?>(
                 rate => rate == null ? null : rate.Amount,

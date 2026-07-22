@@ -8,7 +8,7 @@ namespace TutorFlow.Application.Tests.Identity;
 public class SetTutorLanguageCommandHandlerTests
 {
     [Fact]
-    public async Task Handle_sets_the_language_and_saves()
+    public async Task Handle_sets_the_language_and_calls_SaveChanges()
     {
         var repository = new InMemoryTutorRepository();
         var unitOfWork = new FakeUnitOfWork();

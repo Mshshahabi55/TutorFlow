@@ -24,7 +24,7 @@ public class AdminResetPasswordCommandHandlerTests
             unitOfWork);
 
     [Fact]
-    public async Task Handle_resets_the_password_and_saves()
+    public async Task Handle_resets_the_password_and_calls_SaveChanges()
     {
         var tutorRepository = new InMemoryTutorRepository();
         var tutor = Tutor.Register(TestCredentials.Email(), TestCredentials.Hash());

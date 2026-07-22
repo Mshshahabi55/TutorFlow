@@ -53,7 +53,7 @@ public class BookSessionCommandHandlerTests
             StubCurrentUserProvider.As(callerId, callerRole), unitOfWork);
 
     [Fact]
-    public async Task Handle_books_session_against_slot_and_saves()
+    public async Task Handle_books_session_against_slot_and_calls_SaveChanges()
     {
         var sut = await CreateSutPartsAsync();
         var slot = DeclareSlot();

@@ -8,7 +8,7 @@ namespace TutorFlow.Application.Tests.Identity;
 public class SuspendTutorCommandHandlerTests
 {
     [Fact]
-    public async Task Handle_suspends_existing_tutor_and_saves()
+    public async Task Handle_suspends_existing_tutor_and_calls_SaveChanges()
     {
         var repository = new InMemoryTutorRepository();
         var unitOfWork = new FakeUnitOfWork();

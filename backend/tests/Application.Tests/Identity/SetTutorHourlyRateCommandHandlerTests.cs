@@ -8,7 +8,7 @@ namespace TutorFlow.Application.Tests.Identity;
 public class SetTutorHourlyRateCommandHandlerTests
 {
     [Fact]
-    public async Task Handle_sets_the_rate_and_saves()
+    public async Task Handle_sets_the_rate_and_calls_SaveChanges()
     {
         var repository = new InMemoryTutorRepository();
         var unitOfWork = new FakeUnitOfWork();

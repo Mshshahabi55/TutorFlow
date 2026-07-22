@@ -9,7 +9,7 @@ namespace TutorFlow.Application.Tests.Identity;
 public class ConfirmRelationshipCommandHandlerTests
 {
     [Fact]
-    public async Task Handle_confirms_existing_relationship_and_saves()
+    public async Task Handle_confirms_existing_relationship_and_calls_SaveChanges()
     {
         var repository = new InMemoryRelationshipRepository();
         var unitOfWork = new FakeUnitOfWork();

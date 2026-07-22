@@ -16,7 +16,7 @@ public class RescheduleSessionCommandHandlerTests
         .Book(StudentId.From(Guid.NewGuid()), parentGuardianId: null);
 
     [Fact]
-    public async Task Handle_reschedules_existing_session_and_saves()
+    public async Task Handle_reschedules_existing_session_and_calls_SaveChanges()
     {
         var repository = new InMemorySessionRepository();
         var unitOfWork = new FakeUnitOfWork();

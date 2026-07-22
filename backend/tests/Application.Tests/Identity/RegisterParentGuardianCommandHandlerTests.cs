@@ -8,7 +8,7 @@ namespace TutorFlow.Application.Tests.Identity;
 public class RegisterParentGuardianCommandHandlerTests
 {
     [Fact]
-    public async Task Handle_adds_parent_guardian_to_repository_and_saves()
+    public async Task Handle_adds_parent_guardian_to_repository_and_calls_SaveChanges()
     {
         var repository = new InMemoryParentGuardianRepository();
         var unitOfWork = new FakeUnitOfWork();

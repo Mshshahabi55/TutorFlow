@@ -8,7 +8,7 @@ namespace TutorFlow.Application.Tests.Identity;
 public class RegisterStudentCommandHandlerTests
 {
     [Fact]
-    public async Task Handle_adds_student_to_repository_and_saves()
+    public async Task Handle_adds_student_to_repository_and_calls_SaveChanges()
     {
         var repository = new InMemoryStudentRepository();
         var unitOfWork = new FakeUnitOfWork();

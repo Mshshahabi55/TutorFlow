@@ -8,7 +8,7 @@ namespace TutorFlow.Application.Tests.Scheduling;
 public class DeclareAvailabilityCommandHandlerTests
 {
     [Fact]
-    public async Task Handle_adds_slot_to_repository_and_saves()
+    public async Task Handle_adds_slot_to_repository_and_calls_SaveChanges()
     {
         var repository = new InMemoryAvailabilitySlotRepository();
         var unitOfWork = new FakeUnitOfWork();

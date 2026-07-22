@@ -16,7 +16,7 @@ public class CompleteSessionCommandHandlerTests
         .Book(StudentId.From(Guid.NewGuid()), parentGuardianId: null);
 
     [Fact]
-    public async Task Handle_completes_existing_session_and_saves()
+    public async Task Handle_completes_existing_session_and_calls_SaveChanges()
     {
         var repository = new InMemorySessionRepository();
         var unitOfWork = new FakeUnitOfWork();

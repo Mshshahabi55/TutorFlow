@@ -16,7 +16,7 @@ public class MarkSessionNoShowCommandHandlerTests
         .Book(StudentId.From(Guid.NewGuid()), parentGuardianId: null);
 
     [Fact]
-    public async Task Handle_marks_existing_session_no_show_and_saves()
+    public async Task Handle_marks_existing_session_no_show_and_calls_SaveChanges()
     {
         var repository = new InMemorySessionRepository();
         var unitOfWork = new FakeUnitOfWork();

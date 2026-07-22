@@ -41,4 +41,14 @@ public sealed class TutorFlowDbContext : DbContext
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(TutorFlowDbContext).Assembly);
     }
+
+    // Applies to every DateTime/DateTime? property on every entity, project-
+    // wide, with no per-property configuration needed (see
+    // UtcDateTimeValueConverter.cs for why this exists and what it does and
+    // does not "fix").
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeValueConverter>();
+        configurationBuilder.Properties<DateTime?>().HaveConversion<UtcNullableDateTimeValueConverter>();
+    }
 }

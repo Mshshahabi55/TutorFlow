@@ -157,9 +157,31 @@ if (builder.Configuration.GetValue("Database:AutoMigrate", defaultValue: false))
 // explicit environment guard, not a configuration flag, since this must
 // never be reachable in any environment where "Development" isn't already
 // true for other reasons (e.g. the REPLACE_ME-placeholder bypass above).
+//
+// A database failure here (e.g. an unreachable/misconfigured database — a
+// wrong password is exactly how this was first discovered, Phase 2.5) must
+// not take the whole host down: it's logged loudly so a developer can still
+// diagnose it via /health, rather than crashing before the host even starts
+// listening. DevelopmentSeederConfigurationException (a genuine
+// misconfiguration, not transient) and DevelopmentSeederPartialFailureException
+// (a failure that already left inconsistent seed data a retry can't fix) are
+// the two cases that must still crash the host — see DevelopmentSeeder.cs.
 if (app.Environment.IsDevelopment())
 {
-    await DevelopmentSeeder.SeedAsync(app.Services);
+    try
+    {
+        await DevelopmentSeeder.SeedAsync(app.Services);
+    }
+    catch (Exception ex) when (
+        ex is not DevelopmentSeederConfigurationException
+        and not DevelopmentSeederPartialFailureException)
+    {
+        app.Logger.LogError(
+            ex,
+            "Development seed data failed to apply (the database may be unreachable or " +
+            "misconfigured). The host will still start so /health and manual diagnosis remain " +
+            "reachable, but no seed data was created.");
+    }
 }
 
 app.Run();

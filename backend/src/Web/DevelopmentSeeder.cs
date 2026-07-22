@@ -18,6 +18,35 @@ namespace TutorFlow.Web;
 // shared or production database, since it creates accounts with
 // demo-fixed emails, and a Development-only guard is the only thing
 // standing between that and a real environment.
+// Thrown only for a missing Seed:AdminPassword — an explicit misconfiguration
+// (Phase 2's requirement that it fail loudly), never a transient/environment
+// failure, and thrown before any write, so there is no partial-data risk.
+// Program.cs must let this one crash the host, unlike every other failure
+// SeedAsync can throw (see DevelopmentSeederPartialFailureException below).
+internal sealed class DevelopmentSeederConfigurationException : InvalidOperationException
+{
+    public DevelopmentSeederConfigurationException(string message)
+        : base(message)
+    {
+    }
+}
+
+// Thrown when SeedAsync fails after its first SaveChangesAsync (Admin/Tutor/
+// Student/Parent-Guardian) already committed, but before its second
+// (Relationship/Availability Slot). SeedAsync's idempotency check only looks
+// for the Admin account, so a retry after a partial failure like this would
+// see the Admin account already present, skip re-seeding entirely, and
+// silently leave the Relationship/Availability Slot missing forever. Program.cs
+// must let this one crash the host too — logging-and-continuing is only safe
+// for a failure that happened before any write.
+internal sealed class DevelopmentSeederPartialFailureException : Exception
+{
+    public DevelopmentSeederPartialFailureException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
+}
+
 internal static class DevelopmentSeeder
 {
     public const string AdminPasswordConfigKey = "Seed:AdminPassword";
@@ -56,7 +85,7 @@ internal static class DevelopmentSeeder
         var adminPassword = configuration[AdminPasswordConfigKey];
         if (string.IsNullOrEmpty(adminPassword))
         {
-            throw new InvalidOperationException(
+            throw new DevelopmentSeederConfigurationException(
                 $"Development seed data requires '{AdminPasswordConfigKey}' to be configured " +
                 "(dotnet user-secrets or the Seed__AdminPassword environment variable) — refusing " +
                 "to fall back to a default admin password. See README.md's \"Development seed data\" section.");
@@ -90,14 +119,27 @@ internal static class DevelopmentSeeder
 
         await unitOfWork.SaveChangesAsync(new IAggregateRoot[] { admin, tutor, student, parentGuardian });
 
-        var relationship = Relationship.Invite(parentGuardian.Id, student.Id, parentGuardian.Id);
-        relationship.Confirm();
-        await relationshipRepository.AddAsync(relationship);
+        // From here on, Admin/Tutor/Student/Parent-Guardian are already
+        // committed — a failure past this point leaves partial seed data a
+        // retry would never complete (see DevelopmentSeederPartialFailureException).
+        try
+        {
+            var relationship = Relationship.Invite(parentGuardian.Id, student.Id, parentGuardian.Id);
+            relationship.Confirm();
+            await relationshipRepository.AddAsync(relationship);
 
-        var availabilitySlot = AvailabilitySlot.Declare(
-            TutorId.From(tutor.Id.Value), DateTime.UtcNow.AddDays(1), SessionDuration.Of(TimeSpan.FromHours(1)), DeliveryMode.Online);
-        await availabilitySlotRepository.AddAsync(availabilitySlot);
+            var availabilitySlot = AvailabilitySlot.Declare(
+                TutorId.From(tutor.Id.Value), DateTime.UtcNow.AddDays(1), SessionDuration.Of(TimeSpan.FromHours(1)), DeliveryMode.Online);
+            await availabilitySlotRepository.AddAsync(availabilitySlot);
 
-        await unitOfWork.SaveChangesAsync(new IAggregateRoot[] { relationship, availabilitySlot });
+            await unitOfWork.SaveChangesAsync(new IAggregateRoot[] { relationship, availabilitySlot });
+        }
+        catch (Exception ex)
+        {
+            throw new DevelopmentSeederPartialFailureException(
+                "Development seed data partially applied: Admin/Tutor/Student/Parent-Guardian were " +
+                "created, but the Relationship/Availability Slot failed. A retry would see the Admin " +
+                "account already present and skip re-seeding entirely, silently leaving this state.", ex);
+        }
     }
 }

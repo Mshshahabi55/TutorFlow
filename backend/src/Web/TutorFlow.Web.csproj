@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
     <ProjectReference Include="..\Application\TutorFlow.Application.csproj" />
@@ -19,6 +19,7 @@
     <!-- CS1591 (missing XML comment) is a documentation-completeness warning, not a
          correctness one; endpoints/DTOs are commented incrementally, not all at once. -->
     <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <UserSecretsId>c8b4f769-5011-45d7-99eb-3cdb718d0ea5</UserSecretsId>
   </PropertyGroup>
 
 </Project>

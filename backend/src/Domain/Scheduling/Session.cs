@@ -47,17 +47,19 @@ public sealed class Session : AggregateRoot<SessionId>
     // PRODUCT_REQUIREMENTS.md IDR-5, IDR-6).
     public ParentGuardianId? ParentGuardianId { get; }
 
-    // The Availability Slot this Session originated from, referenced by
-    // identity only (DOMAIN_MODEL.md: Relationships).
-    public AvailabilitySlotId AvailabilitySlotId { get; }
+    // The Availability Slot this Session currently occupies, referenced by
+    // identity only (DOMAIN_MODEL.md: Relationships). Mutable as of Phase
+    // 4.7: Reschedule() moves a Session onto a different, already-open slot
+    // rather than merely changing a timestamp — see Reschedule() below.
+    public AvailabilitySlotId AvailabilitySlotId { get; private set; }
 
     public DateTime ScheduledTimeUtc { get; private set; }
 
-    public SessionDuration Duration { get; }
+    public SessionDuration Duration { get; private set; }
 
     public DateTime EndTimeUtc => ScheduledTimeUtc + Duration.Value;
 
-    public DeliveryMode DeliveryMode { get; }
+    public DeliveryMode DeliveryMode { get; private set; }
 
     // Exactly one status at a time, drawn from the defined set
     // (PRODUCT_REQUIREMENTS.md SCH-6).
@@ -109,20 +111,80 @@ public sealed class Session : AggregateRoot<SessionId>
         return session;
     }
 
-    // A Session's time is changed by a permitted actor (PRODUCT_REQUIREMENTS.md
-    // SCH-7). Status is unchanged: "Rescheduled" is an event, not one of the
-    // four defined statuses (SCH-6).
-    public void Reschedule(DateTime newScheduledTimeUtc)
+    // Phase 4.7: rescheduling targets an existing, open Availability Slot —
+    // exactly like booking, not an arbitrary timestamp. This closes a real
+    // double-booking defect (PHASE-046-REPORT.md, PHASE-047-REPORT.md
+    // Task 1): the previous timestamp-only Reschedule left the new time
+    // unprotected by any slot-occupancy invariant, and left the Session's
+    // original slot permanently IsConsumed with a StartTimeUtc/Duration
+    // describing a time the Session no longer occupies. The five inputs
+    // below are the target slot's own fields, supplied by the caller
+    // exactly like Session.Book(...) already takes AvailabilitySlot's
+    // fields rather than a reference to the slot itself — Session never
+    // holds a reference to AvailabilitySlot, only an id (DOMAIN_MODEL.md:
+    // Relationships). Status is unchanged: "Rescheduled" is an event, not
+    // one of the four defined statuses (SCH-6). Session.Price is
+    // deliberately untouched — see PHASE-047-REPORT.md §2 for why
+    // re-deriving it here would undo Phase 4.6's "price fixed at original
+    // booking time" invariant.
+    //
+    // Guards, each stated explicitly:
+    // - Only a Scheduled Session can be rescheduled (mirrors Cancel/
+    //   Complete/MarkNoShow's own single-transition guard).
+    // - The new slot must belong to the same Tutor as this Session — a
+    //   Session belongs to one Tutor for its whole lifetime
+    //   (DOMAIN_MODEL.md: Relationships); rescheduling must never silently
+    //   reassign a Session to a different Tutor's slot.
+    // - The new slot must not be the slot this Session already occupies —
+    //   that would be a no-op dressed up as a state change, and would
+    //   otherwise require reopening and re-consuming the same
+    //   AvailabilitySlot instance within one transaction for no reason.
+    // - The new slot must be un-consumed: enforced by
+    //   AvailabilitySlot.Consume() at the call site (this method has no
+    //   visibility into the slot's IsConsumed flag — only its id/Tutor/
+    //   time/duration/delivery mode are passed in), the same separation of
+    //   concerns Book() already establishes (AvailabilitySlot alone owns
+    //   consumption; Session never checks it itself).
+    // Deliberately does NOT guard against newScheduledTimeUtc already being
+    // in the past — Book()/Reopen() never have either (no minimum/maximum
+    // lead time exists; DOMAIN_MODEL.md Open Question 8, still open).
+    public void Reschedule(
+        AvailabilitySlotId newAvailabilitySlotId,
+        TutorId newAvailabilitySlotTutorId,
+        DateTime newScheduledTimeUtc,
+        SessionDuration newDuration,
+        DeliveryMode newDeliveryMode)
     {
         if (Status != SessionStatus.Scheduled)
         {
             throw new InvalidOperationException("Only a Scheduled Session can be rescheduled.");
         }
 
+        Guard.Against.Null(newAvailabilitySlotId, nameof(newAvailabilitySlotId));
+        Guard.Against.Null(newAvailabilitySlotTutorId, nameof(newAvailabilitySlotTutorId));
         Guard.Against.Default(newScheduledTimeUtc, nameof(newScheduledTimeUtc));
+        Guard.Against.Null(newDuration, nameof(newDuration));
 
+        if (newAvailabilitySlotTutorId != TutorId)
+        {
+            throw new InvalidOperationException(
+                "A Session can only be rescheduled onto an Availability Slot belonging to the same Tutor.");
+        }
+
+        if (newAvailabilitySlotId == AvailabilitySlotId)
+        {
+            throw new InvalidOperationException(
+                "A Session cannot be rescheduled onto the Availability Slot it already occupies.");
+        }
+
+        var oldAvailabilitySlotId = AvailabilitySlotId;
+
+        AvailabilitySlotId = newAvailabilitySlotId;
         ScheduledTimeUtc = newScheduledTimeUtc;
-        RaiseDomainEvent(new SessionRescheduled(Id, newScheduledTimeUtc));
+        Duration = newDuration;
+        DeliveryMode = newDeliveryMode;
+
+        RaiseDomainEvent(new SessionRescheduled(Id, oldAvailabilitySlotId, newAvailabilitySlotId, newScheduledTimeUtc));
     }
 
     public void Cancel()

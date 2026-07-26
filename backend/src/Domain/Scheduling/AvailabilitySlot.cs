@@ -108,13 +108,18 @@ public sealed class AvailabilitySlot : AggregateRoot<AvailabilitySlotId>
     }
 
     // Phase 4.6: formally resolves DOMAIN_MODEL.md Open Question 7 —
-    // cancelling a Session does reopen its Availability Slot. The only
-    // legitimate caller is CancelSessionCommandHandler, immediately after
-    // Session.Cancel() succeeds (both persisted in the same
-    // SaveChangesAsync call — ADR-004's Transaction Boundaries already
+    // cancelling a Session does reopen its Availability Slot. Originally
+    // the only legitimate caller was CancelSessionCommandHandler,
+    // immediately after Session.Cancel() succeeds (both persisted in the
+    // same SaveChangesAsync call — ADR-004's Transaction Boundaries already
     // anticipated this exact atomicity once Question 7 resolved: "what
     // happens to the associated Availability Slot on cancellation... the
     // full transactional shape of cancellation is not yet complete").
+    // Phase 4.7 adds a second legitimate caller, RescheduleSessionCommandHandler
+    // — rescheduling is cancel-and-rebook of the same Session, so the old
+    // slot is released via this exact same method, immediately after
+    // Session.Reschedule() succeeds, with the new slot's own Consume()
+    // and the Session's own save in the same transaction.
     //
     // AvailabilitySlot has no reference to the Session that consumed it —
     // by design, aggregates reference each other by identity only, and
@@ -143,5 +148,27 @@ public sealed class AvailabilitySlot : AggregateRoot<AvailabilitySlotId>
 
         IsConsumed = false;
         RaiseDomainEvent(new AvailabilitySlotReopened(Id, cancelledSessionId));
+    }
+
+    // Phase 4.7: the "book the new slot" half of rescheduling an existing
+    // Session onto this slot. Deliberately separate from Book(): Book()
+    // both validates IsConsumed and constructs a brand-new Session in one
+    // step, which is wrong here — the Session already exists and is only
+    // being moved onto this slot by RescheduleSessionCommandHandler
+    // (Session.Reschedule(...) mutates the Session side; this mutates the
+    // slot side; both in the same SaveChangesAsync call). Raises no event
+    // of its own, mirroring Book() itself (see SessionBooked, which already
+    // carries the AvailabilitySlotId, and SessionRescheduled, which
+    // similarly already carries both slot ids) — a separate
+    // AvailabilitySlotConsumed event would duplicate that same audit fact.
+    public void Consume()
+    {
+        if (IsConsumed)
+        {
+            throw new InvalidOperationException(
+                "This Availability Slot has already been consumed and cannot be assigned another Session.");
+        }
+
+        IsConsumed = true;
     }
 }

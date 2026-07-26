@@ -122,4 +122,38 @@ public class AvailabilitySlotTests
 
         Assert.Throws<InvalidOperationException>(() => slot.Reopen(session.Id));
     }
+
+    // Phase 4.7: the "book the new slot" half of rescheduling an existing
+    // Session onto this slot — distinct from Book(), which also constructs
+    // a brand-new Session.
+    [Fact]
+    public void Consume_marks_the_slot_consumed()
+    {
+        var slot = DeclareSlot();
+
+        slot.Consume();
+
+        Assert.True(slot.IsConsumed);
+    }
+
+    [Fact]
+    public void Consuming_an_already_consumed_slot_throws()
+    {
+        var slot = DeclareSlot();
+        slot.Book(StudentId.From(Guid.NewGuid()), parentGuardianId: null);
+
+        Assert.Throws<InvalidOperationException>(() => slot.Consume());
+    }
+
+    [Fact]
+    public void A_reopened_slot_can_be_Consumed_again()
+    {
+        var slot = DeclareSlot();
+        var session = slot.Book(StudentId.From(Guid.NewGuid()), parentGuardianId: null);
+        slot.Reopen(session.Id);
+
+        slot.Consume();
+
+        Assert.True(slot.IsConsumed);
+    }
 }

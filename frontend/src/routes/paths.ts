@@ -47,4 +47,8 @@ export const paths = {
     adminDashboard: "/oversight/dashboard",
     globalSessions: "/oversight/sessions",
   },
+  /** Dev-only, unlinked from navigation, excluded from the production build — see router.tsx. */
+  dev: {
+    styleGuide: "/dev/style-guide",
+  },
 } as const;

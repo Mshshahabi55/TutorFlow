@@ -119,10 +119,31 @@ const GlobalSessionListPage = lazy(() =>
   })),
 );
 
+/**
+ * The Phase D1 living reference page — dev-only. `import.meta.env.DEV` is
+ * replaced with the literal `false` in a production build (Vite's `define`
+ * transform runs before Rollup bundles), so this whole ternary, including
+ * its `import()` call, is unreachable dead code there and is eliminated —
+ * no StyleGuidePage chunk is emitted to `dist/` at all (verified by grep in
+ * docs/phases/PHASE-D1-REPORT.md Task 5). It is never added below to
+ * `router`'s `children` in production for the same reason: `devRoutes` is
+ * `[]` there.
+ */
+const StyleGuidePage = import.meta.env.DEV
+  ? lazy(() =>
+      import("@/dev/StyleGuidePage").then((module) => ({ default: module.StyleGuidePage })),
+    )
+  : null;
+
 /** Every routed page is code-split; this keeps the initial bundle limited to the app shell. */
 function withSuspense(element: ReactNode) {
   return <Suspense fallback={<LoadingState label="Loading page…" />}>{element}</Suspense>;
 }
+
+const devRoutes =
+  import.meta.env.DEV && StyleGuidePage
+    ? [{ path: paths.dev.styleGuide, element: withSuspense(<StyleGuidePage />) }]
+    : [];
 
 export const router = createBrowserRouter([
   {
@@ -199,6 +220,8 @@ export const router = createBrowserRouter([
 
       { path: paths.oversight.adminDashboard, element: withSuspense(<AdminDashboardPage />) },
       { path: paths.oversight.globalSessions, element: withSuspense(<GlobalSessionListPage />) },
+
+      ...devRoutes,
 
       { path: "*", element: withSuspense(<NotFoundPage />) },
     ],

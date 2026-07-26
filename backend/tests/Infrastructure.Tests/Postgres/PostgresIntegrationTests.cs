@@ -191,6 +191,108 @@ public sealed class PostgresIntegrationTests : IClassFixture<PostgresTestFixture
         Assert.Equal(2, totalCount);
     }
 
+    // Phase 4.7 Task 4: proves the reschedule mechanism (old slot reopens,
+    // new slot consumes, Session moves onto it) commits correctly against a
+    // real database — all three aggregates re-read from a brand-new
+    // DbContext, and the old slot proven rebookable by actually rebooking
+    // it, not merely asserting IsConsumed == false.
+    [Fact]
+    public async Task RescheduleSession_reopens_the_old_slot_and_consumes_the_new_slot_against_real_Postgres()
+    {
+        using var provider = _fixture.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        var slotRepository = scope.ServiceProvider.GetRequiredService<IAvailabilitySlotRepository>();
+        var sessionRepository = scope.ServiceProvider.GetRequiredService<ISessionRepository>();
+        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+
+        var tutorId = TutorId.From(Guid.NewGuid());
+        var oldSlot = AvailabilitySlot.Declare(
+            tutorId, DateTime.UtcNow.AddDays(1), SessionDuration.Of(TimeSpan.FromHours(1)), DeliveryMode.Online);
+        await slotRepository.AddAsync(oldSlot);
+        await unitOfWork.SaveChangesAsync(new IAggregateRoot[] { oldSlot });
+
+        var session = oldSlot.Book(StudentId.From(Guid.NewGuid()), null);
+        await sessionRepository.AddAsync(session);
+        await unitOfWork.SaveChangesAsync(new IAggregateRoot[] { oldSlot, session });
+
+        var newSlot = AvailabilitySlot.Declare(
+            tutorId, DateTime.UtcNow.AddDays(2), SessionDuration.Of(TimeSpan.FromHours(1)), DeliveryMode.Online);
+        await slotRepository.AddAsync(newSlot);
+        await unitOfWork.SaveChangesAsync(new IAggregateRoot[] { newSlot });
+
+        session.Reschedule(newSlot.Id, newSlot.TutorId, newSlot.StartTimeUtc, newSlot.Duration, newSlot.DeliveryMode);
+        newSlot.Consume();
+        oldSlot.Reopen(session.Id);
+        await unitOfWork.SaveChangesAsync(new IAggregateRoot[] { session, oldSlot, newSlot });
+
+        await using var readContext = await _fixture.CreateFreshDbContextAsync();
+        var freshSession = await readContext.Sessions.AsNoTracking().FirstAsync(s => s.Id == session.Id);
+        Assert.Equal(newSlot.Id, freshSession.AvailabilitySlotId);
+        Assert.Equal(newSlot.StartTimeUtc, freshSession.ScheduledTimeUtc, TimeSpan.FromMilliseconds(1));
+
+        var freshOldSlot = await readContext.AvailabilitySlots.AsNoTracking().FirstAsync(s => s.Id == oldSlot.Id);
+        Assert.False(freshOldSlot.IsConsumed);
+
+        var freshNewSlot = await readContext.AvailabilitySlots.AsNoTracking().FirstAsync(s => s.Id == newSlot.Id);
+        Assert.True(freshNewSlot.IsConsumed);
+
+        // The old slot is not merely flagged open — it is actually
+        // rebookable end to end, through the same Domain guard every other
+        // booking goes through.
+        var rebookedSession = oldSlot.Book(StudentId.From(Guid.NewGuid()), null);
+        await sessionRepository.AddAsync(rebookedSession);
+        await unitOfWork.SaveChangesAsync(new IAggregateRoot[] { oldSlot, rebookedSession });
+
+        await using var rebookReadContext = await _fixture.CreateFreshDbContextAsync();
+        var freshRebookedSlot = await rebookReadContext.AvailabilitySlots.AsNoTracking()
+            .FirstAsync(s => s.Id == oldSlot.Id);
+        Assert.True(freshRebookedSlot.IsConsumed);
+    }
+
+    // The storage-layer half of "a second session cannot take the new
+    // slot": bypasses both the Domain guard (AvailabilitySlot.Consume
+    // throwing when already consumed) and the ORM's object model via raw
+    // SQL, the same technique
+    // Sessions_AvailabilitySlotId_unique_index_rejects_a_genuine_concurrent_double_booking
+    // already uses — proving what's actually left standing if two requests
+    // ever raced past the in-memory check for the exact slot a reschedule
+    // just consumed.
+    [Fact]
+    public async Task Sessions_AvailabilitySlotId_unique_index_rejects_a_second_session_on_the_rescheduled_slot()
+    {
+        await using var writeContext = await _fixture.CreateFreshDbContextAsync();
+        var tutorId = TutorId.From(Guid.NewGuid());
+        var oldSlot = AvailabilitySlot.Declare(
+            tutorId, DateTime.UtcNow.AddDays(1), SessionDuration.Of(TimeSpan.FromHours(1)), DeliveryMode.Online);
+        writeContext.AvailabilitySlots.Add(oldSlot);
+        var session = oldSlot.Book(StudentId.From(Guid.NewGuid()), null);
+        writeContext.Sessions.Add(session);
+        await writeContext.SaveChangesAsync();
+
+        var newSlot = AvailabilitySlot.Declare(
+            tutorId, DateTime.UtcNow.AddDays(2), SessionDuration.Of(TimeSpan.FromHours(1)), DeliveryMode.Online);
+        writeContext.AvailabilitySlots.Add(newSlot);
+        await writeContext.SaveChangesAsync();
+
+        session.Reschedule(newSlot.Id, newSlot.TutorId, newSlot.StartTimeUtc, newSlot.Duration, newSlot.DeliveryMode);
+        newSlot.Consume();
+        oldSlot.Reopen(session.Id);
+        await writeContext.SaveChangesAsync();
+
+        await using var raceContext = await _fixture.CreateFreshDbContextAsync();
+        var duplicateInsert = () => raceContext.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO "Sessions"
+                ("Id", "TutorId", "StudentId", "ParentGuardianId", "AvailabilitySlotId",
+                 "ScheduledTimeUtc", "Duration", "DeliveryMode", "Status")
+            VALUES
+                ({Guid.NewGuid()}, {newSlot.TutorId.Value}, {Guid.NewGuid()}, {(Guid?)null}, {newSlot.Id.Value},
+                 {newSlot.StartTimeUtc}, {TimeSpan.FromHours(1)}, 0, 0)
+            """);
+
+        var exception = await Assert.ThrowsAsync<PostgresException>(duplicateInsert);
+        Assert.Equal("23505", exception.SqlState); // unique_violation
+    }
+
     // Phase 4/ADR-019 inverts this test: HourlyRate's column is now
     // numeric(12,0), not numeric(10,2) — Rial has no minor unit, so
     // HourlyRate.Of(123456.78m) (the old value here) now throws before this

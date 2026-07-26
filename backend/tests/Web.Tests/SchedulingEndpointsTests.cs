@@ -429,6 +429,57 @@ public class SchedulingEndpointsTests : IClassFixture<TutorFlowWebApplicationFac
         Assert.Equal("RescheduleSessionCommand.Forbidden", body.GetProperty("error").GetProperty("code").GetString());
     }
 
+    // Phase 4.7 Task 1: proves today's defect before any fix, mirroring
+    // Phase 4.6's identical precedent for Cancel
+    // (CancelSession_reopens_the_slot_so_it_can_be_rebooked, d379619): once
+    // a Session moves off an AvailabilitySlot, that slot should become
+    // rebookable again — the same guarantee Cancel already provides.
+    // Reschedule touches no AvailabilitySlot at all today (only
+    // Session.ScheduledTimeUtc changes), so the Session's original slot
+    // stays permanently IsConsumed even though the Session no longer runs
+    // at that slot's own StartTimeUtc — exactly the gap PHASE-046-REPORT.md
+    // flagged ("the original slot's own StartTimeUtc/Duration still
+    // describe the old time... nothing in the system prevents a second,
+    // independent AvailabilitySlot from being declared and booked at the
+    // Session's new time"). Direct evidence, not inference: the rebooking
+    // attempt below fails today with 409 Conflict,
+    // "BookSessionCommand.InvalidState" / "This Availability Slot has
+    // already been consumed..." — AvailabilitySlot.Book()'s own in-memory
+    // guard, the same rejection Phase 4.6 observed pre-fix for Cancel.
+    [Fact]
+    public async Task RescheduleSession_reopens_the_old_slot_so_it_can_be_rebooked()
+    {
+        var (slotId, _) = await DeclareAvailabilityWithTutorAsync();
+        var (studentId, studentToken) = await RegisterAndLoginStudentAsync();
+        var bookResponse = await PostWithAuthAsync("/sessions", new
+        {
+            AvailabilitySlotId = slotId,
+            StudentId = studentId,
+            ParentGuardianId = (Guid?)null,
+        }, studentToken);
+        var bookBody = await ReadBodyAsync(bookResponse);
+        var sessionId = bookBody.GetProperty("value").GetProperty("sessionId").GetGuid();
+
+        var rescheduleResponse = await PostWithAuthAsync(
+            $"/sessions/{sessionId}/reschedule",
+            new { NewScheduledTimeUtc = DateTime.UtcNow.AddDays(5) },
+            studentToken);
+        rescheduleResponse.EnsureSuccessStatusCode();
+
+        var (otherStudentId, otherStudentToken) = await RegisterAndLoginStudentAsync();
+        var rebookResponse = await PostWithAuthAsync("/sessions", new
+        {
+            AvailabilitySlotId = slotId,
+            StudentId = otherStudentId,
+            ParentGuardianId = (Guid?)null,
+        }, otherStudentToken);
+
+        rebookResponse.EnsureSuccessStatusCode();
+        var rebookBody = await ReadBodyAsync(rebookResponse);
+        Assert.True(rebookBody.GetProperty("isSuccess").GetBoolean());
+        Assert.NotEqual(sessionId, rebookBody.GetProperty("value").GetProperty("sessionId").GetGuid());
+    }
+
     [Fact]
     public async Task CancelSession_returns_success_for_scheduled_session()
     {

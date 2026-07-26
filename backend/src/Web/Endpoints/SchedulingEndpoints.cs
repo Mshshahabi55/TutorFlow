@@ -41,10 +41,10 @@ public static class SchedulingEndpoints
             ILogger<Program> logger,
             CancellationToken cancellationToken) =>
             (await handler.Handle(
-                new RescheduleSessionCommand(sessionId, request.NewScheduledTimeUtc),
+                new RescheduleSessionCommand(sessionId, request.NewAvailabilitySlotId),
                 cancellationToken))
                 .ToApiResult(logger, nameof(RescheduleSessionCommandHandler)))
-            .WithApiResultMetadata("RescheduleSession", Tag, "Reschedules a Scheduled Session to a new time.")
+            .WithApiResultMetadata("RescheduleSession", Tag, "Reschedules a Scheduled Session onto a different, already-open Availability Slot.")
             .RequirePermission(Permission.RescheduleSession);
 
         app.MapPost("/sessions/{sessionId:guid}/cancel", async (
@@ -129,5 +129,5 @@ public static class SchedulingEndpoints
     // Minimal request shape needed only because RescheduleSessionCommand's
     // SessionId is bound from the route, not the body — this is the
     // "map request → Command" step, not business logic.
-    internal sealed record RescheduleSessionRequest(DateTime NewScheduledTimeUtc);
+    internal sealed record RescheduleSessionRequest(Guid NewAvailabilitySlotId);
 }

@@ -375,14 +375,36 @@ public class SchedulingEndpointsTests : IClassFixture<TutorFlowWebApplicationFac
         Assert.Equal("BookSessionCommand.Forbidden", body.GetProperty("error").GetProperty("code").GetString());
     }
 
+    // Phase 4.7: books Session onto slot A for a given Tutor, then declares
+    // a second, still-open slot B for that SAME Tutor — the shape every
+    // Reschedule test below needs (the new endpoint targets a slot, not a
+    // raw timestamp, so it must belong to the Session's own Tutor).
+    private async Task<(Guid SessionId, string StudentToken, Guid OldSlotId, Guid NewSlotId)> BookSessionWithASecondOpenSlotAsync()
+    {
+        var (tutorId, tutorToken) = await RegisterAndLoginTutorAsync();
+        var oldSlotId = await DeclareAvailabilityForTutorAsync(tutorId, tutorToken);
+        var (studentId, studentToken) = await RegisterAndLoginStudentAsync();
+        var bookResponse = await PostWithAuthAsync("/sessions", new
+        {
+            AvailabilitySlotId = oldSlotId,
+            StudentId = studentId,
+            ParentGuardianId = (Guid?)null,
+        }, studentToken);
+        var bookBody = await ReadBodyAsync(bookResponse);
+        var sessionId = bookBody.GetProperty("value").GetProperty("sessionId").GetGuid();
+
+        var newSlotId = await DeclareAvailabilityForTutorAsync(tutorId, tutorToken);
+
+        return (sessionId, studentToken, oldSlotId, newSlotId);
+    }
+
     [Fact]
     public async Task RescheduleSession_returns_success_for_scheduled_session()
     {
-        var (sessionId, studentToken, _) = await BookSessionAsync();
-        var newTime = DateTime.UtcNow.AddDays(2);
+        var (sessionId, studentToken, _, newSlotId) = await BookSessionWithASecondOpenSlotAsync();
 
         var response = await PostWithAuthAsync(
-            $"/sessions/{sessionId}/reschedule", new { NewScheduledTimeUtc = newTime }, studentToken);
+            $"/sessions/{sessionId}/reschedule", new { NewAvailabilitySlotId = newSlotId }, studentToken);
 
         response.EnsureSuccessStatusCode();
         var body = await ReadBodyAsync(response);
@@ -395,24 +417,29 @@ public class SchedulingEndpointsTests : IClassFixture<TutorFlowWebApplicationFac
         var (_, token) = await RegisterAndLoginStudentAsync();
 
         var response = await PostWithAuthAsync(
-            $"/sessions/{Guid.NewGuid()}/reschedule", new { NewScheduledTimeUtc = DateTime.UtcNow.AddDays(2) }, token);
+            $"/sessions/{Guid.NewGuid()}/reschedule", new { NewAvailabilitySlotId = Guid.NewGuid() }, token);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         var body = await ReadBodyAsync(response);
         Assert.True(body.GetProperty("isFailure").GetBoolean());
     }
 
+    // Phase 4.7 Task 3: replaces the old "rejects a Z-less timestamp" test
+    // — the contract no longer accepts a raw timestamp at all, so the
+    // analogous boundary case is now an unknown target slot id.
     [Fact]
-    public async Task RescheduleSession_rejects_a_new_time_without_an_explicit_utc_designator()
+    public async Task RescheduleSession_returns_failure_for_unknown_availability_slot()
     {
         var (sessionId, studentToken, _) = await BookSessionAsync();
 
-        var response = await PostRawJsonWithAuthAsync(
-            $"/sessions/{sessionId}/reschedule",
-            """{"NewScheduledTimeUtc":"2026-08-02T14:00:00"}""",
-            studentToken);
+        var response = await PostWithAuthAsync(
+            $"/sessions/{sessionId}/reschedule", new { NewAvailabilitySlotId = Guid.NewGuid() }, studentToken);
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var body = await ReadBodyAsync(response);
+        Assert.Equal(
+            "RescheduleSessionCommand.AvailabilitySlotNotFound",
+            body.GetProperty("error").GetProperty("code").GetString());
     }
 
     [Fact]
@@ -422,54 +449,39 @@ public class SchedulingEndpointsTests : IClassFixture<TutorFlowWebApplicationFac
         var (_, otherStudentToken) = await RegisterAndLoginStudentAsync();
 
         var response = await PostWithAuthAsync(
-            $"/sessions/{sessionId}/reschedule", new { NewScheduledTimeUtc = DateTime.UtcNow.AddDays(2) }, otherStudentToken);
+            $"/sessions/{sessionId}/reschedule", new { NewAvailabilitySlotId = Guid.NewGuid() }, otherStudentToken);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         var body = await ReadBodyAsync(response);
         Assert.Equal("RescheduleSessionCommand.Forbidden", body.GetProperty("error").GetProperty("code").GetString());
     }
 
-    // Phase 4.7 Task 1: proves today's defect before any fix, mirroring
+    // Phase 4.7 Task 1: proved today's defect before any fix, mirroring
     // Phase 4.6's identical precedent for Cancel
     // (CancelSession_reopens_the_slot_so_it_can_be_rebooked, d379619): once
     // a Session moves off an AvailabilitySlot, that slot should become
-    // rebookable again — the same guarantee Cancel already provides.
-    // Reschedule touches no AvailabilitySlot at all today (only
-    // Session.ScheduledTimeUtc changes), so the Session's original slot
-    // stays permanently IsConsumed even though the Session no longer runs
-    // at that slot's own StartTimeUtc — exactly the gap PHASE-046-REPORT.md
-    // flagged ("the original slot's own StartTimeUtc/Duration still
-    // describe the old time... nothing in the system prevents a second,
-    // independent AvailabilitySlot from being declared and booked at the
-    // Session's new time"). Direct evidence, not inference: the rebooking
-    // attempt below fails today with 409 Conflict,
-    // "BookSessionCommand.InvalidState" / "This Availability Slot has
-    // already been consumed..." — AvailabilitySlot.Book()'s own in-memory
-    // guard, the same rejection Phase 4.6 observed pre-fix for Cancel.
+    // rebookable again — the same guarantee Cancel already provides. This
+    // test originally called the old raw-timestamp Reschedule endpoint and
+    // failed with 409 (the old slot stayed permanently IsConsumed). Task 3
+    // updated its request body to the new NewAvailabilitySlotId contract —
+    // the assertions themselves (rebooking the vacated slot must succeed)
+    // are unchanged and now pass, proving Reschedule really does release
+    // the old slot via AvailabilitySlot.Reopen().
     [Fact]
     public async Task RescheduleSession_reopens_the_old_slot_so_it_can_be_rebooked()
     {
-        var (slotId, _) = await DeclareAvailabilityWithTutorAsync();
-        var (studentId, studentToken) = await RegisterAndLoginStudentAsync();
-        var bookResponse = await PostWithAuthAsync("/sessions", new
-        {
-            AvailabilitySlotId = slotId,
-            StudentId = studentId,
-            ParentGuardianId = (Guid?)null,
-        }, studentToken);
-        var bookBody = await ReadBodyAsync(bookResponse);
-        var sessionId = bookBody.GetProperty("value").GetProperty("sessionId").GetGuid();
+        var (sessionId, studentToken, oldSlotId, newSlotId) = await BookSessionWithASecondOpenSlotAsync();
 
         var rescheduleResponse = await PostWithAuthAsync(
             $"/sessions/{sessionId}/reschedule",
-            new { NewScheduledTimeUtc = DateTime.UtcNow.AddDays(5) },
+            new { NewAvailabilitySlotId = newSlotId },
             studentToken);
         rescheduleResponse.EnsureSuccessStatusCode();
 
         var (otherStudentId, otherStudentToken) = await RegisterAndLoginStudentAsync();
         var rebookResponse = await PostWithAuthAsync("/sessions", new
         {
-            AvailabilitySlotId = slotId,
+            AvailabilitySlotId = oldSlotId,
             StudentId = otherStudentId,
             ParentGuardianId = (Guid?)null,
         }, otherStudentToken);

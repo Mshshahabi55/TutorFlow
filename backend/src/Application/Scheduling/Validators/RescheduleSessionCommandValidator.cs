@@ -16,11 +16,11 @@ public static class RescheduleSessionCommandValidator
                 ErrorType.Domain));
         }
 
-        if (command.NewScheduledTimeUtc == default)
+        if (command.NewAvailabilitySlotId == Guid.Empty)
         {
             return Result.Failure(new Error(
-                "RescheduleSessionCommand.NewScheduledTimeUtc.Unset",
-                "New scheduled time is required.",
+                "RescheduleSessionCommand.NewAvailabilitySlotId.Empty",
+                "New availability slot id is required.",
                 ErrorType.Domain));
         }
 

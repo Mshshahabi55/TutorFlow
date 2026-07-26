@@ -146,9 +146,9 @@ public class PersistenceIntegrityTests : IClassFixture<TutorFlowWebApplicationFa
         return (body.GetProperty("value").GetProperty("availabilitySlotId").GetGuid(), tutorId, token);
     }
 
-    private async Task<(Guid SessionId, string StudentToken, string TutorToken, Guid SlotId)> BookSessionAsync()
+    private async Task<(Guid SessionId, string StudentToken, string TutorToken, Guid SlotId, Guid TutorId)> BookSessionAsync()
     {
-        var (slotId, _, tutorToken) = await DeclareAvailabilityAsync();
+        var (slotId, tutorId, tutorToken) = await DeclareAvailabilityAsync();
         var (studentId, studentToken, _) = await RegisterAndLoginStudentAsync();
         var response = await PostWithAuthAsync("/sessions", new
         {
@@ -157,7 +157,7 @@ public class PersistenceIntegrityTests : IClassFixture<TutorFlowWebApplicationFa
             ParentGuardianId = (Guid?)null,
         }, studentToken);
         var body = await ReadBodyAsync(response);
-        return (body.GetProperty("value").GetProperty("sessionId").GetGuid(), studentToken, tutorToken, slotId);
+        return (body.GetProperty("value").GetProperty("sessionId").GetGuid(), studentToken, tutorToken, slotId, tutorId);
     }
 
     // --- Tutor-repository command paths (TutorRepository.GetByIdAsync / GetByEmailAsync — AsNoTracking, per the Task 1 audit) ---
@@ -363,7 +363,7 @@ public class PersistenceIntegrityTests : IClassFixture<TutorFlowWebApplicationFa
     [Fact]
     public async Task BookSession_persists_AvailabilitySlot_IsConsumed_and_the_domain_guard_rejects_a_second_booking_of_the_same_slot()
     {
-        var (_, _, _, slotId) = await BookSessionAsync();
+        var (_, _, _, slotId, _) = await BookSessionAsync();
 
         var dbContext = FreshDbContext(out var scope);
         using (scope)
@@ -400,7 +400,7 @@ public class PersistenceIntegrityTests : IClassFixture<TutorFlowWebApplicationFa
     [Fact]
     public async Task CancelSession_persists_Cancelled_status_when_reread_from_a_fresh_scope()
     {
-        var (sessionId, studentToken, _, _) = await BookSessionAsync();
+        var (sessionId, studentToken, _, _, _) = await BookSessionAsync();
 
         var response = await PostWithAuthAsync($"/sessions/{sessionId}/cancel", body: null, studentToken);
         response.EnsureSuccessStatusCode();
@@ -413,28 +413,50 @@ public class PersistenceIntegrityTests : IClassFixture<TutorFlowWebApplicationFa
         }
     }
 
+    // Phase 4.7 Task 3: proves the three-aggregate transaction (Session,
+    // old AvailabilitySlot, new AvailabilitySlot) commits atomically — all
+    // three re-read from a brand-new DbContext scope, never the one the
+    // request pipeline used, per CLAUDE.md's rule that SaveChangesAsync
+    // being called is not evidence anything was actually saved.
     [Fact]
-    public async Task RescheduleSession_persists_the_new_scheduled_time_when_reread_from_a_fresh_scope()
+    public async Task RescheduleSession_persists_all_three_aggregates_atomically_when_reread_from_a_fresh_scope()
     {
-        var (sessionId, studentToken, _, _) = await BookSessionAsync();
-        var newTime = DateTime.UtcNow.AddDays(5);
+        var (sessionId, studentToken, tutorToken, oldSlotId, tutorId) = await BookSessionAsync();
+        var newSlotResponse = await PostWithAuthAsync("/availability-slots", new
+        {
+            TutorId = tutorId,
+            StartTimeUtc = DateTime.UtcNow.AddDays(5),
+            Duration = TimeSpan.FromHours(1),
+            DeliveryMode = 0,
+        }, tutorToken);
+        var newSlotBody = await ReadBodyAsync(newSlotResponse);
+        var newSlotId = newSlotBody.GetProperty("value").GetProperty("availabilitySlotId").GetGuid();
 
         var response = await PostWithAuthAsync(
-            $"/sessions/{sessionId}/reschedule", new { NewScheduledTimeUtc = newTime }, studentToken);
+            $"/sessions/{sessionId}/reschedule", new { NewAvailabilitySlotId = newSlotId }, studentToken);
         response.EnsureSuccessStatusCode();
 
         var dbContext = FreshDbContext(out var scope);
         using (scope)
         {
             var freshSession = await dbContext.Sessions.AsNoTracking().FirstAsync(s => s.Id == SessionId.From(sessionId));
-            Assert.Equal(newTime, freshSession.ScheduledTimeUtc, TimeSpan.FromSeconds(1));
+            Assert.Equal(AvailabilitySlotId.From(newSlotId), freshSession.AvailabilitySlotId);
+
+            var freshOldSlot = await dbContext.AvailabilitySlots.AsNoTracking()
+                .FirstAsync(s => s.Id == AvailabilitySlotId.From(oldSlotId));
+            Assert.False(freshOldSlot.IsConsumed);
+
+            var freshNewSlot = await dbContext.AvailabilitySlots.AsNoTracking()
+                .FirstAsync(s => s.Id == AvailabilitySlotId.From(newSlotId));
+            Assert.True(freshNewSlot.IsConsumed);
+            Assert.Equal(freshNewSlot.StartTimeUtc, freshSession.ScheduledTimeUtc, TimeSpan.FromSeconds(1));
         }
     }
 
     [Fact]
     public async Task CompleteSession_persists_Completed_status_when_reread_from_a_fresh_scope()
     {
-        var (sessionId, _, tutorToken, _) = await BookSessionAsync();
+        var (sessionId, _, tutorToken, _, _) = await BookSessionAsync();
 
         var response = await PostWithAuthAsync($"/sessions/{sessionId}/complete", body: null, tutorToken);
         response.EnsureSuccessStatusCode();
@@ -450,7 +472,7 @@ public class PersistenceIntegrityTests : IClassFixture<TutorFlowWebApplicationFa
     [Fact]
     public async Task MarkSessionNoShow_persists_NoShow_status_when_reread_from_a_fresh_scope()
     {
-        var (sessionId, _, tutorToken, _) = await BookSessionAsync();
+        var (sessionId, _, tutorToken, _, _) = await BookSessionAsync();
 
         var response = await PostWithAuthAsync($"/sessions/{sessionId}/no-show", body: null, tutorToken);
         response.EnsureSuccessStatusCode();

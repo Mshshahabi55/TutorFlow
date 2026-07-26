@@ -12,11 +12,10 @@ import { DeliveryMode } from "@/services/api/dtos";
 import { paths } from "@/routes/paths";
 
 /**
- * No capability exists to list or browse a Tutor's open Availability Slots
- * (see the Sprint 7 Completion Report) — this page is the honest
- * substitute: look a slot up by the id its declaring Tutor shared, then
- * view its detail. The DTO also does not expose whether the slot has
- * already been consumed by a booking, so that state is not claimed here.
+ * Look a single Availability Slot up by id and view its detail. A Tutor's
+ * open slots can now also be listed (GET /tutors/{id}/availability-slots,
+ * used by the reschedule picker on SessionDetailPage — Phase 4.7); this
+ * page remains the direct-by-id lookup, not a browse view.
  */
 export function AvailabilitySlotDetailPage() {
   const { availabilitySlotId } = useParams<{ availabilitySlotId: string }>();

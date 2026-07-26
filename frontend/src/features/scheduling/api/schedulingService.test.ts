@@ -9,6 +9,7 @@ import {
   fetchAvailabilitySlotById,
   fetchSessionById,
   fetchStudentSchedule,
+  fetchTutorAvailabilitySlots,
   fetchTutorSchedule,
   markSessionNoShow,
   rescheduleSession,
@@ -73,13 +74,13 @@ describe("schedulingService", () => {
     expect(post).toHaveBeenCalledWith("/sessions", input);
   });
 
-  it("rescheduleSession POSTs /sessions/{id}/reschedule with newScheduledTimeUtc", async () => {
+  it("rescheduleSession POSTs /sessions/{id}/reschedule with newAvailabilitySlotId", async () => {
     const post = vi.spyOn(apiClient, "post").mockResolvedValue(mockVoidResult());
 
-    await rescheduleSession("s1", "2026-08-02T14:00:00Z");
+    await rescheduleSession("s1", "a2");
 
     expect(post).toHaveBeenCalledWith("/sessions/s1/reschedule", {
-      newScheduledTimeUtc: "2026-08-02T14:00:00Z",
+      newAvailabilitySlotId: "a2",
     });
   });
 
@@ -129,5 +130,13 @@ describe("schedulingService", () => {
     await fetchTutorSchedule("t1");
 
     expect(get).toHaveBeenCalledWith("/tutors/t1/schedule");
+  });
+
+  it("fetchTutorAvailabilitySlots GETs /tutors/{id}/availability-slots", async () => {
+    const get = vi.spyOn(apiClient, "get").mockResolvedValue(mockApiResult([]));
+
+    await fetchTutorAvailabilitySlots("t1");
+
+    expect(get).toHaveBeenCalledWith("/tutors/t1/availability-slots");
   });
 });

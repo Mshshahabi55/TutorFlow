@@ -1,12 +1,10 @@
 import { z } from "zod";
-import { tehranLocalDateTimeSchema } from "@/shared/validation/tehranDateTime";
 
-// Mirrors RescheduleSessionCommandValidator exactly: NewScheduledTimeUtc
-// required. newScheduledTimeLocal holds the Tehran local
-// `<input type="datetime-local">` value; it is converted to the UTC wire
-// value (fromTehranInput) at submit time, in the page component.
+// Mirrors RescheduleSessionCommandValidator exactly (Phase 4.7): the target
+// is now an Availability Slot id, not a raw Tehran-entered timestamp — the
+// form picks from the Tutor's own open slots rather than typing a time.
 export const rescheduleSessionSchema = z.object({
-  newScheduledTimeLocal: tehranLocalDateTimeSchema,
+  newAvailabilitySlotId: z.string().min(1, "Required"),
 });
 
 export type RescheduleSessionFormValues = z.infer<typeof rescheduleSessionSchema>;

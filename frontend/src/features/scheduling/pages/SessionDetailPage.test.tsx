@@ -25,6 +25,29 @@ const SCHEDULED_SESSION = {
   status: SessionStatus.Scheduled,
 };
 
+// One open slot besides the Session's own current slot ("a1", excluded by
+// the reschedule picker) — the target every reschedule test below selects.
+const OPEN_SLOTS = [
+  {
+    availabilitySlotId: "a1",
+    tutorId: "t1",
+    startTimeUtc: "2026-08-01T14:00:00Z",
+    endTimeUtc: "2026-08-01T15:00:00Z",
+    duration: "01:00:00",
+    deliveryMode: DeliveryMode.Online,
+    isConsumed: true,
+  },
+  {
+    availabilitySlotId: "a2",
+    tutorId: "t1",
+    startTimeUtc: "2026-08-02T14:00:00Z",
+    endTimeUtc: "2026-08-02T15:00:00Z",
+    duration: "01:00:00",
+    deliveryMode: DeliveryMode.Online,
+    isConsumed: false,
+  },
+];
+
 describe("SessionDetailPage", () => {
   it("shows an id-lookup form when no id is in the route", () => {
     renderWithProviders(<SessionDetailPage />);
@@ -34,6 +57,7 @@ describe("SessionDetailPage", () => {
 
   it("navigates to the id-specific route, shows the session, and offers reschedule while Scheduled", async () => {
     vi.spyOn(schedulingService, "fetchSessionById").mockResolvedValue(SCHEDULED_SESSION);
+    vi.spyOn(schedulingService, "fetchTutorAvailabilitySlots").mockResolvedValue(OPEN_SLOTS);
 
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -55,12 +79,13 @@ describe("SessionDetailPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Look up" }));
 
     expect(await screen.findByText("Scheduled")).toBeInTheDocument();
-    expect(screen.getByLabelText("New start time (Tehran)")).toBeInTheDocument();
+    expect(await screen.findByLabelText("New Availability Slot")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Complete" })).toBeEnabled();
   });
 
-  it("reschedules a session to a new Tehran-entered time, converted to UTC", async () => {
+  it("reschedules a session onto a different, open Availability Slot for the same Tutor", async () => {
     vi.spyOn(schedulingService, "fetchSessionById").mockResolvedValue(SCHEDULED_SESSION);
+    vi.spyOn(schedulingService, "fetchTutorAvailabilitySlots").mockResolvedValue(OPEN_SLOTS);
     const rescheduleSession = vi
       .spyOn(schedulingService, "rescheduleSession")
       .mockResolvedValue(undefined);
@@ -71,12 +96,28 @@ describe("SessionDetailPage", () => {
     });
 
     await screen.findByText("Scheduled");
-    // 2026-08-02T17:30 Tehran (UTC+03:30) is 2026-08-02T14:00:00Z.
-    await userEvent.type(screen.getByLabelText("New start time (Tehran)"), "2026-08-02T17:30");
+    await userEvent.click(await screen.findByLabelText("New Availability Slot"));
+    await userEvent.click(await screen.findByRole("option", { name: /Aug 02, 2026/ }));
     await userEvent.click(screen.getByRole("button", { name: "Reschedule" }));
 
-    expect(rescheduleSession).toHaveBeenCalledWith(SESSION_ID, "2026-08-02T14:00:00.000Z");
+    expect(rescheduleSession).toHaveBeenCalledWith(SESSION_ID, "a2");
     expect(await screen.findByText("Session rescheduled.")).toBeInTheDocument();
+  });
+
+  it("does not offer the Session's own current slot as a reschedule target", async () => {
+    vi.spyOn(schedulingService, "fetchSessionById").mockResolvedValue(SCHEDULED_SESSION);
+    vi.spyOn(schedulingService, "fetchTutorAvailabilitySlots").mockResolvedValue(OPEN_SLOTS);
+
+    renderWithProviders(<SessionDetailPage />, {
+      initialEntries: [`/scheduling/sessions/${SESSION_ID}`],
+      routePath: "/scheduling/sessions/:sessionId",
+    });
+
+    await screen.findByText("Scheduled");
+    await userEvent.click(await screen.findByLabelText("New Availability Slot"));
+
+    expect(screen.queryByRole("option", { name: /Aug 01, 2026/ })).not.toBeInTheDocument();
+    expect(await screen.findByRole("option", { name: /Aug 02, 2026/ })).toBeInTheDocument();
   });
 
   it("hides reschedule and disables actions for a Completed session", async () => {
@@ -91,7 +132,7 @@ describe("SessionDetailPage", () => {
     });
 
     expect(await screen.findByText("Completed")).toBeInTheDocument();
-    expect(screen.queryByLabelText("New start time (Tehran)")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("New Availability Slot")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Complete" })).toBeDisabled();
   });
 });

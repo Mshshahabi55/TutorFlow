@@ -27,7 +27,7 @@ export function useBookSession() {
 export function useRescheduleSession(sessionId: string) {
   const invalidate = useInvalidateSessions();
   return useMutation({
-    mutationFn: (newScheduledTimeUtc: string) => rescheduleSession(sessionId, newScheduledTimeUtc),
+    mutationFn: (newAvailabilitySlotId: string) => rescheduleSession(sessionId, newAvailabilitySlotId),
     onSuccess: invalidate,
   });
 }

@@ -20,6 +20,7 @@ describe("DeclareAvailabilityPage", () => {
         endTimeUtc: "2026-08-01T15:00:00Z",
         duration: "01:00:00",
         deliveryMode: DeliveryMode.Online,
+        isConsumed: false,
       });
 
     renderWithProviders(<DeclareAvailabilityPage />);

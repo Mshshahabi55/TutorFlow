@@ -75,6 +75,7 @@ export interface AvailabilitySlotDto {
   endTimeUtc: IsoDateTimeString;
   duration: TimeSpanString;
   deliveryMode: DeliveryMode;
+  isConsumed: boolean;
 }
 
 export interface SessionDto {

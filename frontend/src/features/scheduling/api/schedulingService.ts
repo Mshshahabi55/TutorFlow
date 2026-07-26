@@ -6,8 +6,12 @@ import type { AvailabilitySlotDto, DeliveryMode, SessionDto } from "@/services/a
 // implemented by TutorFlow.Web.Endpoints.SchedulingEndpoints — verified
 // against that source, not inferred. No field, endpoint, or DTO is added
 // beyond what the backend already exposes. Notably absent, because the
-// backend exposes no such capability: list/browse Availability Slots, and
-// cancel/delete an Availability Slot (see the Sprint 7 Completion Report).
+// backend exposes no such capability: cancel/delete an Availability Slot
+// (see the Sprint 7 Completion Report). fetchTutorAvailabilitySlots below
+// (Phase 4.7) fills the "list/browse" gap that report flagged — the
+// backend endpoint already existed (GET /tutors/{id}/availability-slots,
+// serving the List/Calendar views), this file simply had no wrapper for it
+// yet.
 
 export interface DeclareAvailabilityInput {
   tutorId: string;
@@ -49,10 +53,10 @@ export async function bookSession(input: BookSessionInput): Promise<SessionDto> 
 
 export async function rescheduleSession(
   sessionId: string,
-  newScheduledTimeUtc: string,
+  newAvailabilitySlotId: string,
 ): Promise<void> {
   await apiClient.post<VoidApiResult>(`/sessions/${sessionId}/reschedule`, {
-    newScheduledTimeUtc,
+    newAvailabilitySlotId,
   });
 }
 
@@ -82,5 +86,13 @@ export async function fetchStudentSchedule(studentId: string): Promise<SessionDt
 /** GET /tutors/{id}/schedule — every Session for the Tutor, unpaginated (matches the endpoint's own shape). */
 export async function fetchTutorSchedule(tutorId: string): Promise<SessionDto[]> {
   const response = await apiClient.get<ApiResult<SessionDto[]>>(`/tutors/${tutorId}/schedule`);
+  return unwrapValue(response.data);
+}
+
+/** GET /tutors/{id}/availability-slots — every Availability Slot for the Tutor, unpaginated (matches the endpoint's own shape; serves both List and Calendar views on the backend). */
+export async function fetchTutorAvailabilitySlots(tutorId: string): Promise<AvailabilitySlotDto[]> {
+  const response = await apiClient.get<ApiResult<AvailabilitySlotDto[]>>(
+    `/tutors/${tutorId}/availability-slots`,
+  );
   return unwrapValue(response.data);
 }

@@ -10,12 +10,14 @@ import {
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import PersonAddRoundedIcon from "@mui/icons-material/PersonAddRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
+import SchoolRoundedIcon from "@mui/icons-material/SchoolRounded";
 import FamilyRestroomRoundedIcon from "@mui/icons-material/FamilyRestroomRounded";
 import LinkRoundedIcon from "@mui/icons-material/LinkRounded";
 import FactCheckRoundedIcon from "@mui/icons-material/FactCheckRounded";
 import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded";
 import EventNoteRoundedIcon from "@mui/icons-material/EventNoteRounded";
 import EventRoundedIcon from "@mui/icons-material/EventRounded";
+import CalendarMonthRoundedIcon from "@mui/icons-material/CalendarMonthRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import AdminPanelSettingsRoundedIcon from "@mui/icons-material/AdminPanelSettingsRounded";
 import ListAltRoundedIcon from "@mui/icons-material/ListAltRounded";
@@ -68,7 +70,7 @@ const SECTIONS: NavSection[] = [
       {
         to: paths.identity.studentDetailBase,
         label: "Students",
-        icon: <FamilyRestroomRoundedIcon />,
+        icon: <SchoolRoundedIcon />,
       },
       {
         to: paths.identity.parentGuardianDetailBase,
@@ -118,13 +120,13 @@ const SECTIONS: NavSection[] = [
       {
         to: paths.scheduling.studentScheduleBase,
         label: "Student sessions",
-        icon: <EventNoteRoundedIcon />,
+        icon: <CalendarMonthRoundedIcon />,
         roles: ["Student", "ParentGuardian"],
       },
       {
         to: paths.scheduling.tutorScheduleBase,
         label: "Tutor sessions",
-        icon: <EventNoteRoundedIcon />,
+        icon: <CalendarMonthRoundedIcon />,
         roles: ["Tutor"],
       },
     ],
@@ -177,13 +179,16 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const authenticatedRole = isAuthenticated ? normalizeActorRole(user?.role) : null;
   const effectiveRole = authenticatedRole ?? actor.role;
 
+  const dashboardSelected = pathname === paths.home;
+
   return (
     <List component="nav" aria-label="Primary">
       <ListItemButton
         component={NavLink}
         to={paths.home}
         onClick={onNavigate}
-        selected={pathname === paths.home}
+        selected={dashboardSelected}
+        aria-current={dashboardSelected ? "page" : undefined}
       >
         <ListItemIcon>
           <DashboardRoundedIcon />
@@ -194,18 +199,28 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
       {SECTIONS.map((section) => (
         <Fragment key={section.title}>
           <ListSubheader component="div">{section.title}</ListSubheader>
-          {visibleEntries(section.entries, effectiveRole).map((entry) => (
-            <ListItemButton
-              key={entry.to}
-              component={NavLink}
-              to={entry.to}
-              onClick={onNavigate}
-              selected={pathname === entry.to || pathname.startsWith(`${entry.to}/`)}
-            >
-              <ListItemIcon>{entry.icon}</ListItemIcon>
-              <ListItemText primary={entry.label} />
-            </ListItemButton>
-          ))}
+          {visibleEntries(section.entries, effectiveRole).map((entry) => {
+            // The same boolean drives both the visual indicator (D1's
+            // .Mui-selected accent bar) and the accessible "current page"
+            // signal — a screen reader user gets exactly the same answer
+            // to "where am I" as a sighted one, never a state where the
+            // two could disagree (Task 3: "a person always knows where
+            // they are").
+            const isSelected = pathname === entry.to || pathname.startsWith(`${entry.to}/`);
+            return (
+              <ListItemButton
+                key={entry.to}
+                component={NavLink}
+                to={entry.to}
+                onClick={onNavigate}
+                selected={isSelected}
+                aria-current={isSelected ? "page" : undefined}
+              >
+                <ListItemIcon>{entry.icon}</ListItemIcon>
+                <ListItemText primary={entry.label} />
+              </ListItemButton>
+            );
+          })}
         </Fragment>
       ))}
     </List>

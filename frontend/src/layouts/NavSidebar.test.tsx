@@ -23,12 +23,13 @@ function renderNavSidebar(props: {
   variant: "permanent" | "temporary";
   onClose?: () => void;
   authUser?: AuthenticatedUser | null;
+  initialEntry?: string;
 }) {
   const onClose = props.onClose ?? vi.fn();
   render(
     <AuthProvider>
       <ActorProvider>
-        <MemoryRouter>
+        <MemoryRouter initialEntries={[props.initialEntry ?? "/"]}>
           <AuthHarness user={props.authUser ?? null} />
           <NavSidebar variant={props.variant} open onClose={onClose} />
         </MemoryRouter>
@@ -142,5 +143,18 @@ describe("NavSidebar", () => {
     await userEvent.click(screen.getByRole("link", { name: "Dashboard" }));
 
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  // Phase D2 Task 3: the same boolean drives the visual .Mui-selected
+  // indicator and this accessible signal, so a screen-reader user gets an
+  // unambiguous "you are here" too, not just a sighted one.
+  it("marks the active route with aria-current='page', and no other link", () => {
+    renderNavSidebar({ variant: "permanent", initialEntry: "/discovery/tutors/search" });
+
+    expect(screen.getByRole("link", { name: "Search Tutors" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("link", { name: "Dashboard" })).not.toHaveAttribute("aria-current");
   });
 });

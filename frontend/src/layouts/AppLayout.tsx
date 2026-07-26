@@ -42,7 +42,7 @@ export function AppLayout() {
             borderColor: "divider",
           }}
         >
-          <Toolbar sx={{ gap: { xs: 1, sm: 2 } }}>
+          <Toolbar sx={{ gap: { xs: 0.5, sm: 2 }, px: { xs: 1.5, sm: 2 } }}>
             {!isDesktop ? (
               <IconButton
                 edge="start"

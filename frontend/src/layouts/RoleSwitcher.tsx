@@ -70,7 +70,14 @@ export function RoleSwitcher() {
         borderColor: "warning.main",
         borderRadius: 1,
         px: 1,
-        py: 0.5,
+        // Phase D2 Task 5: a real 375px-viewport check found the outlined
+        // TextField's floating label (which MUI renders straddling the
+        // fieldset's top edge) poking outside this decorative box's own
+        // border — 4px of vertical clearance wasn't enough room for it.
+        // 10px top / 6px bottom gives the label a clean home inside the
+        // dashed frame at every width, still a compact single-line control.
+        pt: 1.25,
+        pb: 0.75,
         backgroundColor: (t) => `${t.palette.warning.main}14`,
       }}
     >
@@ -81,7 +88,7 @@ export function RoleSwitcher() {
           label="Acting as (dev only)"
           value={actor.role ?? ""}
           onChange={(event) => applyRole((event.target.value || null) as ActorRole | null)}
-          sx={{ minWidth: { xs: 140, sm: 200 }, backgroundColor: "background.paper" }}
+          sx={{ minWidth: { xs: 108, sm: 200 }, backgroundColor: "background.paper" }}
         >
           <MenuItem value="">
             <em>None selected</em>

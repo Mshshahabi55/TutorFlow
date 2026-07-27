@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BookSessionPage } from "@/features/scheduling/pages/BookSessionPage";
@@ -36,52 +36,30 @@ const OPEN_SLOT = {
   isConsumed: false,
 };
 
+/** Drives Choose Tutor -> Choose Date -> Choose Time, leaving the wizard on the Review step with `slot` selected. */
+async function advanceToReview(slot = OPEN_SLOT) {
+  await userEvent.click(await screen.findByRole("button", { name: "Continue" }));
+  await userEvent.click(await screen.findByRole("button", { name: /Aug 01/ }));
+  await userEvent.click(await screen.findByRole("button", { name: /min · Online/ }));
+  expect(await screen.findByRole("heading", { name: "Who is this lesson for?" })).toBeInTheDocument();
+  return slot;
+}
+
 describe("BookSessionPage", () => {
-  it("pre-fills the Availability Slot id from the query string, with no Tutor context", () => {
-    vi.spyOn(schedulingService, "fetchAvailabilitySlotById").mockRejectedValue(
-      new Error("no tutorId in this scenario — the slot lookup is not expected to resolve"),
-    );
-
-    renderWithProviders(<BookSessionPage />, {
-      initialEntries: [`/scheduling/sessions/book?availabilitySlotId=${SLOT_ID}`],
-    });
-
-    expect(screen.getByLabelText("Availability Slot id")).toHaveValue(SLOT_ID);
+  beforeEach(() => {
+    window.localStorage.clear();
   });
 
-  it("books a session with parentGuardianId as null when left blank", async () => {
-    const bookSession = vi.spyOn(schedulingService, "bookSession").mockResolvedValue({
-      sessionId: SESSION_ID,
-      tutorId: "t1",
-      studentId: STUDENT_ID,
-      parentGuardianId: null,
-      availabilitySlotId: SLOT_ID,
-      scheduledTimeUtc: "2026-08-01T14:00:00Z",
-      endTimeUtc: "2026-08-01T15:00:00Z",
-      duration: "01:00:00",
-      deliveryMode: DeliveryMode.Online,
-      status: SessionStatus.Scheduled,
-    });
-
+  it("prompts to find a tutor first, with no Tutor context at all", () => {
     renderWithProviders(<BookSessionPage />);
 
-    await userEvent.type(screen.getByLabelText("Availability Slot id"), SLOT_ID);
-    await userEvent.type(screen.getByLabelText("Student id"), STUDENT_ID);
-    await userEvent.click(screen.getByRole("button", { name: "Book session" }));
-
-    expect(bookSession).toHaveBeenCalledWith({
-      availabilitySlotId: SLOT_ID,
-      studentId: STUDENT_ID,
-      parentGuardianId: null,
-    });
-    expect(await screen.findByText(SESSION_ID)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Choose a tutor to get started" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Find Tutors" })).toHaveAttribute(
+      "href",
+      "/discovery/tutors/search",
+    );
   });
 
-  // Phase 3 Step 4: arriving from the Tutor Profile's "Book Session" CTA
-  // (`?tutorId=...`) reuses `useTutor` and the existing
-  // `GET /tutors/{id}/availability-slots` capability (already used by
-  // SessionDetailPage's reschedule picker) to show who/what/when instead
-  // of three blank id fields.
   describe("with Tutor context (?tutorId=...)", () => {
     function mockTutorAndSlots(slots = [OPEN_SLOT]) {
       vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
@@ -99,7 +77,7 @@ describe("BookSessionPage", () => {
       expect(screen.getByTestId("booking-page-skeleton")).toBeInTheDocument();
     });
 
-    it("shows a Tutor Summary card with real Tutor data, never a fabricated name or rating", async () => {
+    it("shows the Choose Tutor step first, with a step-by-step progress indicator", async () => {
       mockTutorAndSlots();
 
       renderWithProviders(<BookSessionPage />, {
@@ -110,9 +88,14 @@ describe("BookSessionPage", () => {
       expect(screen.getByText("Verified")).toBeInTheDocument();
       expect(screen.getByText("Speaks English")).toBeInTheDocument();
       expect(screen.getByText("50,000 Toman/hr")).toBeInTheDocument();
+      expect(screen.getByText("Choose Tutor")).toBeInTheDocument();
+      expect(screen.getByText("Choose Date")).toBeInTheDocument();
+      expect(screen.getByText("Choose Time")).toBeInTheDocument();
+      expect(screen.getByText("Review")).toBeInTheDocument();
+      expect(screen.getByText("Confirm")).toBeInTheDocument();
     });
 
-    it("shows only the open Availability Slots as selectable cards, excluding consumed ones", async () => {
+    it("groups open Availability Slots by date, excluding consumed ones, and only shows a date's own slots as time choices", async () => {
       mockTutorAndSlots([
         OPEN_SLOT,
         { ...OPEN_SLOT, availabilitySlotId: OPEN_SLOT_ID_2, startTimeUtc: "2026-08-02T10:00:00Z" },
@@ -123,12 +106,32 @@ describe("BookSessionPage", () => {
         initialEntries: [`/scheduling/sessions/book?tutorId=${TUTOR_ID}`],
       });
 
-      await screen.findByRole("heading", { name: "Availability" });
-      expect(screen.getAllByRole("button", { name: /min · Online/ })).toHaveLength(2);
+      await userEvent.click(await screen.findByRole("button", { name: "Continue" }));
+
+      expect(await screen.findByRole("heading", { name: "Choose a date" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Aug 01/ })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Aug 02/ })).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole("button", { name: /Aug 01/ }));
+
+      expect(await screen.findByRole("heading", { name: "Choose a time" })).toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: /min · Online/ })).toHaveLength(1);
+    });
+
+    it("moves to Review once a time is selected, showing a Booking Summary and no raw id fields for the slot", async () => {
+      mockTutorAndSlots();
+
+      renderWithProviders(<BookSessionPage />, {
+        initialEntries: [`/scheduling/sessions/book?tutorId=${TUTOR_ID}`],
+      });
+
+      await advanceToReview();
+
+      expect(screen.getByRole("heading", { name: "Booking Summary" })).toBeInTheDocument();
       expect(screen.queryByLabelText("Availability Slot id")).not.toBeInTheDocument();
     });
 
-    it("selects an Availability Slot by clicking its card, shows a Booking Summary, and books without typing an id", async () => {
+    it("books the selected slot after Review + Confirm, remembering the Student id for next time", async () => {
       mockTutorAndSlots();
       const bookSession = vi.spyOn(schedulingService, "bookSession").mockResolvedValue({
         sessionId: SESSION_ID,
@@ -147,14 +150,11 @@ describe("BookSessionPage", () => {
         initialEntries: [`/scheduling/sessions/book?tutorId=${TUTOR_ID}`],
       });
 
-      const slotCard = await screen.findByRole("button", { name: /min · Online/ });
-      await userEvent.click(slotCard);
-
-      expect(await screen.findByRole("heading", { name: "Selected Session" })).toBeInTheDocument();
-      expect(await screen.findByRole("heading", { name: "Booking Summary" })).toBeInTheDocument();
-
+      await advanceToReview();
       await userEvent.type(screen.getByLabelText("Student id"), STUDENT_ID);
-      await userEvent.click(screen.getByRole("button", { name: "Book session" }));
+      await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+      await userEvent.click(await screen.findByRole("button", { name: "Confirm Your Lesson" }));
 
       expect(bookSession).toHaveBeenCalledWith({
         availabilitySlotId: SLOT_ID,
@@ -162,6 +162,47 @@ describe("BookSessionPage", () => {
         parentGuardianId: null,
       });
       expect(await screen.findByText("Session booked")).toBeInTheDocument();
+      expect(window.localStorage.getItem("tutorflow.rememberedId.student")).toBe(STUDENT_ID);
+    });
+
+    it("prefills the Student id from a remembered id, so a returning Student doesn't retype it", async () => {
+      window.localStorage.setItem("tutorflow.rememberedId.student", STUDENT_ID);
+      mockTutorAndSlots();
+
+      renderWithProviders(<BookSessionPage />, {
+        initialEntries: [`/scheduling/sessions/book?tutorId=${TUTOR_ID}`],
+      });
+
+      await advanceToReview();
+
+      expect(screen.getByLabelText("Student id")).toHaveValue(STUDENT_ID);
+    });
+
+    it("does not advance from Review without a Student id", async () => {
+      mockTutorAndSlots();
+
+      renderWithProviders(<BookSessionPage />, {
+        initialEntries: [`/scheduling/sessions/book?tutorId=${TUTOR_ID}`],
+      });
+
+      await advanceToReview();
+      await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+      expect(screen.queryByRole("heading", { name: "Confirm Your Lesson" })).not.toBeInTheDocument();
+    });
+
+    it("skips straight to Review when arriving with a specific Availability Slot already chosen", async () => {
+      mockTutorAndSlots();
+      vi.spyOn(schedulingService, "fetchAvailabilitySlotById").mockResolvedValue(OPEN_SLOT);
+
+      renderWithProviders(<BookSessionPage />, {
+        initialEntries: [`/scheduling/sessions/book?tutorId=${TUTOR_ID}&availabilitySlotId=${SLOT_ID}`],
+      });
+
+      expect(
+        await screen.findByRole("heading", { name: "Who is this lesson for?" }),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Booking Summary" })).toBeInTheDocument();
     });
 
     it("shows a professional empty state with a return path when the Tutor has no open Availability Slots", async () => {

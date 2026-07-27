@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   fromTehranInput,
   isValidTehranLocalInput,
+  tehranDateKey,
+  tehranDateLabel,
   toTehranDisplay,
   toTehranInputValue,
 } from "@/shared/time/tehranTime";
@@ -111,5 +113,18 @@ describe("isValidTehranLocalInput", () => {
 describe("fromTehranInput error handling", () => {
   it("throws on a malformed local date/time", () => {
     expect(() => fromTehranInput("not-a-date")).toThrow();
+  });
+});
+
+describe("tehranDateKey / tehranDateLabel", () => {
+  it("groups an instant by its Tehran-local calendar date, not its UTC date", () => {
+    // 2026-08-02T01:00:00Z is 2026-08-02T04:30 Tehran — same UTC day, same Tehran day here.
+    expect(tehranDateKey("2026-08-02T01:00:00Z")).toBe("2026-08-02");
+    // 2026-08-01T21:30:00Z is 2026-08-02T01:00 Tehran — a day later in Tehran than in UTC.
+    expect(tehranDateKey("2026-08-01T21:30:00Z")).toBe("2026-08-02");
+  });
+
+  it("formats a date key as a short human-readable label", () => {
+    expect(tehranDateLabel("2026-08-01")).toBe("Sat, Aug 01");
   });
 });

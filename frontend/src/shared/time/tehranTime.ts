@@ -94,6 +94,31 @@ export function toTehranInputValue(utcIsoString: string): string {
   );
 }
 
+/**
+ * A UTC ISO 8601 instant -> its Tehran-local calendar date, as a stable
+ * "YYYY-MM-DD" grouping key (the date portion of `toTehranInputValue`).
+ * Used by the booking wizard's "Choose Date" step to group a Tutor's open
+ * Availability Slots by day without any new offset math.
+ */
+export function tehranDateKey(utcIsoString: string): string {
+  return toTehranInputValue(utcIsoString).slice(0, 10);
+}
+
+/**
+ * A `tehranDateKey` -> a human-readable label, e.g. "Sat, Aug 01". Formats
+ * against `timeZone: "UTC"` the same way `toTehranDisplay` does — the key
+ * already represents a Tehran-local calendar date, so this only supplies
+ * locale-aware names, it never re-resolves an actual IANA zone.
+ */
+export function tehranDateLabel(dateKey: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    weekday: "short",
+    month: "short",
+    day: "2-digit",
+  }).format(new Date(`${dateKey}T00:00:00Z`));
+}
+
 /** True if `value` is a syntactically and calendrically valid datetime-local string. */
 export function isValidTehranLocalInput(value: string): boolean {
   const match = LOCAL_INPUT_PATTERN.exec(value);

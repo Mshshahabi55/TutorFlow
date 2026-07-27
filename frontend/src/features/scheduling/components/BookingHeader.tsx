@@ -10,12 +10,12 @@ export interface BookingHeaderProps {
 export function BookingHeader({ hasContext }: BookingHeaderProps) {
   return (
     <PageHeader
-      title="Book a session"
+      title="Book Your Lesson"
       subtitle={
         <Typography variant="body1" color="text.secondary">
           {hasContext
-            ? "Review the details below, then confirm your session."
-            : "Enter the Availability Slot and Student details to book a session."}
+            ? "Pick a date and time, then confirm — it only takes a minute."
+            : "Choose a tutor to get started."}
         </Typography>
       }
     />

@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
-import { Box, Button, Stack, Typography } from "@mui/material";
+import { Box, Button, Chip, Step, StepLabel, Stepper, Stack, Typography } from "@mui/material";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
-import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded";
+import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useBookSession } from "@/features/scheduling/hooks/useSessionMutations";
@@ -23,36 +24,42 @@ import { BookingStatusBanner } from "@/features/scheduling/components/BookingSta
 import { BookingPageSkeleton } from "@/features/scheduling/components/BookingPageSkeleton";
 import { Form } from "@/shared/components/forms/Form";
 import { FormTextField } from "@/shared/components/forms/FormTextField";
+import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { useNotification } from "@/shared/hooks/useNotification";
-import { toTehranDisplay } from "@/shared/time/tehranTime";
-import { timeSpanToMinutes } from "@/shared/utils/duration";
-import { DeliveryMode } from "@/services/api/dtos";
+import { useRememberedId } from "@/shared/hooks/useRememberedId";
+import { tehranDateKey, tehranDateLabel } from "@/shared/time/tehranTime";
 import type { AvailabilitySlotDto } from "@/services/api/dtos";
 import { paths } from "@/routes/paths";
 
+const STEPS = ["Choose Tutor", "Choose Date", "Choose Time", "Review", "Confirm"] as const;
+
 /**
  * POST /sessions books a Session against an already-declared Availability
- * Slot — the same command, validation, and route as before (Phase 3 Step
- * 4 is presentation-only). Two optional query parameters add context,
- * both reusing existing capabilities rather than a new endpoint:
+ * Slot — same command, validation, and route as before. RC2 replaces the
+ * old single-page form with a 5-step wizard (Choose Tutor → Choose Date →
+ * Choose Time → Review → Confirm) so the whole form is never shown at
+ * once, reusing the exact same query parameters, hooks, and mutation:
  *
- * - `tutorId` (from the Tutor Profile's "Book Session" CTA) resolves
- *   `useTutor` (identity) for the Tutor Summary, and `useTutorAvailabilitySlots`
- *   (the same capability `SessionDetailPage`'s reschedule picker already
- *   reuses) for a visual Availability picker.
+ * - `tutorId` (from the Tutor Profile's "Book Lesson" CTA) resolves
+ *   `useTutor` for Choose Tutor, and `useTutorAvailabilitySlots` (the same
+ *   capability `SessionDetailPage`'s reschedule picker already reuses) for
+ *   Choose Date/Choose Time.
  * - `availabilitySlotId` (from `AvailabilitySlotDetailPage`'s "Book this
- *   slot" link, unchanged) resolves `useAvailabilitySlot` for a "Selected
- *   Session" summary, and — when `tutorId` itself wasn't given — supplies
- *   the Tutor id via the slot's own `tutorId` field.
+ *   slot" link) resolves `useAvailabilitySlot`, and — when `tutorId` itself
+ *   wasn't given — supplies the Tutor id via the slot's own `tutorId` field.
  *
- * Without either parameter, the page behaves exactly as before: three
- * plain id fields, no fetched context.
+ * Without either parameter there is no tutor to build a wizard around, so
+ * the page shows a friendly prompt to go find one instead of the old bare
+ * id-entry fallback (RC2: no raw GUID fields for a normal user).
  */
 export function BookSessionPage() {
   const [searchParams] = useSearchParams();
   const bookSession = useBookSession();
   const { notify } = useNotification();
+  const { id: rememberedStudentId, remember: rememberStudentId } = useRememberedId("student");
+  const { id: rememberedParentGuardianId, remember: rememberParentGuardianId } =
+    useRememberedId("parentGuardian");
 
   const tutorIdParam = searchParams.get("tutorId") ?? undefined;
   const availabilitySlotIdParam = searchParams.get("availabilitySlotId") ?? undefined;
@@ -62,12 +69,19 @@ export function BookSessionPage() {
   const tutorQuery = useTutor(effectiveTutorId);
   const slotsQuery = useTutorAvailabilitySlots(effectiveTutorId);
 
+  // Arriving with a specific Availability Slot already chosen (e.g. from
+  // AvailabilitySlotDetailPage's "Book this slot" link) skips straight to
+  // Review — asking the user to re-pick a date and time they already chose
+  // would be a regression, not a wizard.
+  const [activeStep, setActiveStep] = useState(availabilitySlotIdParam ? 3 : 0);
+  const [selectedDateKey, setSelectedDateKey] = useState<string | undefined>(undefined);
+
   const form = useForm<BookSessionFormValues>({
     resolver: zodResolver(bookSessionSchema),
     defaultValues: {
       availabilitySlotId: availabilitySlotIdParam ?? "",
-      studentId: "",
-      parentGuardianId: "",
+      studentId: rememberedStudentId ?? "",
+      parentGuardianId: rememberedParentGuardianId ?? "",
     },
   });
 
@@ -78,9 +92,7 @@ export function BookSessionPage() {
 
   const hasContext = Boolean(effectiveTutorId);
   // Only blocks on a skeleton once a Tutor is actually known (`tutorId` was
-  // given directly, or the slot lookup already resolved one) — arriving
-  // with only an `availabilitySlotId` and no resolvable Tutor yet renders
-  // the plain fallback form immediately instead, exactly as before.
+  // given directly, or the slot lookup already resolved one).
   const isContextLoading = hasContext && (tutorQuery.isPending || slotsQuery.isPending);
 
   function handleSubmit(values: BookSessionFormValues) {
@@ -91,7 +103,13 @@ export function BookSessionPage() {
         parentGuardianId: values.parentGuardianId || null,
       },
       {
-        onSuccess: () => notify({ message: "Session booked.", severity: "success" }),
+        onSuccess: () => {
+          rememberStudentId(values.studentId);
+          if (values.parentGuardianId) {
+            rememberParentGuardianId(values.parentGuardianId);
+          }
+          notify({ message: "Lesson booked.", severity: "success" });
+        },
       },
     );
   }
@@ -101,6 +119,19 @@ export function BookSessionPage() {
       shouldValidate: true,
       shouldDirty: true,
     });
+    setActiveStep(3);
+  }
+
+  function handleSelectDate(dateKey: string) {
+    setSelectedDateKey(dateKey);
+    setActiveStep(2);
+  }
+
+  async function handleReviewNext() {
+    const valid = await form.trigger(["studentId", "parentGuardianId"]);
+    if (valid) {
+      setActiveStep(4);
+    }
   }
 
   if (isContextLoading) {
@@ -144,15 +175,11 @@ export function BookSessionPage() {
 
   const openSlots = (slotsQuery.data ?? []).filter((slot) => !slot.isConsumed);
   const noAvailability = hasContext && slotsQuery.isSuccess && openSlots.length === 0 && !selectedSlot;
-  const showManualSlotField = !hasContext || openSlots.length === 0;
 
-  return (
-    <Stack spacing={3} maxWidth={720}>
-      <BookingHeader hasContext={hasContext} />
-
-      {hasContext && tutorQuery.isSuccess ? <TutorSummaryCard tutor={tutorQuery.data} /> : null}
-
-      {noAvailability ? (
+  if (noAvailability) {
+    return (
+      <Stack spacing={3} maxWidth={720}>
+        <BookingHeader hasContext={hasContext} />
         <SectionCard title="No availability right now">
           <Stack spacing={2} alignItems="flex-start">
             <Typography variant="body1" color="text.secondary">
@@ -175,86 +202,196 @@ export function BookSessionPage() {
             </Stack>
           </Stack>
         </SectionCard>
-      ) : (
+      </Stack>
+    );
+  }
+
+  const dateKeys = Array.from(new Set(openSlots.map((slot) => tehranDateKey(slot.startTimeUtc)))).sort();
+  const slotsForSelectedDate = selectedDateKey
+    ? openSlots.filter((slot) => tehranDateKey(slot.startTimeUtc) === selectedDateKey)
+    : [];
+
+  return (
+    <Stack spacing={3} maxWidth={720}>
+      <BookingHeader hasContext={hasContext} />
+
+      {hasContext ? (
         <>
-          {selectedSlot ? (
-            <SectionCard title="Selected Session">
-              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                <EventAvailableRoundedIcon color="primary" aria-hidden="true" />
-                <Typography variant="body1">
-                  {toTehranDisplay(selectedSlot.startTimeUtc)} ·{" "}
-                  {timeSpanToMinutes(selectedSlot.duration)} min ·{" "}
-                  {selectedSlot.deliveryMode === DeliveryMode.Online ? "Online" : "In-Person"}
-                </Typography>
-              </Stack>
-            </SectionCard>
-          ) : null}
-
-          {hasContext && slotsQuery.isSuccess && openSlots.length > 0 ? (
-            <SectionCard title="Availability">
-              <Stack direction="row" flexWrap="wrap" gap={2}>
-                {openSlots.map((slot) => (
-                  <AvailabilityCard
-                    key={slot.availabilitySlotId}
-                    slot={slot}
-                    selected={slot.availabilitySlotId === selectedSlotId}
-                    onSelect={handleSelectSlot}
-                  />
-                ))}
-              </Stack>
-            </SectionCard>
-          ) : null}
-
-          {hasContext && slotsQuery.isError ? (
-            <ErrorState
-              error={slotsQuery.error}
-              onRetry={() => void slotsQuery.refetch()}
-              title="This tutor's availability could not be loaded"
-            />
-          ) : null}
-
-          <Form form={form} onSubmit={handleSubmit}>
-            <Stack spacing={3}>
-              <SectionCard title="Booking Form">
-                <Stack spacing={2} alignItems="flex-start" width="100%">
-                  {showManualSlotField ? (
-                    <FormTextField
-                      name="availabilitySlotId"
-                      label="Availability Slot id"
-                      helperText="The id shared by the declaring Tutor, or copied from an Availability Slot's detail page."
-                    />
-                  ) : null}
-                  <FormTextField
-                    name="studentId"
-                    label="Student id"
-                    helperText="The Student's own account id."
-                  />
-                  <FormTextField
-                    name="parentGuardianId"
-                    label="Parent/Guardian id (optional)"
-                    helperText="Leave blank when an adult Student books independently."
-                  />
-                </Stack>
-              </SectionCard>
-
-              {bookSession.isError ? <BookingStatusBanner status="error" error={bookSession.error} /> : null}
-
-              {hasContext && tutorQuery.isSuccess && selectedSlot ? (
-                <BookingSummaryCard tutor={tutorQuery.data} slot={selectedSlot} />
-              ) : null}
-
-              <Button
-                type="submit"
-                variant="contained"
-                size="large"
-                disabled={bookSession.isPending}
-                sx={{ alignSelf: { xs: "stretch", sm: "flex-start" } }}
-              >
-                {bookSession.isPending ? "Booking…" : "Book session"}
-              </Button>
-            </Stack>
-          </Form>
+          <Stepper activeStep={activeStep} alternativeLabel sx={{ display: { xs: "none", sm: "flex" } }}>
+            {STEPS.map((label) => (
+              <Step key={label}>
+                <StepLabel>{label}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
+          <Typography variant="body2" color="text.secondary" sx={{ display: { xs: "block", sm: "none" } }}>
+            Step {activeStep + 1} of {STEPS.length}: {STEPS[activeStep]}
+          </Typography>
         </>
+      ) : null}
+
+      {!hasContext ? (
+        <EmptyState
+          title="Choose a tutor to get started"
+          description="Browse tutors and pick one to book your first lesson."
+          action={
+            <Button
+              component={RouterLink}
+              to={paths.discovery.tutorSearch}
+              variant="contained"
+              startIcon={<SearchRoundedIcon />}
+            >
+              Find Tutors
+            </Button>
+          }
+        />
+      ) : (
+        <Form form={form} onSubmit={handleSubmit}>
+          <Stack spacing={3}>
+            {activeStep === 0 ? (
+              <Stack spacing={3}>
+                {tutorQuery.isSuccess ? <TutorSummaryCard tutor={tutorQuery.data} /> : null}
+                <Button
+                  type="button"
+                  variant="contained"
+                  size="large"
+                  onClick={() => setActiveStep(1)}
+                  sx={{ alignSelf: { xs: "stretch", sm: "flex-start" } }}
+                >
+                  Continue
+                </Button>
+              </Stack>
+            ) : null}
+
+            {activeStep === 1 ? (
+              <Stack spacing={3}>
+                {slotsQuery.isError ? (
+                  <ErrorState
+                    error={slotsQuery.error}
+                    onRetry={() => void slotsQuery.refetch()}
+                    title="This tutor's availability could not be loaded"
+                  />
+                ) : (
+                  <SectionCard title="Choose a date">
+                    <Stack direction="row" flexWrap="wrap" gap={1.5}>
+                      {dateKeys.map((dateKey) => (
+                        <Chip
+                          key={dateKey}
+                          label={tehranDateLabel(dateKey)}
+                          color={dateKey === selectedDateKey ? "primary" : "default"}
+                          variant={dateKey === selectedDateKey ? "filled" : "outlined"}
+                          onClick={() => handleSelectDate(dateKey)}
+                          sx={{ px: 1, py: 2.5, fontSize: "0.95rem" }}
+                        />
+                      ))}
+                    </Stack>
+                  </SectionCard>
+                )}
+                <Button
+                  type="button"
+                  variant="outlined"
+                  onClick={() => setActiveStep(0)}
+                  startIcon={<ArrowBackRoundedIcon />}
+                  sx={{ alignSelf: "flex-start" }}
+                >
+                  Back
+                </Button>
+              </Stack>
+            ) : null}
+
+            {activeStep === 2 ? (
+              <Stack spacing={3}>
+                <SectionCard title="Choose a time">
+                  <Stack direction="row" flexWrap="wrap" gap={2}>
+                    {slotsForSelectedDate.map((slot) => (
+                      <AvailabilityCard
+                        key={slot.availabilitySlotId}
+                        slot={slot}
+                        selected={slot.availabilitySlotId === selectedSlotId}
+                        onSelect={handleSelectSlot}
+                      />
+                    ))}
+                  </Stack>
+                </SectionCard>
+                <Button
+                  type="button"
+                  variant="outlined"
+                  onClick={() => setActiveStep(1)}
+                  startIcon={<ArrowBackRoundedIcon />}
+                  sx={{ alignSelf: "flex-start" }}
+                >
+                  Back
+                </Button>
+              </Stack>
+            ) : null}
+
+            {activeStep === 3 ? (
+              <Stack spacing={3}>
+                {selectedSlot && tutorQuery.isSuccess ? (
+                  <BookingSummaryCard tutor={tutorQuery.data} slot={selectedSlot} />
+                ) : null}
+                <SectionCard title="Who is this lesson for?">
+                  <Stack spacing={2} alignItems="flex-start" width="100%">
+                    <FormTextField
+                      name="studentId"
+                      label="Student id"
+                      helperText="The Student's own account id."
+                    />
+                    <FormTextField
+                      name="parentGuardianId"
+                      label="Parent/Guardian id (optional)"
+                      helperText="Leave blank when an adult Student books independently."
+                    />
+                  </Stack>
+                </SectionCard>
+                <Stack direction="row" spacing={1.5}>
+                  <Button
+                    type="button"
+                    variant="outlined"
+                    onClick={() => setActiveStep(2)}
+                    startIcon={<ArrowBackRoundedIcon />}
+                  >
+                    Back
+                  </Button>
+                  <Button type="button" variant="contained" onClick={() => void handleReviewNext()}>
+                    Continue
+                  </Button>
+                </Stack>
+              </Stack>
+            ) : null}
+
+            {activeStep === 4 ? (
+              <Stack spacing={3}>
+                {selectedSlot && tutorQuery.isSuccess ? (
+                  <BookingSummaryCard tutor={tutorQuery.data} slot={selectedSlot} />
+                ) : null}
+                {bookSession.isError ? (
+                  <BookingStatusBanner status="error" error={bookSession.error} />
+                ) : null}
+                <Stack direction="row" spacing={1.5}>
+                  <Button
+                    type="button"
+                    variant="outlined"
+                    onClick={() => setActiveStep(3)}
+                    disabled={bookSession.isPending}
+                    startIcon={<ArrowBackRoundedIcon />}
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    size="large"
+                    disabled={bookSession.isPending}
+                    sx={{ flex: 1 }}
+                  >
+                    {bookSession.isPending ? "Booking…" : "Confirm Your Lesson"}
+                  </Button>
+                </Stack>
+              </Stack>
+            ) : null}
+          </Stack>
+        </Form>
       )}
     </Stack>
   );

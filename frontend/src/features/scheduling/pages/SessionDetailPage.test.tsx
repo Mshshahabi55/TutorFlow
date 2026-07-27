@@ -8,6 +8,7 @@ import { renderWithProviders } from "@/test/renderWithProviders";
 import { NotificationProvider } from "@/shared/context/NotificationProvider";
 import { ConfirmDialogProvider } from "@/shared/context/ConfirmDialogProvider";
 import * as schedulingService from "@/features/scheduling/api/schedulingService";
+import * as identityService from "@/features/identity/api/identityService";
 import { DeliveryMode, SessionStatus } from "@/services/api/dtos";
 
 const SESSION_ID = "44444444-4444-4444-4444-444444444444";
@@ -23,6 +24,18 @@ const SCHEDULED_SESSION = {
   duration: "01:00:00",
   deliveryMode: DeliveryMode.Online,
   status: SessionStatus.Scheduled,
+};
+
+const TUTOR = {
+  tutorId: "t1",
+  isApproved: true,
+  isSuspended: false,
+  isDiscoverable: true,
+  hourlyRate: 500_000,
+  subject: "Mathematics",
+  language: "English",
+  location: "Remote",
+  offeredDurations: ["01:00:00"],
 };
 
 // One open slot besides the Session's own current slot ("a1", excluded by
@@ -48,6 +61,10 @@ const OPEN_SLOTS = [
   },
 ];
 
+function mockTutor() {
+  vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
+}
+
 describe("SessionDetailPage", () => {
   it("shows an id-lookup form when no id is in the route", () => {
     renderWithProviders(<SessionDetailPage />);
@@ -55,7 +72,19 @@ describe("SessionDetailPage", () => {
     expect(screen.getByLabelText("Session id")).toBeInTheDocument();
   });
 
-  it("navigates to the id-specific route, shows the session, and offers reschedule while Scheduled", async () => {
+  it("shows a session detail skeleton while loading, not an abrupt spinner", () => {
+    vi.spyOn(schedulingService, "fetchSessionById").mockReturnValue(new Promise(() => {}));
+
+    renderWithProviders(<SessionDetailPage />, {
+      initialEntries: [`/scheduling/sessions/${SESSION_ID}`],
+      routePath: "/scheduling/sessions/:sessionId",
+    });
+
+    expect(screen.getByTestId("session-detail-skeleton")).toBeInTheDocument();
+  });
+
+  it("navigates to the id-specific route, shows the session and Tutor Summary, and offers reschedule while Scheduled", async () => {
+    mockTutor();
     vi.spyOn(schedulingService, "fetchSessionById").mockResolvedValue(SCHEDULED_SESSION);
     vi.spyOn(schedulingService, "fetchTutorAvailabilitySlots").mockResolvedValue(OPEN_SLOTS);
 
@@ -79,11 +108,13 @@ describe("SessionDetailPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Look up" }));
 
     expect(await screen.findByText("Scheduled")).toBeInTheDocument();
+    expect(await screen.findByText("Mathematics")).toBeInTheDocument();
     expect(await screen.findByLabelText("New Availability Slot")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Complete" })).toBeEnabled();
   });
 
   it("reschedules a session onto a different, open Availability Slot for the same Tutor", async () => {
+    mockTutor();
     vi.spyOn(schedulingService, "fetchSessionById").mockResolvedValue(SCHEDULED_SESSION);
     vi.spyOn(schedulingService, "fetchTutorAvailabilitySlots").mockResolvedValue(OPEN_SLOTS);
     const rescheduleSession = vi
@@ -105,6 +136,7 @@ describe("SessionDetailPage", () => {
   });
 
   it("does not offer the Session's own current slot as a reschedule target", async () => {
+    mockTutor();
     vi.spyOn(schedulingService, "fetchSessionById").mockResolvedValue(SCHEDULED_SESSION);
     vi.spyOn(schedulingService, "fetchTutorAvailabilitySlots").mockResolvedValue(OPEN_SLOTS);
 
@@ -121,6 +153,7 @@ describe("SessionDetailPage", () => {
   });
 
   it("hides reschedule and disables actions for a Completed session", async () => {
+    mockTutor();
     vi.spyOn(schedulingService, "fetchSessionById").mockResolvedValue({
       ...SCHEDULED_SESSION,
       status: SessionStatus.Completed,
@@ -134,5 +167,20 @@ describe("SessionDetailPage", () => {
     expect(await screen.findByText("Completed")).toBeInTheDocument();
     expect(screen.queryByLabelText("New Availability Slot")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Complete" })).toBeDisabled();
+  });
+
+  it("shows a Session Summary card with the Session's own real date, duration, and platform", async () => {
+    mockTutor();
+    vi.spyOn(schedulingService, "fetchSessionById").mockResolvedValue(SCHEDULED_SESSION);
+    vi.spyOn(schedulingService, "fetchTutorAvailabilitySlots").mockResolvedValue(OPEN_SLOTS);
+
+    renderWithProviders(<SessionDetailPage />, {
+      initialEntries: [`/scheduling/sessions/${SESSION_ID}`],
+      routePath: "/scheduling/sessions/:sessionId",
+    });
+
+    expect(await screen.findByRole("heading", { name: "Session Summary" })).toBeInTheDocument();
+    expect(screen.getByText("60 minutes")).toBeInTheDocument();
+    expect(screen.getByText("Online")).toBeInTheDocument();
   });
 });

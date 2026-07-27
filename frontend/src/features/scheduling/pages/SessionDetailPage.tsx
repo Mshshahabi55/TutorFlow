@@ -1,27 +1,31 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { Button, Card, CardContent, Stack, Typography } from "@mui/material";
+import { Button, Stack, Typography } from "@mui/material";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useSession } from "@/features/scheduling/hooks/useSessionQueries";
 import { useRescheduleSession } from "@/features/scheduling/hooks/useSessionMutations";
 import { useTutorAvailabilitySlots } from "@/features/scheduling/hooks/useAvailabilitySlotQueries";
+import { useTutor } from "@/features/identity/hooks/useTutorQueries";
 import {
   rescheduleSessionSchema,
   type RescheduleSessionFormValues,
 } from "@/features/scheduling/validation/rescheduleSessionSchema";
 import { SessionActions } from "@/features/scheduling/components/SessionActions";
-import { SESSION_STATUS_LABEL, SESSION_STATUS_TONE } from "@/features/scheduling/utils/sessionStatus";
+import { SessionTimeline } from "@/features/scheduling/components/SessionTimeline";
+import { SessionSummaryCard } from "@/features/scheduling/components/SessionSummaryCard";
+import { BookingSectionCard } from "@/features/scheduling/components/BookingSectionCard";
+import { TutorSummaryCard } from "@/features/scheduling/components/TutorSummaryCard";
+import { SessionDetailSkeleton } from "@/features/scheduling/components/SessionDetailSkeleton";
 import { IdLookupForm } from "@/shared/components/forms/IdLookupForm";
 import { Form } from "@/shared/components/forms/Form";
 import { FormSelect } from "@/shared/components/forms/FormSelect";
 import { PageHeader } from "@/shared/components/PageHeader";
-import { LoadingState } from "@/shared/components/feedback/LoadingState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
-import { StatusPill } from "@/shared/components/feedback/StatusPill";
 import { useNotification } from "@/shared/hooks/useNotification";
 import { toTehranDisplay } from "@/shared/time/tehranTime";
 import { timeSpanToMinutes } from "@/shared/utils/duration";
 import { DeliveryMode, SessionStatus } from "@/services/api/dtos";
+import type { SessionDto } from "@/services/api/dtos";
 import { paths } from "@/routes/paths";
 
 /**
@@ -30,6 +34,8 @@ import { paths } from "@/routes/paths";
  * "cancel and rebook" mechanism as Cancel + BookSession, applied to the
  * same Session. Excludes the Session's current slot (rescheduling onto it
  * is a no-op the backend itself rejects) and any already-consumed slot.
+ * Unchanged from before Phase 3 Step 5 — only its placement on the page
+ * moved.
  */
 function RescheduleSessionForm({
   sessionId,
@@ -58,7 +64,11 @@ function RescheduleSessionForm({
   }
 
   if (slotsQuery.isPending) {
-    return <LoadingState label="Loading open slots…" minHeight={60} />;
+    return (
+      <Typography variant="body2" color="text.secondary">
+        Loading open slots…
+      </Typography>
+    );
   }
 
   if (slotsQuery.isError) {
@@ -94,11 +104,50 @@ function RescheduleSessionForm({
   );
 }
 
+/** Reuses `useTutor` (identity) once per page load, the same hook already used by the Tutor Profile, Directory, and BookSessionPage — not a duplicate request. */
+function SessionDetailContent({ session }: { session: SessionDto }) {
+  const tutorQuery = useTutor(session.tutorId);
+
+  return (
+    <Stack spacing={3}>
+      <BookingSectionCard title="Timeline">
+        <SessionTimeline session={session} />
+      </BookingSectionCard>
+
+      {tutorQuery.isSuccess ? <TutorSummaryCard tutor={tutorQuery.data} /> : null}
+      {tutorQuery.isError ? (
+        <ErrorState
+          error={tutorQuery.error}
+          onRetry={() => void tutorQuery.refetch()}
+          title="Tutor details could not be loaded"
+        />
+      ) : null}
+
+      <SessionSummaryCard session={session} />
+
+      <BookingSectionCard title="Actions">
+        <Stack spacing={2} alignItems="flex-start">
+          <SessionActions session={session} />
+          {session.status === SessionStatus.Scheduled ? (
+            <RescheduleSessionForm
+              sessionId={session.sessionId}
+              tutorId={session.tutorId}
+              currentAvailabilitySlotId={session.availabilitySlotId}
+            />
+          ) : null}
+        </Stack>
+      </BookingSectionCard>
+    </Stack>
+  );
+}
+
 /**
  * Session status transitions follow the backend's own guard exactly: only a
  * Scheduled Session may be rescheduled, cancelled, completed, or marked
  * No-Show (Session.Reschedule/Cancel/Complete/MarkNoShow all throw
- * otherwise) — every action here disables itself once that's no longer true.
+ * otherwise) — every action here disables itself once that's no longer
+ * true. Same GET /sessions/{id} query and route as before (Phase 3 Step 5
+ * is presentation-only).
  */
 export function SessionDetailPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -106,8 +155,8 @@ export function SessionDetailPage() {
   const sessionQuery = useSession(sessionId);
 
   return (
-    <Stack spacing={3} maxWidth={640}>
-      <PageHeader title="Session detail" />
+    <Stack spacing={3} maxWidth={720}>
+      <PageHeader title="Session details" />
 
       {!sessionId ? (
         <IdLookupForm
@@ -116,61 +165,12 @@ export function SessionDetailPage() {
             void navigate(paths.scheduling.sessionDetail(id));
           }}
         />
+      ) : sessionQuery.isPending ? (
+        <SessionDetailSkeleton />
+      ) : sessionQuery.isError ? (
+        <ErrorState error={sessionQuery.error} onRetry={() => void sessionQuery.refetch()} />
       ) : (
-        <Card variant="outlined">
-          <CardContent>
-            {sessionQuery.isPending ? <LoadingState label="Loading Session…" /> : null}
-            {sessionQuery.isError ? (
-              <ErrorState error={sessionQuery.error} onRetry={() => void sessionQuery.refetch()} />
-            ) : null}
-            {sessionQuery.isSuccess ? (
-              <Stack spacing={2}>
-                <Stack direction="row" spacing={1} flexWrap="wrap">
-                  <StatusPill
-                    label={SESSION_STATUS_LABEL[sessionQuery.data.status]}
-                    tone={SESSION_STATUS_TONE[sessionQuery.data.status]}
-                  />
-                  <StatusPill
-                    label={
-                      sessionQuery.data.deliveryMode === DeliveryMode.Online
-                        ? "Online"
-                        : "In-Person"
-                    }
-                    tone="neutral"
-                  />
-                </Stack>
-
-                <Stack spacing={1}>
-                  <Typography variant="body2">
-                    <b>Tutor id:</b> {sessionQuery.data.tutorId}
-                  </Typography>
-                  <Typography variant="body2">
-                    <b>Student id:</b> {sessionQuery.data.studentId}
-                  </Typography>
-                  <Typography variant="body2">
-                    <b>Parent/Guardian id:</b> {sessionQuery.data.parentGuardianId ?? "None"}
-                  </Typography>
-                  <Typography variant="body2">
-                    <b>Scheduled (Tehran):</b> {toTehranDisplay(sessionQuery.data.scheduledTimeUtc)}
-                  </Typography>
-                  <Typography variant="body2">
-                    <b>End (Tehran):</b> {toTehranDisplay(sessionQuery.data.endTimeUtc)}
-                  </Typography>
-                </Stack>
-
-                <SessionActions session={sessionQuery.data} />
-
-                {sessionQuery.data.status === SessionStatus.Scheduled ? (
-                  <RescheduleSessionForm
-                    sessionId={sessionQuery.data.sessionId}
-                    tutorId={sessionQuery.data.tutorId}
-                    currentAvailabilitySlotId={sessionQuery.data.availabilitySlotId}
-                  />
-                ) : null}
-              </Stack>
-            ) : null}
-          </CardContent>
-        </Card>
+        <SessionDetailContent session={sessionQuery.data} />
       )}
     </Stack>
   );

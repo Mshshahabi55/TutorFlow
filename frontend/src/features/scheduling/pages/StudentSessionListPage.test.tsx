@@ -33,7 +33,18 @@ describe("StudentSessionListPage", () => {
     expect(screen.getByLabelText("Student id")).toBeInTheDocument();
   });
 
-  it("shows an empty state when the Student has no sessions", async () => {
+  it("shows a skeleton layout while loading, not an abrupt spinner", () => {
+    vi.spyOn(schedulingService, "fetchStudentSchedule").mockReturnValue(new Promise(() => {}));
+
+    renderWithProviders(<StudentSessionListPage />, {
+      initialEntries: [`/scheduling/students/${STUDENT_ID}/schedule`],
+      routePath: "/scheduling/students/:studentId/schedule",
+    });
+
+    expect(screen.getAllByTestId("session-card-skeleton").length).toBeGreaterThan(0);
+  });
+
+  it("shows a professional empty state guiding the Student to find a tutor, when there are no sessions", async () => {
     vi.spyOn(schedulingService, "fetchStudentSchedule").mockResolvedValue([]);
 
     renderWithProviders(<StudentSessionListPage />, {
@@ -42,9 +53,13 @@ describe("StudentSessionListPage", () => {
     });
 
     expect(await screen.findByText("No sessions yet")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Find a tutor/ })).toHaveAttribute(
+      "href",
+      "/discovery/tutors/search",
+    );
   });
 
-  it("lists sessions and navigates to the detail page on row click, without triggering a row action", async () => {
+  it("highlights the sole Scheduled session as the Next Lesson, and navigates to its detail page on click, without triggering a row action", async () => {
     vi.spyOn(schedulingService, "fetchStudentSchedule").mockResolvedValue([SESSION]);
     const cancelSession = vi.spyOn(schedulingService, "cancelSession");
 
@@ -70,10 +85,56 @@ describe("StudentSessionListPage", () => {
       </QueryClientProvider>,
     );
 
-    const cell = await screen.findByText("t1");
-    await userEvent.click(cell);
+    expect(await screen.findByRole("heading", { name: "Next Lesson" })).toBeInTheDocument();
+
+    const info = await screen.findByText("Tutor: t1");
+    await userEvent.click(info);
 
     expect(await screen.findByText("Session detail route reached")).toBeInTheDocument();
     expect(cancelSession).not.toHaveBeenCalled();
+  });
+
+  it("groups a second upcoming session under Upcoming Sessions, separate from the Next Lesson highlight", async () => {
+    const laterSession = {
+      ...SESSION,
+      sessionId: "55555555-5555-5555-5555-555555555555",
+      scheduledTimeUtc: "2026-08-05T14:00:00Z",
+      endTimeUtc: "2026-08-05T15:00:00Z",
+    };
+    vi.spyOn(schedulingService, "fetchStudentSchedule").mockResolvedValue([laterSession, SESSION]);
+
+    renderWithProviders(<StudentSessionListPage />, {
+      initialEntries: [`/scheduling/students/${STUDENT_ID}/schedule`],
+      routePath: "/scheduling/students/:studentId/schedule",
+    });
+
+    expect(await screen.findByRole("heading", { name: "Next Lesson" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Upcoming Sessions" })).toBeInTheDocument();
+  });
+
+  it("groups Completed and Cancelled/No-Show sessions separately under History", async () => {
+    const completedSession = {
+      ...SESSION,
+      sessionId: "66666666-6666-6666-6666-666666666666",
+      status: SessionStatus.Completed,
+    };
+    const cancelledSession = {
+      ...SESSION,
+      sessionId: "77777777-7777-7777-7777-777777777777",
+      status: SessionStatus.Cancelled,
+    };
+    vi.spyOn(schedulingService, "fetchStudentSchedule").mockResolvedValue([
+      completedSession,
+      cancelledSession,
+    ]);
+
+    renderWithProviders(<StudentSessionListPage />, {
+      initialEntries: [`/scheduling/students/${STUDENT_ID}/schedule`],
+      routePath: "/scheduling/students/:studentId/schedule",
+    });
+
+    expect(await screen.findByRole("heading", { name: "History" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Completed" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Cancelled & No-Show" })).toBeInTheDocument();
   });
 });

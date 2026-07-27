@@ -1,41 +1,23 @@
 import { useState, type ReactNode } from "react";
-import {
-  Box,
-  Button,
-  Drawer,
-  IconButton,
-  Stack,
-  Typography,
-  useMediaQuery,
-  useTheme,
-} from "@mui/material";
+import { Box, Button, Drawer, IconButton, Stack, Typography } from "@mui/material";
 import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 
 export interface TutorFilterPanelProps {
-  /** Used only for the mobile "Filters (n)" button label — desktop shows every field inline already. */
+  /** Shown in the "Filters (n)" button label once at least one filter is active. */
   activeFilterCount: number;
   children: ReactNode;
 }
 
 /**
- * Desktop (`md`+): the filter fields render inline, in a wrapping row.
- * Below `md`: the exact same fields render once, inside a Drawer opened by
- * a "Filters" button — never duplicated, so there is always exactly one
- * instance of each field's `<label>` in the DOM, regardless of viewport.
+ * A slide-over filter panel, at every viewport size — RC2's marketplace
+ * search spec: filters live behind a "Filters" button and a Drawer on
+ * every screen, not inline on desktop and hidden on mobile. Keeps exactly
+ * one instance of each field's `<label>` in the DOM at a time, opened
+ * on demand instead of always taking up page width.
  */
 export function TutorFilterPanel({ activeFilterCount, children }: TutorFilterPanelProps) {
-  const theme = useTheme();
-  const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
   const [open, setOpen] = useState(false);
-
-  if (isDesktop) {
-    return (
-      <Stack direction="row" flexWrap="wrap" gap={2} useFlexGap>
-        {children}
-      </Stack>
-    );
-  }
 
   return (
     <>
@@ -48,7 +30,12 @@ export function TutorFilterPanel({ activeFilterCount, children }: TutorFilterPan
       >
         {activeFilterCount > 0 ? `Filters (${activeFilterCount})` : "Filters"}
       </Button>
-      <Drawer anchor="bottom" open={open} onClose={() => setOpen(false)}>
+      <Drawer
+        anchor="right"
+        open={open}
+        onClose={() => setOpen(false)}
+        slotProps={{ paper: { sx: { width: { xs: "100%", sm: 380 } } } }}
+      >
         <Box p={3} role="presentation">
           <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
             <Typography variant="h5" component="h2">

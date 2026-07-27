@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -7,33 +7,13 @@ import { TutorSearchPage } from "@/features/discovery/pages/TutorSearchPage";
 import { renderWithProviders } from "@/test/renderWithProviders";
 import * as discoveryService from "@/features/discovery/api/discoveryService";
 
-// Phase 3 Step 2: the filter fields (Language, Location, Available from)
-// render inline on desktop but inside a closed Drawer below the `md`
-// breakpoint (TutorFilterPanel) — same convention AppLayout.test.tsx
-// already established for its own responsive nav. Every test that reaches
-// those fields directly forces desktop so they're present in the DOM
-// without needing to open the Drawer first; the Drawer itself is exercised
-// by its own dedicated test below.
-function mockViewport(matches: boolean) {
-  window.matchMedia = vi.fn((query: string): MediaQueryList => ({
-    matches,
-    media: query,
-    onchange: null,
-    addListener: () => {},
-    removeListener: () => {},
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    dispatchEvent: () => false,
-  }));
+/** RC2: Language/Location/Available from live behind the Filters drawer at every viewport (TutorFilterPanel) — Subject stays on the always-visible SearchHero. */
+async function openFilters() {
+  await userEvent.click(screen.getByRole("button", { name: /Filters/ }));
 }
 
 describe("TutorSearchPage", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it("shows an empty state when no Tutors match", async () => {
-    mockViewport(true);
     vi.spyOn(discoveryService, "searchTutors").mockResolvedValue({
       items: [],
       totalCount: 0,
@@ -47,7 +27,6 @@ describe("TutorSearchPage", () => {
   });
 
   it("shows skeleton cards while the search is pending, with no layout shift once results arrive", () => {
-    mockViewport(true);
     vi.spyOn(discoveryService, "searchTutors").mockReturnValue(new Promise(() => {}));
 
     renderWithProviders(<TutorSearchPage />);
@@ -56,7 +35,6 @@ describe("TutorSearchPage", () => {
   });
 
   it("searches with the entered subject filter and resets to page 1", async () => {
-    mockViewport(true);
     const searchTutors = vi.spyOn(discoveryService, "searchTutors").mockResolvedValue({
       items: [],
       totalCount: 0,
@@ -78,7 +56,6 @@ describe("TutorSearchPage", () => {
   });
 
   it("shows a Clear filters action and a removable filter chip only after a filtered search, and resets both on click", async () => {
-    mockViewport(true);
     const searchTutors = vi.spyOn(discoveryService, "searchTutors").mockResolvedValue({
       items: [],
       totalCount: 0,
@@ -109,7 +86,6 @@ describe("TutorSearchPage", () => {
   });
 
   it("removes a single active filter via its chip without clearing the others", async () => {
-    mockViewport(true);
     const searchTutors = vi.spyOn(discoveryService, "searchTutors").mockResolvedValue({
       items: [],
       totalCount: 0,
@@ -121,7 +97,9 @@ describe("TutorSearchPage", () => {
     await screen.findByText("No Tutors match these filters");
 
     await userEvent.type(screen.getByLabelText("Subject"), "Mathematics");
+    await openFilters();
     await userEvent.type(screen.getByLabelText("Language"), "English");
+    await userEvent.click(screen.getByRole("button", { name: "Show results" }));
     await userEvent.click(screen.getByRole("button", { name: "Search" }));
 
     await screen.findByText("Subject: Mathematics");
@@ -145,7 +123,6 @@ describe("TutorSearchPage", () => {
   // the old "rejects a malformed availableFrom filter" assertion into
   // "searches with a Tehran-entered availableFrom, converted to UTC".
   it("searches with a Tehran-entered availableFrom filter, converted to UTC", async () => {
-    mockViewport(true);
     const searchTutors = vi.spyOn(discoveryService, "searchTutors").mockResolvedValue({
       items: [],
       totalCount: 0,
@@ -156,8 +133,10 @@ describe("TutorSearchPage", () => {
     renderWithProviders(<TutorSearchPage />);
     await screen.findByText("No Tutors match these filters");
 
+    await openFilters();
     // 2026-08-01T17:30 Tehran (UTC+03:30) is 2026-08-01T14:00:00Z.
     await userEvent.type(screen.getByLabelText("Available from (Tehran)"), "2026-08-01T17:30");
+    await userEvent.click(screen.getByRole("button", { name: "Show results" }));
     await userEvent.click(screen.getByRole("button", { name: "Search" }));
 
     expect(searchTutors).toHaveBeenLastCalledWith(
@@ -168,7 +147,6 @@ describe("TutorSearchPage", () => {
   });
 
   it("navigates to the Tutor's detail page from a card's View profile action", async () => {
-    mockViewport(true);
     vi.spyOn(discoveryService, "searchTutors").mockResolvedValue({
       items: [
         {
@@ -210,7 +188,6 @@ describe("TutorSearchPage", () => {
   });
 
   it("shows a Verified badge only for an approved Tutor", async () => {
-    mockViewport(true);
     vi.spyOn(discoveryService, "searchTutors").mockResolvedValue({
       items: [
         {
@@ -248,8 +225,7 @@ describe("TutorSearchPage", () => {
     expect(screen.getByRole("heading", { name: "Physics" })).toBeInTheDocument();
   });
 
-  it("renders the filters behind a Filters button inside a Drawer on a mobile-sized viewport", async () => {
-    mockViewport(false);
+  it("renders the filters behind a Filters button inside a slide-over Drawer", async () => {
     vi.spyOn(discoveryService, "searchTutors").mockResolvedValue({
       items: [],
       totalCount: 0,
@@ -262,7 +238,7 @@ describe("TutorSearchPage", () => {
 
     expect(screen.queryByLabelText("Language")).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "Filters" }));
+    await openFilters();
 
     expect(await screen.findByLabelText("Language")).toBeInTheDocument();
     expect(screen.getByLabelText("Location")).toBeInTheDocument();

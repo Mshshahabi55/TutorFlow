@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
-import { Box, Button, Chip, Step, StepLabel, Stepper, Stack, Typography } from "@mui/material";
+import { Button, Chip, Step, StepLabel, Stepper, Stack, Typography } from "@mui/material";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import { useForm } from "react-hook-form";
@@ -154,21 +154,26 @@ export function BookSessionPage() {
 
   if (hasContext && tutorQuery.isError) {
     return (
-      <Stack spacing={3} maxWidth={720} alignItems="center" textAlign="center" py={4}>
+      <Stack spacing={2} maxWidth={480} mx="auto" alignItems="center" textAlign="center" py={4}>
         <Typography variant="h4" component="h1">
-          This tutor could not be loaded
+          We couldn&rsquo;t load this tutor
         </Typography>
-        <Box maxWidth={480} width="100%">
-          <ErrorState error={tutorQuery.error} onRetry={() => void tutorQuery.refetch()} />
-        </Box>
-        <Button
-          component={RouterLink}
-          to={paths.discovery.tutorSearch}
-          variant="outlined"
-          startIcon={<ArrowBackRoundedIcon />}
-        >
-          Back to search
-        </Button>
+        <Typography variant="body1" color="text.secondary">
+          Something went wrong on our end. Try again, or find another tutor with open times now.
+        </Typography>
+        <Stack direction="row" spacing={1.5} mt={1}>
+          <Button variant="outlined" onClick={() => void tutorQuery.refetch()}>
+            Try again
+          </Button>
+          <Button
+            component={RouterLink}
+            to={paths.discovery.tutorSearch}
+            variant="contained"
+            startIcon={<SearchRoundedIcon />}
+          >
+            Find Tutors
+          </Button>
+        </Stack>
       </Stack>
     );
   }
@@ -281,7 +286,7 @@ export function BookSessionPage() {
                           color={dateKey === selectedDateKey ? "primary" : "default"}
                           variant={dateKey === selectedDateKey ? "filled" : "outlined"}
                           onClick={() => handleSelectDate(dateKey)}
-                          sx={{ px: 1, py: 2.5, fontSize: "0.95rem" }}
+                          sx={{ height: 48, px: 1, fontSize: "0.95rem" }}
                         />
                       ))}
                     </Stack>

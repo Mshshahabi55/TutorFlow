@@ -92,6 +92,17 @@ function RecentActivityContent({ studentId }: { studentId: string }) {
       <EmptyState
         title="No recent activity yet"
         description="Your bookings, completed sessions, and updates will show up here."
+        action={
+          <Button
+            component={RouterLink}
+            to={paths.discovery.tutorSearch}
+            variant="outlined"
+            size="small"
+            startIcon={<SearchRoundedIcon />}
+          >
+            Find Tutors
+          </Button>
+        }
       />
     );
   }
@@ -179,7 +190,7 @@ export function StudentDashboard() {
                   size="small"
                   startIcon={<SearchRoundedIcon />}
                 >
-                  Find a tutor
+                  Find Tutors
                 </Button>
               }
             />

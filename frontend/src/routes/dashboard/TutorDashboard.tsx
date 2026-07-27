@@ -10,7 +10,9 @@ import { AvailabilitySummaryCardSkeleton } from "@/features/scheduling/component
 import { SectionCard } from "@/shared/components/SectionCard";
 import { TeachingDayCard } from "@/routes/dashboard/TeachingDayCard";
 import { PageHeader } from "@/shared/components/PageHeader";
+import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded";
 import { IdentityGate } from "@/shared/components/IdentityGate";
+import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { isTodayInTehran } from "@/shared/time/tehranTime";
 import { ROLE_QUICK_ACTIONS } from "@/routes/dashboardRoleConfig";
@@ -137,9 +139,21 @@ function TeachingOverview({ tutorId }: TeachingOverviewProps) {
         ) : slotsQuery.isError ? (
           <ErrorState error={slotsQuery.error} onRetry={() => void slotsQuery.refetch()} />
         ) : openSlots.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
-            No open Availability Slots right now.
-          </Typography>
+          <EmptyState
+            title="No availability yet"
+            description="Add some open times so Students can book a lesson with you."
+            action={
+              <Button
+                component={RouterLink}
+                to={paths.scheduling.declareAvailability}
+                variant="contained"
+                size="small"
+                startIcon={<EventAvailableRoundedIcon />}
+              >
+                Add Availability
+              </Button>
+            }
+          />
         ) : (
           <Stack spacing={2}>
             {openSlots.map((slot) => (

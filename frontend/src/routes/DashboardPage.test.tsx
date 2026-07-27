@@ -94,7 +94,8 @@ describe("DashboardPage", () => {
 
     renderDashboard();
 
-    expect(screen.getByRole("link", { name: /Find Tutors/ })).toHaveAttribute(
+    const quickActions = screen.getByRole("region", { name: "Quick actions" });
+    expect(within(quickActions).getByRole("link", { name: /Find Tutors/ })).toHaveAttribute(
       "href",
       "/discovery/tutors/search",
     );

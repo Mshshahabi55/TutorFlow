@@ -225,8 +225,8 @@ describe("BookSessionPage", () => {
       );
     });
 
-    it("shows an error panel with a Back to search action when the Tutor cannot be loaded", async () => {
-      vi.spyOn(identityService, "fetchTutorById").mockRejectedValue(new Error("Not found"));
+    it("shows a friendly error panel with a Find Tutors action when the Tutor cannot be loaded, never the raw backend error", async () => {
+      vi.spyOn(identityService, "fetchTutorById").mockRejectedValue(new Error("500 Internal Server Error"));
       vi.spyOn(schedulingService, "fetchTutorAvailabilitySlots").mockResolvedValue([]);
 
       renderWithProviders(<BookSessionPage />, {
@@ -234,10 +234,10 @@ describe("BookSessionPage", () => {
       });
 
       expect(
-        await screen.findByRole("heading", { name: "This tutor could not be loaded" }),
+        await screen.findByRole("heading", { name: "We couldn’t load this tutor" }),
       ).toBeInTheDocument();
-      expect(screen.getByText("Not found")).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: /Back to search/ })).toHaveAttribute(
+      expect(screen.queryByText("500 Internal Server Error")).not.toBeInTheDocument();
+      expect(screen.getByRole("link", { name: /Find Tutors/ })).toHaveAttribute(
         "href",
         "/discovery/tutors/search",
       );

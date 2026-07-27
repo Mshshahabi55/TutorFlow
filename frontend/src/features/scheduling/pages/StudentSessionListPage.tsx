@@ -42,8 +42,8 @@ function SessionsWorkspace({ sessions, onOpen }: SessionsWorkspaceProps) {
   if (sessions.length === 0) {
     return (
       <EmptyState
-        title="No sessions yet"
-        description="Once you book a session with a tutor, it will appear here."
+        title="No lessons yet"
+        description="You haven't booked your first lesson. Find a tutor to get started."
         action={
           <Button
             component={RouterLink}
@@ -51,7 +51,7 @@ function SessionsWorkspace({ sessions, onOpen }: SessionsWorkspaceProps) {
             variant="contained"
             startIcon={<SearchRoundedIcon />}
           >
-            Find a tutor
+            Find Tutors
           </Button>
         }
       />

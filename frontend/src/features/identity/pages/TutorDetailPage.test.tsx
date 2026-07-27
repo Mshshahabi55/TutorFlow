@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { TutorDetailPage } from "@/features/identity/pages/TutorDetailPage";
 import { renderWithProviders } from "@/test/renderWithProviders";
 import * as identityService from "@/features/identity/api/identityService";
@@ -168,17 +169,34 @@ describe("TutorDetailPage", () => {
     expect(screen.getByText("5 Toman/hr")).toBeInTheDocument();
   });
 
-  it("shows a professional not-found panel with a Back to search action when the lookup fails", async () => {
-    vi.spyOn(identityService, "fetchTutorById").mockRejectedValue(new Error("Not found"));
+  it("shows a friendly not-found panel with a Find Tutors action when the lookup fails, never the raw backend error", async () => {
+    vi.spyOn(identityService, "fetchTutorById").mockRejectedValue(new Error("404 Not Found"));
 
     renderPage();
 
-    expect(await screen.findByRole("heading", { name: "Tutor not found" })).toBeInTheDocument();
-    expect(screen.getByText("Not found")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Back to search/ })).toHaveAttribute(
+    expect(
+      await screen.findByRole("heading", { name: "We couldn’t find that tutor" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("404 Not Found")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Find Tutors/ })).toHaveAttribute(
       "href",
       "/discovery/tutors/search",
     );
+  });
+
+  it("retries the Tutor lookup from the not-found panel's Try again action", async () => {
+    const fetchTutorById = vi
+      .spyOn(identityService, "fetchTutorById")
+      .mockRejectedValueOnce(new Error("Network error"))
+      .mockResolvedValueOnce(TUTOR);
+
+    renderPage();
+
+    await screen.findByRole("heading", { name: "We couldn’t find that tutor" });
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect(await screen.findByRole("heading", { name: "Mathematics" })).toBeInTheDocument();
+    expect(fetchTutorById).toHaveBeenCalledTimes(2);
   });
 
   // Phase 4.9 Task 4: Edit offering and Approve/Suspend previously rendered

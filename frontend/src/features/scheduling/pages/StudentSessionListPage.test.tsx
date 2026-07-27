@@ -66,8 +66,8 @@ describe("StudentSessionListPage", () => {
       routePath: "/scheduling/students/:studentId/schedule",
     });
 
-    expect(await screen.findByText("No sessions yet")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Find a tutor/ })).toHaveAttribute(
+    expect(await screen.findByText("No lessons yet")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Find Tutors/ })).toHaveAttribute(
       "href",
       "/discovery/tutors/search",
     );

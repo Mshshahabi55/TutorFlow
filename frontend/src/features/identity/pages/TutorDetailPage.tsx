@@ -3,7 +3,7 @@ import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 import { Box, Button, Chip, Link as MuiLink, Stack, Typography } from "@mui/material";
 import ReviewsRoundedIcon from "@mui/icons-material/ReviewsRounded";
 import EventRoundedIcon from "@mui/icons-material/EventRounded";
-import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
+import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import { useTutor } from "@/features/identity/hooks/useTutorQueries";
 import { useTutorAvailabilitySlots } from "@/features/scheduling/hooks/useAvailabilitySlotQueries";
 import { AvailabilityCard } from "@/features/scheduling/components/AvailabilityCard";
@@ -312,23 +312,36 @@ function BookingCallToActionSection({ tutor }: { tutor: TutorDto }) {
   );
 }
 
-function TutorNotFound({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+/**
+ * A friendly placeholder for "the id in the URL doesn't resolve" — whether
+ * that's a genuine 404, a network failure, or anything else the backend
+ * reports, the actionable message for a Student browsing tutors is the
+ * same either way: try again, or go find another tutor. `onRetry` covers
+ * the transient (network) case; "Find Tutors" covers "this tutor really
+ * doesn't exist" without ever surfacing the backend's own wording.
+ */
+function TutorNotFound({ onRetry }: { onRetry: () => void }) {
   return (
-    <Stack spacing={3} alignItems="center" textAlign="center" py={6}>
+    <Stack spacing={2} alignItems="center" textAlign="center" py={6} maxWidth={480} mx="auto">
       <Typography variant="h4" component="h1">
-        Tutor not found
+        We couldn&rsquo;t find that tutor
       </Typography>
-      <Box maxWidth={480} width="100%">
-        <ErrorState error={error} onRetry={onRetry} title="This profile could not be loaded" />
-      </Box>
-      <Button
-        component={RouterLink}
-        to={paths.discovery.tutorSearch}
-        variant="outlined"
-        startIcon={<ArrowBackRoundedIcon />}
-      >
-        Back to search
-      </Button>
+      <Typography variant="body1" color="text.secondary">
+        This profile may have been removed, or the link might be broken.
+      </Typography>
+      <Stack direction="row" spacing={1.5} mt={1}>
+        <Button variant="outlined" onClick={onRetry}>
+          Try again
+        </Button>
+        <Button
+          component={RouterLink}
+          to={paths.discovery.tutorSearch}
+          variant="contained"
+          startIcon={<SearchRoundedIcon />}
+        >
+          Find Tutors
+        </Button>
+      </Stack>
     </Stack>
   );
 }
@@ -352,7 +365,7 @@ export function TutorDetailPage() {
   }
 
   if (tutorQuery.isError) {
-    return <TutorNotFound error={tutorQuery.error} onRetry={() => void tutorQuery.refetch()} />;
+    return <TutorNotFound onRetry={() => void tutorQuery.refetch()} />;
   }
 
   const tutor = tutorQuery.data;

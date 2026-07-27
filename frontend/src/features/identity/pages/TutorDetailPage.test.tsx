@@ -90,7 +90,7 @@ describe("TutorDetailPage", () => {
     const bookLinks = await screen.findAllByRole("link", { name: "Book Session" });
     expect(bookLinks.length).toBeGreaterThan(0);
     for (const link of bookLinks) {
-      expect(link).toHaveAttribute("href", "/scheduling/sessions/book");
+      expect(link).toHaveAttribute("href", `/scheduling/sessions/book?tutorId=${TUTOR_ID}`);
     }
   });
 

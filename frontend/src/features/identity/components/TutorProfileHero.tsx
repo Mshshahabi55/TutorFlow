@@ -59,7 +59,7 @@ export function TutorProfileHero({ tutor }: { tutor: TutorDto }) {
 
       <Button
         component={RouterLink}
-        to={paths.scheduling.bookSession}
+        to={`${paths.scheduling.bookSession}?tutorId=${tutor.tutorId}`}
         variant="contained"
         size="large"
         startIcon={<EventRoundedIcon />}

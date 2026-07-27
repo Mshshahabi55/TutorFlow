@@ -168,7 +168,7 @@ function ReviewsSection() {
   );
 }
 
-function BookingCallToActionSection() {
+function BookingCallToActionSection({ tutor }: { tutor: TutorDto }) {
   return (
     <ProfileSectionCard title="Ready to get started?">
       <Stack spacing={2} alignItems="flex-start">
@@ -177,7 +177,7 @@ function BookingCallToActionSection() {
         </Typography>
         <Button
           component={RouterLink}
-          to={paths.scheduling.bookSession}
+          to={`${paths.scheduling.bookSession}?tutorId=${tutor.tutorId}`}
           variant="contained"
           startIcon={<EventRoundedIcon />}
           fullWidth
@@ -244,7 +244,7 @@ export function TutorDetailPage() {
         <Stack flex={1} spacing={3} width="100%">
           <TeachingInformationSection tutor={tutor} />
           <ManageListingSection tutor={tutor} />
-          <BookingCallToActionSection />
+          <BookingCallToActionSection tutor={tutor} />
         </Stack>
       </Stack>
     </Stack>

@@ -35,6 +35,26 @@ import { paths } from "@/routes/paths";
 const STEPS = ["Choose Tutor", "Choose Date", "Choose Time", "Review", "Confirm"] as const;
 
 /**
+ * Pins the wizard's primary action(s) to the bottom of the viewport on
+ * mobile, where the button would otherwise scroll out of reach below a
+ * long Tutor summary/booking summary — desktop keeps the button inline,
+ * already visible without scrolling. `env(safe-area-inset-bottom)` clears
+ * a device's home-indicator/gesture bar instead of the button sitting
+ * flush against it.
+ */
+const mobileStickyActionsSx = {
+  position: { xs: "sticky", sm: "static" },
+  bottom: 0,
+  bgcolor: "background.default",
+  mx: { xs: -2, sm: 0 },
+  px: { xs: 2, sm: 0 },
+  pt: { xs: 1.5, sm: 0 },
+  pb: { xs: "calc(12px + env(safe-area-inset-bottom))", sm: 0 },
+  borderTop: { xs: "1px solid", sm: "none" },
+  borderColor: "divider",
+} as const;
+
+/**
  * POST /sessions books a Session against an already-declared Availability
  * Slot — same command, validation, and route as before. RC2 replaces the
  * old single-page form with a 5-step wizard (Choose Tutor → Choose Date →
@@ -256,15 +276,17 @@ export function BookSessionPage() {
             {activeStep === 0 ? (
               <Stack spacing={3}>
                 {tutorQuery.isSuccess ? <TutorSummaryCard tutor={tutorQuery.data} /> : null}
-                <Button
-                  type="button"
-                  variant="contained"
-                  size="large"
-                  onClick={() => setActiveStep(1)}
-                  sx={{ alignSelf: { xs: "stretch", sm: "flex-start" } }}
-                >
-                  Continue
-                </Button>
+                <Stack sx={mobileStickyActionsSx}>
+                  <Button
+                    type="button"
+                    variant="contained"
+                    size="large"
+                    onClick={() => setActiveStep(1)}
+                    sx={{ alignSelf: { xs: "stretch", sm: "flex-start" } }}
+                  >
+                    Continue
+                  </Button>
+                </Stack>
               </Stack>
             ) : null}
 
@@ -349,7 +371,7 @@ export function BookSessionPage() {
                     />
                   </Stack>
                 </SectionCard>
-                <Stack direction="row" spacing={1.5}>
+                <Stack direction="row" spacing={1.5} sx={mobileStickyActionsSx}>
                   <Button
                     type="button"
                     variant="outlined"
@@ -373,7 +395,7 @@ export function BookSessionPage() {
                 {bookSession.isError ? (
                   <BookingStatusBanner status="error" error={bookSession.error} />
                 ) : null}
-                <Stack direction="row" spacing={1.5}>
+                <Stack direction="row" spacing={1.5} sx={mobileStickyActionsSx}>
                   <Button
                     type="button"
                     variant="outlined"

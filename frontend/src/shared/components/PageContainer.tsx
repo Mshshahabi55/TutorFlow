@@ -16,7 +16,11 @@ export function PageContainer({ children }: { children: ReactNode }) {
         maxWidth: CONTENT_MAX_WIDTH,
         mx: "auto",
         px: { xs: 2, sm: 3, md: 4 },
-        py: { xs: 3, sm: 4 },
+        pt: { xs: 3, sm: 4 },
+        // A device's home-indicator/gesture bar (env(safe-area-inset-bottom))
+        // sits below the viewport's visual edge — pad the page's bottom so
+        // content never ends up flush against it.
+        pb: { xs: "calc(24px + env(safe-area-inset-bottom))", sm: 4 },
       }}
     >
       {children}

@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from "react";
 import { Link as RouterLink, Navigate, useNavigate, useParams } from "react-router-dom";
 import { Button, Stack, Typography } from "@mui/material";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
+import EventRoundedIcon from "@mui/icons-material/EventRounded";
 import { useStudentSchedule } from "@/features/scheduling/hooks/useSessionQueries";
 import { NextSessionCard } from "@/features/scheduling/components/NextSessionCard";
 import { SessionCard } from "@/features/scheduling/components/SessionCard";
@@ -120,6 +121,17 @@ function SessionsWorkspace({ sessions, onOpen }: SessionsWorkspaceProps) {
           </Stack>
         </SectionCard>
       ) : null}
+
+      <Button
+        component={RouterLink}
+        to={paths.scheduling.bookSession}
+        variant="contained"
+        size="large"
+        startIcon={<EventRoundedIcon />}
+        sx={{ alignSelf: { xs: "stretch", sm: "flex-start" } }}
+      >
+        Book another lesson
+      </Button>
     </Stack>
   );
 }

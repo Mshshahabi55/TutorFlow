@@ -73,6 +73,20 @@ describe("StudentSessionListPage", () => {
     );
   });
 
+  it("offers a large Book another lesson CTA when there are existing sessions", async () => {
+    vi.spyOn(schedulingService, "fetchStudentSchedule").mockResolvedValue([SESSION]);
+
+    renderWithProviders(<StudentSessionListPage />, {
+      initialEntries: [`/scheduling/students/${STUDENT_ID}/schedule`],
+      routePath: "/scheduling/students/:studentId/schedule",
+    });
+
+    expect(await screen.findByRole("link", { name: /Book another lesson/ })).toHaveAttribute(
+      "href",
+      "/scheduling/sessions/book",
+    );
+  });
+
   it("highlights the sole Scheduled session as the Next Lesson, and navigates to its detail page on click, without triggering a row action", async () => {
     vi.spyOn(schedulingService, "fetchStudentSchedule").mockResolvedValue([SESSION]);
     const cancelSession = vi.spyOn(schedulingService, "cancelSession");

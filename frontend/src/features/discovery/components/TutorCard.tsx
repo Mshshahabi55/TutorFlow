@@ -63,9 +63,19 @@ function TutorCardMeta({ tutor }: { tutor: TutorDto }) {
 
 function TutorCardActions({ tutorId }: { tutorId: string }) {
   return (
-    <Button component={RouterLink} to={paths.identity.tutorDetail(tutorId)} variant="contained" fullWidth>
-      View profile
-    </Button>
+    <Stack spacing={1}>
+      <Button
+        component={RouterLink}
+        to={`${paths.scheduling.bookSession}?tutorId=${tutorId}`}
+        variant="contained"
+        fullWidth
+      >
+        Book Lesson
+      </Button>
+      <Button component={RouterLink} to={paths.identity.tutorDetail(tutorId)} variant="outlined" fullWidth>
+        View profile
+      </Button>
+    </Stack>
   );
 }
 

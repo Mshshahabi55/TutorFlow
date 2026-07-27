@@ -68,12 +68,21 @@ describe("TutorCard", () => {
     expect(screen.getByText("Rate not set")).toBeInTheDocument();
   });
 
-  it("links its primary action to the Tutor's existing detail route", () => {
+  it("links its secondary action to the Tutor's existing detail route", () => {
     renderCard(BASE_TUTOR);
 
     expect(screen.getByRole("link", { name: "View profile" })).toHaveAttribute(
       "href",
       "/identity/tutors/11111111-1111-1111-1111-111111111111",
+    );
+  });
+
+  it("links its primary Book Lesson action straight into the booking wizard with this Tutor pre-selected", () => {
+    renderCard(BASE_TUTOR);
+
+    expect(screen.getByRole("link", { name: "Book Lesson" })).toHaveAttribute(
+      "href",
+      "/scheduling/sessions/book?tutorId=11111111-1111-1111-1111-111111111111",
     );
   });
 });

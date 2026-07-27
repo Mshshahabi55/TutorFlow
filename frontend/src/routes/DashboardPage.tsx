@@ -10,6 +10,7 @@ import { useCurrentActor } from "@/shared/hooks/useCurrentActor";
 import type { ActorRole, CurrentActor } from "@/shared/context/ActorContext";
 import { StudentDashboard } from "@/routes/dashboard/StudentDashboard";
 import { TutorDashboard } from "@/routes/dashboard/TutorDashboard";
+import { ParentDashboard } from "@/routes/dashboard/ParentDashboard";
 import { ROLE_QUICK_ACTIONS } from "@/routes/dashboardRoleConfig";
 
 const ROLE_SUMMARY: Record<ActorRole, string> = {
@@ -24,11 +25,11 @@ const ROLE_SUMMARY: Record<ActorRole, string> = {
 };
 
 /**
- * The application's landing page. Student and Tutor each get their own
- * workspace-style home (`StudentDashboard` Phase 3 Step 1, `TutorDashboard`
- * Phase 3 Step 6) — ParentGuardian and AdminStaff keep the original generic
- * dashboard (`GenericDashboard`) unchanged, since neither phase's scope
- * covers those workspaces.
+ * The application's landing page. Student, Tutor, and ParentGuardian each
+ * get their own workspace-style home (`StudentDashboard` Phase 3 Step 1,
+ * `TutorDashboard` Phase 3 Step 6, `ParentDashboard` Phase 3 Step 7) —
+ * AdminStaff keeps the original generic dashboard (`GenericDashboard`)
+ * unchanged, since no phase's scope covers the Admin workspace.
  */
 export function DashboardPage() {
   const { actor } = useCurrentActor();
@@ -39,6 +40,10 @@ export function DashboardPage() {
 
   if (actor.role === "Tutor") {
     return <TutorDashboard />;
+  }
+
+  if (actor.role === "ParentGuardian") {
+    return <ParentDashboard />;
   }
 
   return <GenericDashboard actor={actor} />;

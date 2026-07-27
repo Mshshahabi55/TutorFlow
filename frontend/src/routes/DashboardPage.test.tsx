@@ -10,7 +10,8 @@ import { ConfirmDialogProvider } from "@/shared/context/ConfirmDialogProvider";
 import * as healthService from "@/services/api/healthService";
 import * as discoveryService from "@/features/discovery/api/discoveryService";
 import * as schedulingService from "@/features/scheduling/api/schedulingService";
-import { DeliveryMode, SessionStatus } from "@/services/api/dtos";
+import * as identityService from "@/features/identity/api/identityService";
+import { DeliveryMode, RelationshipStatus, SessionStatus } from "@/services/api/dtos";
 
 function renderDashboard() {
   const queryClient = new QueryClient({
@@ -260,5 +261,109 @@ describe("DashboardPage — Tutor dashboard", () => {
 
     expect(await screen.findByRole("heading", { name: "Availability Summary" })).toBeInTheDocument();
     expect(screen.getByText("Open")).toBeInTheDocument();
+  });
+});
+
+// Phase 3 Step 7: the ParentGuardian role now gets its own family
+// workspace dashboard instead of the generic role-summary dashboard
+// AdminStaff still sees (asserted above).
+describe("DashboardPage — Parent dashboard", () => {
+  const ACCOUNT_ID = "11111111-1111-1111-1111-111111111111";
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.localStorage.setItem("tutorflow.devActorRole", "ParentGuardian");
+  });
+
+  it("shows a Welcome heading and Quick actions with no Parent/Guardian id entered yet", () => {
+    renderDashboard();
+
+    expect(screen.getByRole("heading", { name: "Welcome back" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Relationships/ })).toHaveAttribute(
+      "href",
+      "/identity/relationships",
+    );
+    expect(screen.getByRole("link", { name: /Book a session/ })).toHaveAttribute(
+      "href",
+      "/scheduling/sessions/book",
+    );
+    expect(screen.getByLabelText("Parent/Guardian id")).toBeInTheDocument();
+  });
+
+  it("shows a professional empty state guiding toward inviting a Relationship, when there are no children linked", async () => {
+    vi.spyOn(identityService, "fetchRelationshipsForAccount").mockResolvedValue([]);
+
+    renderDashboard();
+
+    await userEvent.type(screen.getByLabelText("Parent/Guardian id"), ACCOUNT_ID);
+    await userEvent.click(screen.getByRole("button", { name: "Look up" }));
+
+    expect(await screen.findByText("No children linked yet")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Invite a Relationship/ })).toHaveAttribute(
+      "href",
+      "/identity/relationships",
+    );
+  });
+
+  it("shows each child as a Children Overview card, and the single confirmed child's Upcoming Sessions", async () => {
+    vi.spyOn(identityService, "fetchRelationshipsForAccount").mockResolvedValue([
+      {
+        relationshipId: "r1",
+        parentGuardianId: ACCOUNT_ID,
+        studentId: "st1",
+        status: RelationshipStatus.Confirmed,
+      },
+      {
+        relationshipId: "r2",
+        parentGuardianId: ACCOUNT_ID,
+        studentId: "st2",
+        status: RelationshipStatus.Invited,
+      },
+    ]);
+    vi.spyOn(schedulingService, "fetchStudentSchedule").mockResolvedValue([]);
+
+    renderDashboard();
+
+    await userEvent.type(screen.getByLabelText("Parent/Guardian id"), ACCOUNT_ID);
+    await userEvent.click(screen.getByRole("button", { name: "Look up" }));
+
+    // "st1" only ever appears once the relationships query resolves — never
+    // during its loading skeleton — so waiting for it first avoids a race
+    // where findByRole resolves against the loading state's own heading
+    // (rendered with the same title) just before it's replaced.
+    expect(await screen.findByText("st1")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Children Overview" })).toBeInTheDocument();
+    expect(screen.getByText("st2")).toBeInTheDocument();
+    expect(screen.getByText("Confirmed")).toBeInTheDocument();
+    expect(screen.getByText("Invited")).toBeInTheDocument();
+    expect(await screen.findByText("No upcoming sessions yet")).toBeInTheDocument();
+  });
+
+  it("does not aggregate schedules across multiple confirmed children, to avoid an N+1 query pattern", async () => {
+    vi.spyOn(identityService, "fetchRelationshipsForAccount").mockResolvedValue([
+      {
+        relationshipId: "r1",
+        parentGuardianId: ACCOUNT_ID,
+        studentId: "st1",
+        status: RelationshipStatus.Confirmed,
+      },
+      {
+        relationshipId: "r2",
+        parentGuardianId: ACCOUNT_ID,
+        studentId: "st2",
+        status: RelationshipStatus.Confirmed,
+      },
+    ]);
+    const fetchStudentSchedule = vi.spyOn(schedulingService, "fetchStudentSchedule");
+
+    renderDashboard();
+
+    await userEvent.type(screen.getByLabelText("Parent/Guardian id"), ACCOUNT_ID);
+    await userEvent.click(screen.getByRole("button", { name: "Look up" }));
+
+    expect(
+      await screen.findByText(/view each child.s sessions from their card above/i),
+    ).toBeInTheDocument();
+    expect(fetchStudentSchedule).not.toHaveBeenCalled();
   });
 });

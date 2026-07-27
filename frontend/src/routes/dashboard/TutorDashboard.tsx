@@ -1,20 +1,27 @@
 import { Link as RouterLink, useNavigate } from "react-router-dom";
-import { Button, Stack, Typography } from "@mui/material";
+import { Box, Button, Stack, Typography } from "@mui/material";
+import LightbulbRoundedIcon from "@mui/icons-material/LightbulbRounded";
+import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded";
+import { useTutor } from "@/features/identity/hooks/useTutorQueries";
 import { useTutorSchedule } from "@/features/scheduling/hooks/useSessionQueries";
 import { useTutorAvailabilitySlots } from "@/features/scheduling/hooks/useAvailabilitySlotQueries";
 import { byScheduledTimeAscending, byScheduledTimeDescending } from "@/features/scheduling/utils/sessionSort";
+import { deriveStudentRoster } from "@/features/scheduling/utils/studentRoster";
 import { TutorSessionCard } from "@/features/scheduling/components/TutorSessionCard";
+import { StudentRosterCard } from "@/features/scheduling/components/StudentRosterCard";
 import { SessionCardSkeleton } from "@/features/scheduling/components/SessionCardSkeleton";
 import { AvailabilitySummaryCard } from "@/features/scheduling/components/AvailabilitySummaryCard";
 import { AvailabilitySummaryCardSkeleton } from "@/features/scheduling/components/AvailabilitySummaryCardSkeleton";
+import { ProfileCompletionCard } from "@/features/identity/components/ProfileCompletionCard";
+import { deriveProfileCompletion } from "@/features/identity/utils/profileCompletion";
 import { SectionCard } from "@/shared/components/SectionCard";
 import { TeachingDayCard } from "@/routes/dashboard/TeachingDayCard";
+import { NextLessonHeroCard } from "@/routes/dashboard/NextLessonHeroCard";
 import { PageHeader } from "@/shared/components/PageHeader";
-import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded";
 import { IdentityGate } from "@/shared/components/IdentityGate";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
-import { isTodayInTehran } from "@/shared/time/tehranTime";
+import { isTodayInTehran, todayInTehranLabel } from "@/shared/time/tehranTime";
 import { ROLE_QUICK_ACTIONS } from "@/routes/dashboardRoleConfig";
 import { SessionStatus } from "@/services/api/dtos";
 import type { SessionDto } from "@/services/api/dtos";
@@ -23,9 +30,23 @@ import { paths } from "@/routes/paths";
 const RECENT_ACTIVITY_LIMIT = 3;
 const UPCOMING_PREVIEW_LIMIT = 5;
 const AVAILABILITY_PREVIEW_LIMIT = 3;
+const ATTENTION_LIMIT = 3;
 
 interface TeachingOverviewProps {
   tutorId: string;
+}
+
+function TeachingSummaryStat({ label, value }: { label: string; value: number }) {
+  return (
+    <Box flex={1} minWidth={120}>
+      <Typography variant="h4" component="p" fontWeight={700}>
+        {value}
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        {label}
+      </Typography>
+    </Box>
+  );
 }
 
 /**
@@ -33,10 +54,15 @@ interface TeachingOverviewProps {
  * anywhere in this app (ADR-011 remains frozen), so the overview below only
  * populates once a Tutor id is known — via the shared `useRememberedId`/
  * `IdentityGate` pattern, so it's asked for once per device rather than on
- * every visit.
+ * every visit. Reuses `useTutor`, `useTutorSchedule`, and
+ * `useTutorAvailabilitySlots` — the same three hooks `TutorDetailPage`,
+ * `TutorSessionListPage`, `TutorStudentsPage`, and `DeclareAvailabilityPage`
+ * already fetch — React Query's cache means visiting more than one of
+ * these pages in a session never re-requests the same data twice.
  */
 function TeachingOverview({ tutorId }: TeachingOverviewProps) {
   const navigate = useNavigate();
+  const tutorQuery = useTutor(tutorId);
   const scheduleQuery = useTutorSchedule(tutorId);
   const slotsQuery = useTutorAvailabilitySlots(tutorId);
 
@@ -58,11 +84,39 @@ function TeachingOverview({ tutorId }: TeachingOverviewProps) {
     .filter((session) => session.status !== SessionStatus.Scheduled)
     .sort(byScheduledTimeDescending)
     .slice(0, RECENT_ACTIVITY_LIMIT);
+  const nextLesson = sessions
+    .filter((session) => session.status === SessionStatus.Scheduled)
+    .sort(byScheduledTimeAscending)[0];
+
+  // "Requiring attention": this Student's most recent lesson didn't go as
+  // scheduled (Cancelled/No-Show) and nothing new is booked yet — a real,
+  // honest signal derived entirely from statuses already in the Tutor's
+  // own schedule, not a fabricated "at risk" score.
+  const roster = deriveStudentRoster(sessions);
+  const studentsRequiringAttention = roster
+    .filter(
+      (entry) =>
+        entry.mostRecentPastSession &&
+        (entry.mostRecentPastSession.status === SessionStatus.Cancelled ||
+          entry.mostRecentPastSession.status === SessionStatus.NoShow) &&
+        !entry.nextSession,
+    )
+    .sort(
+      (a, b) =>
+        Date.parse(b.mostRecentPastSession!.scheduledTimeUtc) -
+        Date.parse(a.mostRecentPastSession!.scheduledTimeUtc),
+    )
+    .slice(0, ATTENTION_LIMIT);
 
   const openSlots = (slotsQuery.data ?? [])
     .filter((slot) => !slot.isConsumed)
-    .sort((a, b) => Date.parse(a.startTimeUtc) - Date.parse(b.startTimeUtc))
-    .slice(0, AVAILABILITY_PREVIEW_LIMIT);
+    .sort((a, b) => Date.parse(a.startTimeUtc) - Date.parse(b.startTimeUtc));
+  const openSlotsPreview = openSlots.slice(0, AVAILABILITY_PREVIEW_LIMIT);
+  const todaySlots = (slotsQuery.data ?? []).filter((slot) => isTodayInTehran(slot.startTimeUtc));
+  const bookedSlotCount = (slotsQuery.data ?? []).filter((slot) => slot.isConsumed).length;
+
+  const hasAvailability = (slotsQuery.data ?? []).length > 0;
+  const uniqueStudentCount = roster.length;
 
   return (
     <Stack spacing={3}>
@@ -76,10 +130,37 @@ function TeachingOverview({ tutorId }: TeachingOverviewProps) {
         <ErrorState error={scheduleQuery.error} onRetry={() => void scheduleQuery.refetch()} />
       ) : (
         <>
+          <SectionCard title="Teaching Summary">
+            <Stack direction="row" flexWrap="wrap" gap={3}>
+              <TeachingSummaryStat label="Lessons today" value={todaySessions.length} />
+              <TeachingSummaryStat label="Upcoming lessons" value={upcomingSessions.length} />
+              <TeachingSummaryStat label="Students" value={uniqueStudentCount} />
+              <TeachingSummaryStat label="Open time slots" value={openSlots.length} />
+            </Stack>
+          </SectionCard>
+
+          {nextLesson ? (
+            <NextLessonHeroCard session={nextLesson} subject={tutorQuery.data?.subject ?? null} />
+          ) : null}
+
           <TeachingDayCard todaySessions={todaySessions} onOpen={openSession} />
 
+          <SectionCard title="Today's Availability">
+            {todaySlots.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                No teaching time declared for today.
+              </Typography>
+            ) : (
+              <Stack spacing={2}>
+                {todaySlots.map((slot) => (
+                  <AvailabilitySummaryCard key={slot.availabilitySlotId} slot={slot} />
+                ))}
+              </Stack>
+            )}
+          </SectionCard>
+
           <SectionCard
-            title="Upcoming Sessions"
+            title="Upcoming Lessons"
             action={
               <Button component={RouterLink} to={paths.scheduling.tutorSchedule(tutorId)} size="small">
                 View all
@@ -88,7 +169,7 @@ function TeachingOverview({ tutorId }: TeachingOverviewProps) {
           >
             {upcomingSessions.length === 0 ? (
               <Typography variant="body2" color="text.secondary">
-                No upcoming sessions beyond today.
+                No upcoming lessons beyond today.
               </Typography>
             ) : (
               <Stack spacing={2}>
@@ -119,14 +200,35 @@ function TeachingOverview({ tutorId }: TeachingOverviewProps) {
               </Stack>
             )}
           </SectionCard>
+
+          <SectionCard
+            title="Students Requiring Attention"
+            action={
+              <Button component={RouterLink} to={paths.scheduling.tutorStudents} size="small">
+                View all students
+              </Button>
+            }
+          >
+            {studentsRequiringAttention.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                No Students need a follow-up right now.
+              </Typography>
+            ) : (
+              <Stack spacing={2}>
+                {studentsRequiringAttention.map((entry) => (
+                  <StudentRosterCard key={entry.studentId} entry={entry} />
+                ))}
+              </Stack>
+            )}
+          </SectionCard>
         </>
       )}
 
       <SectionCard
-        title="Availability Summary"
+        title="Availability Overview"
         action={
           <Button component={RouterLink} to={paths.scheduling.declareAvailability} size="small">
-            Manage availability
+            Manage Your Schedule
           </Button>
         }
       >
@@ -140,7 +242,7 @@ function TeachingOverview({ tutorId }: TeachingOverviewProps) {
           <ErrorState error={slotsQuery.error} onRetry={() => void slotsQuery.refetch()} />
         ) : openSlots.length === 0 ? (
           <EmptyState
-            title="No availability yet"
+            title="You haven't added any teaching time"
             description="Add some open times so Students can book a lesson with you."
             action={
               <Button
@@ -156,22 +258,45 @@ function TeachingOverview({ tutorId }: TeachingOverviewProps) {
           />
         ) : (
           <Stack spacing={2}>
-            {openSlots.map((slot) => (
-              <AvailabilitySummaryCard key={slot.availabilitySlotId} slot={slot} />
-            ))}
+            <Typography variant="body2" color="text.secondary">
+              {openSlots.length} open · {bookedSlotCount} booked
+            </Typography>
+            <Stack spacing={2}>
+              {openSlotsPreview.map((slot) => (
+                <AvailabilitySummaryCard key={slot.availabilitySlotId} slot={slot} />
+              ))}
+            </Stack>
           </Stack>
         )}
+      </SectionCard>
+
+      {tutorQuery.isSuccess ? (
+        <ProfileCompletionCard
+          completion={deriveProfileCompletion(tutorQuery.data, hasAvailability)}
+          tutorId={tutorId}
+        />
+      ) : null}
+
+      <SectionCard title="Teaching Tips">
+        <Stack spacing={1} alignItems="flex-start">
+          <LightbulbRoundedIcon color="disabled" fontSize="large" aria-hidden="true" />
+          <Typography variant="body1" fontWeight={600}>
+            Teaching tips coming soon
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            We&rsquo;re working on tips to help you grow your teaching business. Check back soon.
+          </Typography>
+        </Stack>
       </SectionCard>
     </Stack>
   );
 }
 
 /**
- * The Tutor's landing experience. Quick actions need no Tutor id and
- * always render; the teaching overview (Today's Sessions, Upcoming
- * Sessions, Recent Activity, Availability Summary) reuses `useTutorSchedule`
- * and `useTutorAvailabilitySlots` — the same hooks `TutorSessionListPage`
- * and `DeclareAvailabilityPage` already use — once a Tutor id is provided.
+ * The Tutor's action-center landing experience. Quick actions need no
+ * Tutor id and always render; everything else reuses `useTutor`,
+ * `useTutorSchedule`, and `useTutorAvailabilitySlots` once a Tutor id is
+ * provided.
  */
 export function TutorDashboard() {
   return (
@@ -180,7 +305,8 @@ export function TutorDashboard() {
         title="Welcome back"
         subtitle={
           <Typography variant="body1" color="text.secondary">
-            Manage today&rsquo;s teaching, see what&rsquo;s next, and check your availability.
+            {todayInTehranLabel()} — manage today&rsquo;s teaching, see what&rsquo;s next, and check
+            your availability.
           </Typography>
         }
       />
@@ -205,7 +331,7 @@ export function TutorDashboard() {
         kind="tutor"
         fieldLabel="Tutor id"
         title="Let's set up your dashboard"
-        description="Enter your tutor id once — we'll remember it on this device so you'll see today's sessions, upcoming sessions, and your availability here every time."
+        description="Enter your tutor id once — we'll remember it on this device so you'll see today's lessons, upcoming lessons, and your availability here every time."
       >
         {(tutorId) => <TeachingOverview tutorId={tutorId} />}
       </IdentityGate>

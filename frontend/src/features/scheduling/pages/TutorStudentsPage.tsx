@@ -1,32 +1,12 @@
 import { Stack, Typography } from "@mui/material";
 import { useTutorSchedule } from "@/features/scheduling/hooks/useSessionQueries";
-import { StudentRosterCard, type StudentRosterEntry } from "@/features/scheduling/components/StudentRosterCard";
+import { StudentRosterCard } from "@/features/scheduling/components/StudentRosterCard";
+import { deriveStudentRoster } from "@/features/scheduling/utils/studentRoster";
 import { SessionCardSkeleton } from "@/features/scheduling/components/SessionCardSkeleton";
 import { IdentityGate } from "@/shared/components/IdentityGate";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
-import { SessionStatus } from "@/services/api/dtos";
-import type { SessionDto } from "@/services/api/dtos";
-
-function deriveRoster(sessions: SessionDto[]): StudentRosterEntry[] {
-  const byStudent = new Map<string, StudentRosterEntry>();
-
-  for (const session of sessions) {
-    const entry = byStudent.get(session.studentId) ?? {
-      studentId: session.studentId,
-      upcomingSessions: 0,
-      totalSessions: 0,
-    };
-    entry.totalSessions += 1;
-    if (session.status === SessionStatus.Scheduled) {
-      entry.upcomingSessions += 1;
-    }
-    byStudent.set(session.studentId, entry);
-  }
-
-  return Array.from(byStudent.values()).sort((a, b) => b.upcomingSessions - a.upcomingSessions);
-}
 
 /**
  * Reuses `useTutorSchedule` (the same hook `TutorSessionListPage` and the
@@ -52,7 +32,9 @@ function MyStudentsRoster({ tutorId }: { tutorId: string }) {
     return <ErrorState error={scheduleQuery.error} onRetry={() => void scheduleQuery.refetch()} />;
   }
 
-  const roster = deriveRoster(scheduleQuery.data);
+  const roster = deriveStudentRoster(scheduleQuery.data).sort(
+    (a, b) => b.upcomingSessions - a.upcomingSessions,
+  );
 
   if (roster.length === 0) {
     return (

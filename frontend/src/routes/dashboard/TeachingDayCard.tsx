@@ -12,7 +12,7 @@ export interface TeachingDayCardProps {
 /** The Tutor Dashboard's "what does today look like" highlight — derived from the same `useTutorSchedule` result the page already fetched, not a new query. */
 export function TeachingDayCard({ todaySessions, onOpen }: TeachingDayCardProps) {
   return (
-    <SectionCard title="Today's Sessions">
+    <SectionCard title="Today's Lessons">
       {todaySessions.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
           No sessions scheduled for today.

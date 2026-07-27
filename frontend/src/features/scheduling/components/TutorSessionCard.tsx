@@ -1,4 +1,4 @@
-import { Card, CardActionArea, CardActions, CardContent, Stack, Typography } from "@mui/material";
+import { Button, Card, CardActionArea, CardActions, CardContent, Stack, Typography } from "@mui/material";
 import { SessionActions } from "@/features/scheduling/components/SessionActions";
 import { SessionStatusBadge } from "@/features/scheduling/components/SessionStatusBadge";
 import { toTehranDisplay } from "@/shared/time/tehranTime";
@@ -49,7 +49,10 @@ export function TutorSessionCard({ session, onOpen }: TutorSessionCardProps) {
           </Stack>
         </CardContent>
       </CardActionArea>
-      <CardActions sx={{ px: 2, pb: 2, pt: 0 }}>
+      <CardActions sx={{ px: 2, pb: 2, pt: 0, flexWrap: "wrap", gap: 1 }}>
+        <Button size="small" variant="contained" onClick={() => onOpen(session)}>
+          Open Lesson
+        </Button>
         <SessionActions session={session} />
       </CardActions>
     </Card>

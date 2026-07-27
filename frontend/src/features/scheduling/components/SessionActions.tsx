@@ -79,7 +79,7 @@ export function SessionActions({ session }: SessionActionsProps) {
     <Stack direction="row" spacing={1} flexWrap="wrap">
       <Button
         size="small"
-        variant="contained"
+        variant="outlined"
         disabled={!isScheduled || isBusy}
         onClick={() => void handleComplete()}
       >

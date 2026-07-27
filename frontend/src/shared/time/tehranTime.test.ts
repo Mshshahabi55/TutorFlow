@@ -4,6 +4,7 @@ import {
   isValidTehranLocalInput,
   tehranDateKey,
   tehranDateLabel,
+  todayInTehranLabel,
   toTehranDisplay,
   toTehranInputValue,
 } from "@/shared/time/tehranTime";
@@ -126,5 +127,12 @@ describe("tehranDateKey / tehranDateLabel", () => {
 
   it("formats a date key as a short human-readable label", () => {
     expect(tehranDateLabel("2026-08-01")).toBe("Sat, Aug 01");
+  });
+});
+
+describe("todayInTehranLabel", () => {
+  it("formats the given instant as a full Tehran-local date label", () => {
+    // 2026-08-01T21:30:00Z is 2026-08-02T01:00 Tehran — a day later than the UTC date.
+    expect(todayInTehranLabel(new Date("2026-08-01T21:30:00Z"))).toBe("Sunday, August 2, 2026");
   });
 });

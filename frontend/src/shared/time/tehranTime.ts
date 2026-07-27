@@ -119,6 +119,24 @@ export function tehranDateLabel(dateKey: string): string {
   }).format(new Date(`${dateKey}T00:00:00Z`));
 }
 
+/**
+ * Today's Tehran-local calendar date as a full, friendly label, e.g.
+ * "Tuesday, July 28, 2026" — the Tutor Dashboard's "Today's Date" header.
+ * Same UTC-formatting trick as `toTehranDisplay`/`tehranDateLabel`: format
+ * an already Tehran-shifted instant with `timeZone: "UTC"` so Intl only
+ * supplies locale-aware names, never a second real timezone shift.
+ */
+export function todayInTehranLabel(now: Date = new Date()): string {
+  const shifted = toTehranShifted(now.toISOString());
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(shifted);
+}
+
 /** True if `value` is a syntactically and calendrically valid datetime-local string. */
 export function isValidTehranLocalInput(value: string): boolean {
   const match = LOCAL_INPUT_PATTERN.exec(value);

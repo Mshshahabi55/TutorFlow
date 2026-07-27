@@ -62,4 +62,13 @@ describe("TutorSessionCard", () => {
     expect(onOpen).not.toHaveBeenCalled();
     expect(cancelSession).not.toHaveBeenCalled();
   });
+
+  it("shows an explicit Open Lesson primary action that also calls onOpen", async () => {
+    const onOpen = vi.fn();
+    renderCard(SESSION, onOpen);
+
+    await userEvent.click(screen.getByRole("button", { name: "Open Lesson" }));
+
+    expect(onOpen).toHaveBeenCalledWith(SESSION);
+  });
 });

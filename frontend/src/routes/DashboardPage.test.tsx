@@ -238,6 +238,17 @@ describe("DashboardPage — Tutor dashboard", () => {
   beforeEach(() => {
     window.localStorage.clear();
     window.localStorage.setItem("tutorflow.devActorRole", "Tutor");
+    vi.spyOn(identityService, "fetchTutorById").mockResolvedValue({
+      tutorId: TUTOR_ID,
+      isApproved: false,
+      isSuspended: false,
+      isDiscoverable: true,
+      hourlyRate: null,
+      subject: null,
+      language: null,
+      location: null,
+      offeredDurations: [],
+    });
   });
 
   it("shows a Welcome heading and Quick actions with no Tutor id entered yet", () => {
@@ -283,12 +294,51 @@ describe("DashboardPage — Tutor dashboard", () => {
     await userEvent.type(screen.getByLabelText("Tutor id"), TUTOR_ID);
     await userEvent.click(screen.getByRole("button", { name: "Look up" }));
 
-    expect(await screen.findByRole("heading", { name: "Today's Sessions" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Today's Lessons" })).toBeInTheDocument();
     expect(screen.getAllByText("Student: st1")).toHaveLength(2);
     expect(await screen.findByRole("heading", { name: "Recent Activity" })).toBeInTheDocument();
   });
 
-  it("shows an Availability Summary sourced from the existing Availability Slot capability", async () => {
+  it("shows a Teaching Summary and a Next Lesson hero once a Tutor id is entered", async () => {
+    const todaySession = {
+      sessionId: "44444444-4444-4444-4444-444444444444",
+      tutorId: TUTOR_ID,
+      studentId: "st1",
+      parentGuardianId: null,
+      availabilitySlotId: "a1",
+      scheduledTimeUtc: new Date(Date.now() + 60 * 60_000).toISOString(),
+      endTimeUtc: new Date(Date.now() + 2 * 60 * 60_000).toISOString(),
+      duration: "01:00:00",
+      deliveryMode: DeliveryMode.Online,
+      status: SessionStatus.Scheduled,
+    };
+    vi.spyOn(schedulingService, "fetchTutorSchedule").mockResolvedValue([todaySession]);
+    vi.spyOn(schedulingService, "fetchTutorAvailabilitySlots").mockResolvedValue([]);
+    vi.spyOn(identityService, "fetchTutorById").mockResolvedValue({
+      tutorId: TUTOR_ID,
+      isApproved: true,
+      isSuspended: false,
+      isDiscoverable: true,
+      hourlyRate: 500_000,
+      subject: "Mathematics",
+      language: "English",
+      location: "Remote",
+      offeredDurations: ["01:00:00"],
+    });
+
+    renderDashboard();
+
+    await userEvent.type(screen.getByLabelText("Tutor id"), TUTOR_ID);
+    await userEvent.click(screen.getByRole("button", { name: "Look up" }));
+
+    expect(await screen.findByRole("heading", { name: "Teaching Summary" })).toBeInTheDocument();
+    expect(screen.getByText("Your Next Lesson")).toBeInTheDocument();
+    expect(await screen.findByText("Mathematics")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Profile Completion" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Teaching Tips" })).toBeInTheDocument();
+  });
+
+  it("shows an Availability Overview sourced from the existing Availability Slot capability", async () => {
     vi.spyOn(schedulingService, "fetchTutorSchedule").mockResolvedValue([]);
     vi.spyOn(schedulingService, "fetchTutorAvailabilitySlots").mockResolvedValue([
       {
@@ -307,7 +357,7 @@ describe("DashboardPage — Tutor dashboard", () => {
     await userEvent.type(screen.getByLabelText("Tutor id"), TUTOR_ID);
     await userEvent.click(screen.getByRole("button", { name: "Look up" }));
 
-    expect(await screen.findByRole("heading", { name: "Availability Summary" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Availability Overview" })).toBeInTheDocument();
     expect(screen.getByText("Open")).toBeInTheDocument();
   });
 });

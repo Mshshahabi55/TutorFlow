@@ -30,16 +30,68 @@ describe("TutorDetailPage", () => {
     window.localStorage.clear();
   });
 
-  it("shows the Tutor's status pills and offering fields", async () => {
+  it("shows a profile skeleton while loading", () => {
+    vi.spyOn(identityService, "fetchTutorById").mockReturnValue(new Promise(() => {}));
+
+    renderPage();
+
+    expect(screen.getByTestId("tutor-profile-skeleton")).toBeInTheDocument();
+  });
+
+  it("shows the Tutor's real subject, language, location, rate, and durations to any viewer", async () => {
     vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
 
     renderPage();
 
-    expect(await screen.findByText("Approved")).toBeInTheDocument();
-    expect(screen.getByText("Discoverable")).toBeInTheDocument();
-    expect(screen.getByText(/Mathematics/)).toBeInTheDocument();
-    // 500,000 Rial (the wire value) displays as 50,000 Toman.
-    expect(screen.getByText("50,000 Toman")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Mathematics" })).toBeInTheDocument();
+    expect(screen.getByText("Remote")).toBeInTheDocument();
+    expect(screen.getByText(/Speaks English/)).toBeInTheDocument();
+    expect(screen.getByText("50,000 Toman/hr")).toBeInTheDocument();
+    expect(screen.getByText("30 minutes")).toBeInTheDocument();
+  });
+
+  // Phase 3 Step 3: the raw StatusPills (Approved/Suspended/Discoverable)
+  // now render only for Admin/Tutor-own viewers (see the AdminStaff test
+  // below) — every other viewer, including one with no role selected, sees
+  // only the friendly "Verified" badge derived from the same isApproved
+  // field, never the internal moderation-queue wording.
+  it("shows a Verified badge instead of raw moderation state, for an approved Tutor", async () => {
+    vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
+
+    renderPage();
+
+    expect(await screen.findByText("Verified")).toBeInTheDocument();
+    expect(screen.queryByText("Approved")).not.toBeInTheDocument();
+    expect(screen.queryByText("Discoverable")).not.toBeInTheDocument();
+  });
+
+  it("shows no Verified badge for a Tutor that is not yet approved", async () => {
+    vi.spyOn(identityService, "fetchTutorById").mockResolvedValue({ ...TUTOR, isApproved: false });
+
+    renderPage();
+
+    await screen.findByRole("heading", { name: "Mathematics" });
+    expect(screen.queryByText("Verified")).not.toBeInTheDocument();
+  });
+
+  it("shows a professional Reviews placeholder, since no review capability exists", async () => {
+    vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
+
+    renderPage();
+
+    expect(await screen.findByText("No reviews yet")).toBeInTheDocument();
+  });
+
+  it("links its Book Session action(s) to the existing booking route", async () => {
+    vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
+
+    renderPage();
+
+    const bookLinks = await screen.findAllByRole("link", { name: "Book Session" });
+    expect(bookLinks.length).toBeGreaterThan(0);
+    for (const link of bookLinks) {
+      expect(link).toHaveAttribute("href", "/scheduling/sessions/book");
+    }
   });
 
   // Phase 4.5: Domain now rejects a new HourlyRate not divisible by 10, but
@@ -51,29 +103,29 @@ describe("TutorDetailPage", () => {
 
     renderPage();
 
-    expect(await screen.findByText("Approved")).toBeInTheDocument();
-    // 45 Rial rounds to 5 Toman for display (4.5 rounds up) rather than
-    // throwing.
-    expect(screen.getByText("5 Toman")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Mathematics" })).toBeInTheDocument();
+    // 45 Rial rounds to 5 Toman for display (4.5 rounds up) rather than throwing.
+    expect(screen.getByText("5 Toman/hr")).toBeInTheDocument();
   });
 
-  it("shows an error state when the lookup fails", async () => {
+  it("shows a professional not-found panel with a Back to search action when the lookup fails", async () => {
     vi.spyOn(identityService, "fetchTutorById").mockRejectedValue(new Error("Not found"));
 
     renderPage();
 
-    expect(await screen.findByText("Not found")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Tutor not found" })).toBeInTheDocument();
+    expect(screen.getByText("Not found")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Back to search/ })).toHaveAttribute(
+      "href",
+      "/discovery/tutors/search",
+    );
   });
 
   // Phase 4.9 Task 4: Edit offering and Approve/Suspend previously rendered
   // unconditionally for every viewer — the live-browser finding ("a Student
   // sees tutor Approve/Suspend, admin actions") this phase's brief reported.
-  // The pre-existing "shows Admin approve/suspend actions" assertion (no
-  // role selected) asserted exactly that old, now-wrong behavior; inverted
-  // here rather than silently dropped (Phase 1B precedent: an explained
-  // test change, not a loosened one).
   describe("role-gated actions", () => {
-    it("shows Admin approve/suspend actions only for the AdminStaff role", async () => {
+    it("shows Admin approve/suspend actions and raw moderation state only for the AdminStaff role", async () => {
       window.localStorage.setItem("tutorflow.devActorRole", "AdminStaff");
       vi.spyOn(identityService, "fetchTutorById").mockResolvedValue({
         ...TUTOR,
@@ -89,7 +141,7 @@ describe("TutorDetailPage", () => {
       expect(screen.queryByRole("link", { name: "Edit offering" })).not.toBeInTheDocument();
     });
 
-    it("shows Edit offering only for the Tutor role", async () => {
+    it("shows Edit offering and raw moderation state only for the Tutor role", async () => {
       window.localStorage.setItem("tutorflow.devActorRole", "Tutor");
       vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
 
@@ -99,26 +151,29 @@ describe("TutorDetailPage", () => {
         "href",
         `/identity/tutors/${TUTOR_ID}/edit`,
       );
+      expect(screen.getByText("Approved")).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
     });
 
-    it("shows no action for a Student viewer", async () => {
+    it("shows no management action or raw moderation state for a Student viewer", async () => {
       window.localStorage.setItem("tutorflow.devActorRole", "Student");
       vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
 
       renderPage();
 
-      expect(await screen.findByText("Approved")).toBeInTheDocument();
+      expect(await screen.findByText("Verified")).toBeInTheDocument();
+      expect(screen.queryByText("Approved")).not.toBeInTheDocument();
       expect(screen.queryByRole("link", { name: "Edit offering" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
     });
 
-    it("shows no action when no role is selected", async () => {
+    it("shows no management action or raw moderation state when no role is selected", async () => {
       vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
 
       renderPage();
 
-      expect(await screen.findByText("Approved")).toBeInTheDocument();
+      expect(await screen.findByText("Verified")).toBeInTheDocument();
+      expect(screen.queryByText("Approved")).not.toBeInTheDocument();
       expect(screen.queryByRole("link", { name: "Edit offering" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
     });

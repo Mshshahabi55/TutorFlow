@@ -37,6 +37,11 @@ export function AvailabilityCard({ slot, selected, onSelect }: AvailabilityCardP
         flex: "1 1 220px",
         minWidth: 220,
         maxWidth: 280,
+        transition: (t) => t.transitions.create(["border-color", "background-color"], { duration: 150 }),
+        "&:hover": {
+          borderColor: selected ? "primary.main" : "primary.light",
+          bgcolor: selected ? "action.selected" : "action.hover",
+        },
       }}
     >
       <Stack spacing={1} width="100%">

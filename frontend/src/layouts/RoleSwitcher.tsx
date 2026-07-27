@@ -1,8 +1,10 @@
 import { Box, IconButton, MenuItem, Stack, TextField, Tooltip } from "@mui/material";
 import ClearRoundedIcon from "@mui/icons-material/ClearRounded";
 import { useCurrentActor } from "@/shared/hooks/useCurrentActor";
+import { useAuth } from "@/shared/hooks/useAuth";
 import { useNotification } from "@/shared/hooks/useNotification";
 import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
+import { ACTOR_ROLE_LABEL } from "@/shared/constants/actorRoleLabels";
 import type { ActorRole } from "@/shared/context/ActorContext";
 
 const ROLE_OPTIONS: { value: ActorRole; label: string }[] = [
@@ -12,17 +14,17 @@ const ROLE_OPTIONS: { value: ActorRole; label: string }[] = [
   { value: "AdminStaff", label: "Admin/Staff" },
 ];
 
-const ROLE_LABEL: Record<ActorRole, string> = {
-  Student: "Student",
-  Tutor: "Tutor",
-  ParentGuardian: "Parent/Guardian",
-  AdminStaff: "Admin/Staff",
-};
-
 /**
  * Development aid only — lets the UI be built and reviewed per role before
- * a real authentication mechanism exists (ADR-011). Never treat a selection
- * here as authorization: no permission check anywhere reads this value.
+ * a real signed-in session exists to drive it. Never treat a selection here
+ * as authorization: no permission check anywhere reads this value, and
+ * `useEffectiveRole` never lets it win once a real session exists (Phase
+ * 4.9 Task 2) — so this renders nothing at all while signed in, since a
+ * control that visibly claims to change role but silently does nothing
+ * would only confuse a signed-in user. Also gated out of production builds
+ * entirely by its caller (AppLayout, `import.meta.env.DEV` — the same
+ * Phase D1 StyleGuidePage precedent), since a "preview any role" control
+ * has no legitimate reason to ship.
  *
  * Also the Application Shell's real integration point for the Notification
  * and Confirm Dialog infrastructure: changing role notifies, and clearing
@@ -31,6 +33,7 @@ const ROLE_LABEL: Record<ActorRole, string> = {
  */
 export function RoleSwitcher() {
   const { actor, setRole } = useCurrentActor();
+  const { isAuthenticated } = useAuth();
   const { notify } = useNotification();
   const { confirm } = useConfirmDialog();
 
@@ -38,7 +41,7 @@ export function RoleSwitcher() {
     setRole(nextRole);
     notify({
       message: nextRole
-        ? `Now acting as ${ROLE_LABEL[nextRole]} (dev only — grants no real access).`
+        ? `Now acting as ${ACTOR_ROLE_LABEL[nextRole]} (dev only — grants no real access).`
         : "Role selection cleared.",
       severity: "info",
     });
@@ -53,6 +56,10 @@ export function RoleSwitcher() {
     if (confirmed) {
       applyRole(null);
     }
+  }
+
+  if (isAuthenticated) {
+    return null;
   }
 
   return (

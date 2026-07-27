@@ -10,6 +10,8 @@ import { ActorProvider } from "@/shared/context/ActorProvider";
 import { AuthProvider } from "@/shared/context/AuthProvider";
 import { NotificationProvider } from "@/shared/context/NotificationProvider";
 import { ConfirmDialogProvider } from "@/shared/context/ConfirmDialogProvider";
+import { AuthHarness } from "@/test/AuthHarness";
+import type { AuthenticatedUser } from "@/shared/context/AuthContext";
 
 function mockViewport(matches: boolean) {
   window.matchMedia = vi.fn((query: string): MediaQueryList => ({
@@ -24,7 +26,7 @@ function mockViewport(matches: boolean) {
   }));
 }
 
-function renderShell() {
+function renderShell(authUser?: AuthenticatedUser) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -37,6 +39,7 @@ function renderShell() {
             <NotificationProvider>
               <ConfirmDialogProvider>
                 <MemoryRouter initialEntries={["/"]}>
+                  {authUser ? <AuthHarness user={authUser} /> : null}
                   <Routes>
                     <Route element={<AppLayout />}>
                       <Route path="/" element={<div>Page content</div>} />
@@ -80,5 +83,23 @@ describe("AppLayout", () => {
     await userEvent.click(hamburger);
 
     expect(await screen.findByRole("link", { name: "Dashboard" })).toBeInTheDocument();
+  });
+
+  // Phase 4.9 Task 2: the dev-only RoleSwitcher must never appear once a
+  // real session is signed in (a control that visibly claims to change role
+  // but can no longer do anything would only confuse a signed-in user).
+  it("shows the dev-only RoleSwitcher when signed out, and hides it once signed in", async () => {
+    mockViewport(true);
+    renderShell();
+
+    expect(await screen.findByLabelText("Acting as (dev only)")).toBeInTheDocument();
+  });
+
+  it("hides the dev-only RoleSwitcher for a real signed-in session", async () => {
+    mockViewport(true);
+    renderShell({ token: "t", accountId: "a1", role: "Student", expiresAtUtc: "2999-01-01T00:00:00Z" });
+
+    await screen.findByText("Page content");
+    expect(screen.queryByLabelText("Acting as (dev only)")).not.toBeInTheDocument();
   });
 });

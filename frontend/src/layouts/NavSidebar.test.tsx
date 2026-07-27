@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -7,17 +6,7 @@ import { NavSidebar } from "@/layouts/NavSidebar";
 import { ActorProvider } from "@/shared/context/ActorProvider";
 import { AuthProvider } from "@/shared/context/AuthProvider";
 import type { AuthenticatedUser } from "@/shared/context/AuthContext";
-import { useAuth } from "@/shared/hooks/useAuth";
-
-function AuthHarness({ user }: { user: AuthenticatedUser | null }) {
-  const { setUser } = useAuth();
-
-  useEffect(() => {
-    setUser(user);
-  }, [setUser, user]);
-
-  return null;
-}
+import { AuthHarness } from "@/test/AuthHarness";
 
 function renderNavSidebar(props: {
   variant: "permanent" | "temporary";
@@ -30,7 +19,7 @@ function renderNavSidebar(props: {
     <AuthProvider>
       <ActorProvider>
         <MemoryRouter initialEntries={[props.initialEntry ?? "/"]}>
-          <AuthHarness user={props.authUser ?? null} />
+          {props.authUser ? <AuthHarness user={props.authUser} /> : null}
           <NavSidebar variant={props.variant} open onClose={onClose} />
         </MemoryRouter>
       </ActorProvider>
@@ -156,5 +145,35 @@ describe("NavSidebar", () => {
       "page",
     );
     expect(screen.getByRole("link", { name: "Dashboard" })).not.toHaveAttribute("aria-current");
+  });
+
+  // Phase 4.9 Task 4: Students/Parent-Guardians/Relationships previously had
+  // no `roles` restriction at all, so a Tutor saw them too — the literal "a
+  // Student sees Students, Parent/Guardians... everything" live-browser
+  // finding this phase's brief reported (read the other direction: every
+  // role saw every entry, Tutor included). A Tutor is never Owner or a
+  // confirmed-Relationship party to a Student or Parent/Guardian record
+  // (AUTHORIZATION_MATRIX.md Addendum Decision 3) and holds neither
+  // InviteRelationship nor ConfirmRelationship (RolePermissionCatalog).
+  it("hides Students, Parent/Guardians, and Relationships for a real signed-in Tutor", () => {
+    renderNavSidebar({
+      variant: "permanent",
+      authUser: { token: "t", accountId: "a1", role: "Tutor", expiresAtUtc: "2999-01-01T00:00:00Z" },
+    });
+
+    expect(screen.queryByRole("link", { name: "Students" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Parent/Guardians" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Relationships" })).not.toBeInTheDocument();
+  });
+
+  it("still shows Students, Parent/Guardians, and Relationships for a real signed-in Student", () => {
+    renderNavSidebar({
+      variant: "permanent",
+      authUser: { token: "t", accountId: "a1", role: "Student", expiresAtUtc: "2999-01-01T00:00:00Z" },
+    });
+
+    expect(screen.getByRole("link", { name: "Students" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Parent/Guardians" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Relationships" })).toBeInTheDocument();
   });
 });

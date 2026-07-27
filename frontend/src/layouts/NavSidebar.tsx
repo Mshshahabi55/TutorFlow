@@ -25,8 +25,7 @@ import LockResetRoundedIcon from "@mui/icons-material/LockResetRounded";
 import { NavLink, useLocation } from "react-router-dom";
 import { Fragment, type ReactNode } from "react";
 import { paths } from "@/routes/paths";
-import { useCurrentActor } from "@/shared/hooks/useCurrentActor";
-import { useAuth } from "@/shared/hooks/useAuth";
+import { useEffectiveRole } from "@/shared/hooks/useEffectiveRole";
 import type { ActorRole } from "@/shared/context/ActorContext";
 
 export const NAV_SIDEBAR_WIDTH = 260;
@@ -71,13 +70,29 @@ const SECTIONS: NavSection[] = [
         to: paths.identity.studentDetailBase,
         label: "Students",
         icon: <SchoolRoundedIcon />,
+        // Fine-grained rule behind /students/{id} (AUTHORIZATION_MATRIX.md
+        // Addendum Decision 3): Owner + confirmed-Relationship counterpart +
+        // Admin only — a Tutor is never a legitimate party to a Student
+        // record (Phase 4.9 Task 4; previously unrestricted, a real gap).
+        roles: ["Student", "ParentGuardian", "AdminStaff"],
       },
       {
         to: paths.identity.parentGuardianDetailBase,
         label: "Parent/Guardians",
         icon: <FamilyRestroomRoundedIcon />,
+        // Same rule, same Source, mirrored for /parent-guardians/{id}.
+        roles: ["Student", "ParentGuardian", "AdminStaff"],
       },
-      { to: paths.identity.relationships, label: "Relationships", icon: <LinkRoundedIcon /> },
+      {
+        to: paths.identity.relationships,
+        label: "Relationships",
+        icon: <LinkRoundedIcon />,
+        // InviteRelationship/ConfirmRelationship (RolePermissionCatalog) are
+        // granted to Student/ParentGuardian only; the page's own account-
+        // lookup half is Owner + Admin (Third Addendum Decision 10) — a
+        // Tutor has no permission or party status on any of it.
+        roles: ["Student", "ParentGuardian", "AdminStaff"],
+      },
       {
         to: paths.identity.tutorPending,
         label: "Pending Tutor approvals",
@@ -160,24 +175,9 @@ function visibleEntries(entries: NavEntry[], role: ActorRole | null): NavEntry[]
   return entries.filter((entry) => !entry.roles || role === null || entry.roles.includes(role));
 }
 
-function normalizeActorRole(role: string | undefined): ActorRole | null {
-  if (!role) {
-    return null;
-  }
-
-  if (role === "Student" || role === "Tutor" || role === "ParentGuardian" || role === "AdminStaff") {
-    return role;
-  }
-
-  return null;
-}
-
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
-  const { actor } = useCurrentActor();
-  const { user, isAuthenticated } = useAuth();
+  const effectiveRole = useEffectiveRole();
   const { pathname } = useLocation();
-  const authenticatedRole = isAuthenticated ? normalizeActorRole(user?.role) : null;
-  const effectiveRole = authenticatedRole ?? actor.role;
 
   const dashboardSelected = pathname === paths.home;
 
@@ -238,8 +238,13 @@ export interface NavSidebarProps {
  * overlay drawer (toggled from AppLayout's hamburger button) on tablet/
  * mobile — the same NavList content either way. Entries are filtered by the
  * authenticated user role when available, and otherwise by the locally-
- * selected dev role for preview purposes. This is never access control:
- * every route remains reachable by direct URL regardless of role.
+ * selected dev role for preview purposes. This filtering is UX only, not the
+ * access-control boundary itself: some of these routes (the ones whose
+ * backend permission grants only specific roles) are additionally wrapped in
+ * `RequireRole` at the router level (Phase 4.9 Task 4,
+ * `frontend/src/routes/router.tsx`), which is what actually blocks their
+ * content for a role reaching them by direct URL — this component only
+ * decides what to show a link to.
  */
 export function NavSidebar({ variant, open, onClose }: NavSidebarProps) {
   const isTemporary = variant === "temporary";

@@ -8,7 +8,42 @@ import { PageHeader } from "@/shared/components/PageHeader";
 import { LoadingState } from "@/shared/components/feedback/LoadingState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { StatusPill } from "@/shared/components/feedback/StatusPill";
+import { useEffectiveRole } from "@/shared/hooks/useEffectiveRole";
 import { paths } from "@/routes/paths";
+import type { TutorDto } from "@/services/api/dtos";
+
+/**
+ * Phase 4.9 Task 4: Edit offering (Tutor-only, `ManageTutorOffering`) and
+ * Approve/Suspend (Admin-only, `ApproveTutor`/`SuspendTutor`) previously
+ * rendered unconditionally for every viewer — the literal "a Student sees
+ * tutor Approve/Suspend, admin actions" live-browser finding this phase's
+ * brief reported. Gated on the same `useEffectiveRole` signal NavSidebar and
+ * the route guard already use, not a new one. A Student/Parent-Guardian
+ * viewer gets no action here — booking itself is a separate, later phase
+ * this one is a prerequisite for, not yet wired to this page.
+ */
+function TutorDetailActions({ tutor }: { tutor: TutorDto }) {
+  const role = useEffectiveRole();
+
+  if (role === "AdminStaff") {
+    return <TutorApprovalActions tutor={tutor} />;
+  }
+
+  if (role === "Tutor") {
+    return (
+      <Button
+        component={RouterLink}
+        to={paths.identity.tutorEdit(tutor.tutorId)}
+        variant="contained"
+        sx={{ alignSelf: "flex-start" }}
+      >
+        Edit offering
+      </Button>
+    );
+  }
+
+  return null;
+}
 
 export function TutorDetailPage() {
   const { tutorId } = useParams<{ tutorId: string }>();
@@ -72,16 +107,7 @@ export function TutorDetailPage() {
                 </Typography>
               </Stack>
 
-              <Button
-                component={RouterLink}
-                to={paths.identity.tutorEdit(tutorQuery.data.tutorId)}
-                variant="contained"
-                sx={{ alignSelf: "flex-start" }}
-              >
-                Edit offering
-              </Button>
-
-              <TutorApprovalActions tutor={tutorQuery.data} />
+              <TutorDetailActions tutor={tutorQuery.data} />
             </Stack>
           ) : null}
         </CardContent>

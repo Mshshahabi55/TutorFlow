@@ -3,6 +3,8 @@ import { createBrowserRouter } from "react-router-dom";
 import { AppLayout } from "@/layouts/AppLayout";
 import { paths } from "@/routes/paths";
 import { LoadingState } from "@/shared/components/feedback/LoadingState";
+import { RequireRole } from "@/shared/components/RequireRole";
+import type { ActorRole } from "@/shared/context/ActorContext";
 
 const DashboardPage = lazy(() =>
   import("@/routes/DashboardPage").then((module) => ({ default: module.DashboardPage })),
@@ -140,6 +142,16 @@ function withSuspense(element: ReactNode) {
   return <Suspense fallback={<LoadingState label="Loading page…" />}>{element}</Suspense>;
 }
 
+/**
+ * Phase 4.9 Task 4: a real route guard for routes whose backend permission
+ * (RolePermissionCatalog) grants to specific roles only — reached directly
+ * by URL, a role outside `roles` gets ForbiddenState instead of this
+ * route's content, rather than just being hidden from the nav.
+ */
+function withRole(roles: ActorRole[], element: ReactNode) {
+  return <RequireRole roles={roles}>{element}</RequireRole>;
+}
+
 const devRoutes =
   import.meta.env.DEV && StyleGuidePage
     ? [{ path: paths.dev.styleGuide, element: withSuspense(<StyleGuidePage />) }]
@@ -151,17 +163,32 @@ export const router = createBrowserRouter([
     children: [
       { path: paths.home, element: withSuspense(<DashboardPage />) },
       { path: paths.auth.login, element: withSuspense(<LoginPage />) },
-      { path: paths.auth.resetPassword, element: withSuspense(<AdminResetPasswordPage />) },
+      {
+        path: paths.auth.resetPassword,
+        element: withSuspense(withRole(["AdminStaff"], <AdminResetPasswordPage />)),
+      },
 
       { path: paths.identity.tutorRegister, element: withSuspense(<RegisterTutorPage />) },
       { path: paths.identity.tutorDirectory, element: withSuspense(<TutorDirectoryPage />) },
-      { path: paths.identity.tutorPending, element: withSuspense(<AdminPendingTutorsPage />) },
-      { path: paths.identity.tutorEditPattern, element: withSuspense(<TutorOfferingPage />) },
+      {
+        path: paths.identity.tutorPending,
+        element: withSuspense(withRole(["AdminStaff"], <AdminPendingTutorsPage />)),
+      },
+      {
+        path: paths.identity.tutorEditPattern,
+        element: withSuspense(withRole(["Tutor"], <TutorOfferingPage />)),
+      },
       { path: paths.identity.tutorDetailPattern, element: withSuspense(<TutorDetailPage />) },
 
       { path: paths.identity.studentRegister, element: withSuspense(<RegisterStudentPage />) },
-      { path: paths.identity.studentDetailBase, element: withSuspense(<StudentDetailPage />) },
-      { path: paths.identity.studentDetailPattern, element: withSuspense(<StudentDetailPage />) },
+      {
+        path: paths.identity.studentDetailBase,
+        element: withSuspense(withRole(["Student", "ParentGuardian", "AdminStaff"], <StudentDetailPage />)),
+      },
+      {
+        path: paths.identity.studentDetailPattern,
+        element: withSuspense(withRole(["Student", "ParentGuardian", "AdminStaff"], <StudentDetailPage />)),
+      },
 
       {
         path: paths.identity.parentGuardianRegister,
@@ -169,18 +196,25 @@ export const router = createBrowserRouter([
       },
       {
         path: paths.identity.parentGuardianDetailBase,
-        element: withSuspense(<ParentGuardianDetailPage />),
+        element: withSuspense(
+          withRole(["Student", "ParentGuardian", "AdminStaff"], <ParentGuardianDetailPage />),
+        ),
       },
       {
         path: paths.identity.parentGuardianDetailPattern,
-        element: withSuspense(<ParentGuardianDetailPage />),
+        element: withSuspense(
+          withRole(["Student", "ParentGuardian", "AdminStaff"], <ParentGuardianDetailPage />),
+        ),
       },
 
-      { path: paths.identity.relationships, element: withSuspense(<RelationshipsPage />) },
+      {
+        path: paths.identity.relationships,
+        element: withSuspense(withRole(["Student", "ParentGuardian", "AdminStaff"], <RelationshipsPage />)),
+      },
 
       {
         path: paths.scheduling.declareAvailability,
-        element: withSuspense(<DeclareAvailabilityPage />),
+        element: withSuspense(withRole(["Tutor"], <DeclareAvailabilityPage />)),
       },
       {
         path: paths.scheduling.availabilitySlotDetailBase,
@@ -190,7 +224,10 @@ export const router = createBrowserRouter([
         path: paths.scheduling.availabilitySlotDetailPattern,
         element: withSuspense(<AvailabilitySlotDetailPage />),
       },
-      { path: paths.scheduling.bookSession, element: withSuspense(<BookSessionPage />) },
+      {
+        path: paths.scheduling.bookSession,
+        element: withSuspense(withRole(["Student", "ParentGuardian"], <BookSessionPage />)),
+      },
       {
         path: paths.scheduling.sessionDetailBase,
         element: withSuspense(<SessionDetailPage />),
@@ -201,25 +238,35 @@ export const router = createBrowserRouter([
       },
       {
         path: paths.scheduling.studentScheduleBase,
-        element: withSuspense(<StudentSessionListPage />),
+        element: withSuspense(
+          withRole(["Student", "ParentGuardian", "AdminStaff"], <StudentSessionListPage />),
+        ),
       },
       {
         path: paths.scheduling.studentSchedulePattern,
-        element: withSuspense(<StudentSessionListPage />),
+        element: withSuspense(
+          withRole(["Student", "ParentGuardian", "AdminStaff"], <StudentSessionListPage />),
+        ),
       },
       {
         path: paths.scheduling.tutorScheduleBase,
-        element: withSuspense(<TutorSessionListPage />),
+        element: withSuspense(withRole(["Tutor", "AdminStaff"], <TutorSessionListPage />)),
       },
       {
         path: paths.scheduling.tutorSchedulePattern,
-        element: withSuspense(<TutorSessionListPage />),
+        element: withSuspense(withRole(["Tutor", "AdminStaff"], <TutorSessionListPage />)),
       },
 
       { path: paths.discovery.tutorSearch, element: withSuspense(<TutorSearchPage />) },
 
-      { path: paths.oversight.adminDashboard, element: withSuspense(<AdminDashboardPage />) },
-      { path: paths.oversight.globalSessions, element: withSuspense(<GlobalSessionListPage />) },
+      {
+        path: paths.oversight.adminDashboard,
+        element: withSuspense(withRole(["AdminStaff"], <AdminDashboardPage />)),
+      },
+      {
+        path: paths.oversight.globalSessions,
+        element: withSuspense(withRole(["AdminStaff"], <GlobalSessionListPage />)),
+      },
 
       ...devRoutes,
 

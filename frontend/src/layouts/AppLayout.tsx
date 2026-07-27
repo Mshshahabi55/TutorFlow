@@ -1,10 +1,22 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { AppBar, Box, IconButton, Toolbar, Typography, useMediaQuery, useTheme } from "@mui/material";
 import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
 import { Outlet } from "react-router-dom";
 import { AuthStatus } from "@/layouts/AuthStatus";
 import { NavSidebar, NAV_SIDEBAR_WIDTH } from "@/layouts/NavSidebar";
-import { RoleSwitcher } from "@/layouts/RoleSwitcher";
+
+/**
+ * Dev-only "Acting as" preview control — never meant to ship (Phase 4.9
+ * Task 2; the same gating precedent as Phase D1's StyleGuidePage). Vite's
+ * `define` transform replaces `import.meta.env.DEV` with the literal
+ * `false` before Rollup bundles a production build, collapsing this whole
+ * ternary — dynamic `import()` included — to dead code that Rollup
+ * tree-shakes out entirely: no RoleSwitcher chunk reaches `dist/` (verified
+ * the same way Phase D1 verified StyleGuidePage's exclusion).
+ */
+const RoleSwitcher = import.meta.env.DEV
+  ? lazy(() => import("@/layouts/RoleSwitcher").then((module) => ({ default: module.RoleSwitcher })))
+  : null;
 
 /**
  * Phase D2: the widest a page's content column ever grows on a desktop
@@ -62,7 +74,11 @@ export function AppLayout() {
             </Typography>
             <Box display="flex" alignItems="center" gap={{ xs: 1, sm: 1.5 }} flexShrink={0}>
               <AuthStatus />
-              <RoleSwitcher />
+              {RoleSwitcher ? (
+                <Suspense fallback={null}>
+                  <RoleSwitcher />
+                </Suspense>
+              ) : null}
             </Box>
           </Toolbar>
         </AppBar>

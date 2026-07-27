@@ -10,7 +10,9 @@ describe("App", () => {
     render(<App />);
 
     expect(screen.getAllByText("TutorFlow").length).toBeGreaterThan(0);
-    expect(screen.getByLabelText("Acting as (dev only)")).toBeInTheDocument();
+    // RoleSwitcher is now lazy-loaded (Phase 4.9 Task 2, gated out of
+    // production builds), so it resolves after the initial render.
+    expect(await screen.findByLabelText("Acting as (dev only)")).toBeInTheDocument();
     expect(await screen.findByText("Healthy")).toBeInTheDocument();
   });
 });

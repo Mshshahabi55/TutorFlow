@@ -3,18 +3,24 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RoleSwitcher } from "@/layouts/RoleSwitcher";
 import { ActorProvider } from "@/shared/context/ActorProvider";
+import { AuthProvider } from "@/shared/context/AuthProvider";
 import { NotificationProvider } from "@/shared/context/NotificationProvider";
 import { ConfirmDialogProvider } from "@/shared/context/ConfirmDialogProvider";
+import { AuthHarness } from "@/test/AuthHarness";
+import type { AuthenticatedUser } from "@/shared/context/AuthContext";
 
-function renderRoleSwitcher() {
+function renderRoleSwitcher(authUser?: AuthenticatedUser) {
   return render(
-    <ActorProvider>
-      <NotificationProvider>
-        <ConfirmDialogProvider>
-          <RoleSwitcher />
-        </ConfirmDialogProvider>
-      </NotificationProvider>
-    </ActorProvider>,
+    <AuthProvider>
+      <ActorProvider>
+        <NotificationProvider>
+          <ConfirmDialogProvider>
+            {authUser ? <AuthHarness user={authUser} /> : null}
+            <RoleSwitcher />
+          </ConfirmDialogProvider>
+        </NotificationProvider>
+      </ActorProvider>
+    </AuthProvider>,
   );
 }
 
@@ -63,5 +69,20 @@ describe("RoleSwitcher", () => {
     // queue), so the button's disappearance — not a second toast — is what
     // proves the role itself was actually cleared.
     expect(screen.queryByLabelText("Clear role selection")).not.toBeInTheDocument();
+  });
+
+  // Phase 4.9 Task 2: a signed-in user's real role can never be overridden
+  // by this control (useEffectiveRole already guarantees that), but showing
+  // an interactive selector that visibly does nothing would still confuse a
+  // signed-in user — so it renders nothing at all once authenticated.
+  it("renders nothing while a real session is signed in", () => {
+    renderRoleSwitcher({
+      token: "t",
+      accountId: "a1",
+      role: "Student",
+      expiresAtUtc: "2999-01-01T00:00:00Z",
+    });
+
+    expect(screen.queryByLabelText("Acting as (dev only)")).not.toBeInTheDocument();
   });
 });

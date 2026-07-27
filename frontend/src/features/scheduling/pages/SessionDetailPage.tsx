@@ -1,5 +1,6 @@
 import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 import { Button, Stack, Typography } from "@mui/material";
+import EventRoundedIcon from "@mui/icons-material/EventRounded";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useSession } from "@/features/scheduling/hooks/useSessionQueries";
@@ -7,6 +8,7 @@ import { useRescheduleSession } from "@/features/scheduling/hooks/useSessionMuta
 import { useTutorAvailabilitySlots } from "@/features/scheduling/hooks/useAvailabilitySlotQueries";
 import { useTutor } from "@/features/identity/hooks/useTutorQueries";
 import { useStudent } from "@/features/identity/hooks/useStudentQueries";
+import { useEffectiveRole } from "@/shared/hooks/useEffectiveRole";
 import {
   rescheduleSessionSchema,
   type RescheduleSessionFormValues,
@@ -107,6 +109,33 @@ function RescheduleSessionForm({
 }
 
 /**
+ * "Book Again" — every completed lesson gets a one-click way back into the
+ * existing booking wizard, pre-filled with the same Tutor
+ * (`?tutorId=...`, the same query parameter `TutorCard`/`ChildSummaryCard`
+ * already use). Only shown to a role the booking wizard actually accepts
+ * (`router.tsx`: Student/ParentGuardian) — a Tutor or Admin viewing a
+ * completed lesson has no booking capability to reuse.
+ */
+function BookAgainAction({ session }: { session: SessionDto }) {
+  const role = useEffectiveRole();
+
+  if (session.status !== SessionStatus.Completed || (role !== "Student" && role !== "ParentGuardian")) {
+    return null;
+  }
+
+  return (
+    <Button
+      component={RouterLink}
+      to={`${paths.scheduling.bookSession}?tutorId=${session.tutorId}`}
+      variant="contained"
+      startIcon={<EventRoundedIcon />}
+    >
+      Book Again
+    </Button>
+  );
+}
+
+/**
  * Reuses `useTutor` (identity) and `useStudent` (identity) once per page
  * load — the same hooks the Tutor Profile/Directory/BookSessionPage and
  * StudentDetailPage already use — not a duplicate request.
@@ -144,6 +173,7 @@ function SessionDetailContent({ session }: { session: SessionDto }) {
       <SectionCard title="Actions">
         <Stack spacing={2} alignItems="flex-start">
           <SessionActions session={session} />
+          <BookAgainAction session={session} />
           {session.status === SessionStatus.Scheduled ? (
             <RescheduleSessionForm
               sessionId={session.sessionId}
@@ -157,6 +187,12 @@ function SessionDetailContent({ session }: { session: SessionDto }) {
       <SectionCard title="Notes">
         <Typography variant="body2" color="text.secondary">
           Lesson notes are coming soon — you&rsquo;ll be able to jot down what to cover next time.
+        </Typography>
+      </SectionCard>
+
+      <SectionCard title="Homework">
+        <Typography variant="body2" color="text.secondary">
+          Homework tracking is coming soon — you&rsquo;ll be able to see and set homework here.
         </Typography>
       </SectionCard>
 

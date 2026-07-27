@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -7,6 +7,8 @@ import { SessionDetailPage } from "@/features/scheduling/pages/SessionDetailPage
 import { renderWithProviders } from "@/test/renderWithProviders";
 import { NotificationProvider } from "@/shared/context/NotificationProvider";
 import { ConfirmDialogProvider } from "@/shared/context/ConfirmDialogProvider";
+import { ActorProvider } from "@/shared/context/ActorProvider";
+import { AuthProvider } from "@/shared/context/AuthProvider";
 import * as schedulingService from "@/features/scheduling/api/schedulingService";
 import * as identityService from "@/features/identity/api/identityService";
 import { DeliveryMode, SessionStatus } from "@/services/api/dtos";
@@ -69,6 +71,10 @@ function mockTutor() {
 }
 
 describe("SessionDetailPage", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
   it("shows an id-lookup form when no id is in the route", () => {
     renderWithProviders(<SessionDetailPage />);
 
@@ -109,16 +115,20 @@ describe("SessionDetailPage", () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={queryClient}>
-        <NotificationProvider>
-          <ConfirmDialogProvider>
-            <MemoryRouter initialEntries={["/scheduling/sessions"]}>
-              <Routes>
-                <Route path="/scheduling/sessions" element={<SessionDetailPage />} />
-                <Route path="/scheduling/sessions/:sessionId" element={<SessionDetailPage />} />
-              </Routes>
-            </MemoryRouter>
-          </ConfirmDialogProvider>
-        </NotificationProvider>
+        <AuthProvider>
+          <ActorProvider>
+            <NotificationProvider>
+              <ConfirmDialogProvider>
+                <MemoryRouter initialEntries={["/scheduling/sessions"]}>
+                  <Routes>
+                    <Route path="/scheduling/sessions" element={<SessionDetailPage />} />
+                    <Route path="/scheduling/sessions/:sessionId" element={<SessionDetailPage />} />
+                  </Routes>
+                </MemoryRouter>
+              </ConfirmDialogProvider>
+            </NotificationProvider>
+          </ActorProvider>
+        </AuthProvider>
       </QueryClientProvider>,
     );
 
@@ -143,8 +153,59 @@ describe("SessionDetailPage", () => {
 
     expect(await screen.findByRole("heading", { name: "Notes" })).toBeInTheDocument();
     expect(screen.getByText(/Lesson notes are coming soon/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Homework" })).toBeInTheDocument();
+    expect(screen.getByText(/Homework tracking is coming soon/)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "History" })).toBeInTheDocument();
     expect(screen.getByText(/A history of changes to this lesson is coming soon/)).toBeInTheDocument();
+  });
+
+  describe("Book Again", () => {
+    const COMPLETED_SESSION = { ...SCHEDULED_SESSION, status: SessionStatus.Completed };
+
+    it("shows a Book Again action for a Completed lesson, for a Student viewer", async () => {
+      window.localStorage.setItem("tutorflow.devActorRole", "Student");
+      mockTutor();
+      vi.spyOn(schedulingService, "fetchSessionById").mockResolvedValue(COMPLETED_SESSION);
+
+      renderWithProviders(<SessionDetailPage />, {
+        initialEntries: [`/scheduling/sessions/${SESSION_ID}`],
+        routePath: "/scheduling/sessions/:sessionId",
+      });
+
+      expect(await screen.findByRole("link", { name: "Book Again" })).toHaveAttribute(
+        "href",
+        `/scheduling/sessions/book?tutorId=${COMPLETED_SESSION.tutorId}`,
+      );
+    });
+
+    it("shows no Book Again action for a still-Scheduled lesson", async () => {
+      window.localStorage.setItem("tutorflow.devActorRole", "Student");
+      mockTutor();
+      vi.spyOn(schedulingService, "fetchSessionById").mockResolvedValue(SCHEDULED_SESSION);
+      vi.spyOn(schedulingService, "fetchTutorAvailabilitySlots").mockResolvedValue(OPEN_SLOTS);
+
+      renderWithProviders(<SessionDetailPage />, {
+        initialEntries: [`/scheduling/sessions/${SESSION_ID}`],
+        routePath: "/scheduling/sessions/:sessionId",
+      });
+
+      await screen.findByText("Mathematics");
+      expect(screen.queryByRole("link", { name: "Book Again" })).not.toBeInTheDocument();
+    });
+
+    it("shows no Book Again action for a Tutor viewer, who has no booking capability", async () => {
+      window.localStorage.setItem("tutorflow.devActorRole", "Tutor");
+      mockTutor();
+      vi.spyOn(schedulingService, "fetchSessionById").mockResolvedValue(COMPLETED_SESSION);
+
+      renderWithProviders(<SessionDetailPage />, {
+        initialEntries: [`/scheduling/sessions/${SESSION_ID}`],
+        routePath: "/scheduling/sessions/:sessionId",
+      });
+
+      await screen.findByText("Mathematics");
+      expect(screen.queryByRole("link", { name: "Book Again" })).not.toBeInTheDocument();
+    });
   });
 
   it("reschedules a session onto a different, open Availability Slot for the same Tutor", async () => {

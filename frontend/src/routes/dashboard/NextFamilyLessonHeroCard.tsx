@@ -53,7 +53,7 @@ export function NextFamilyLessonHeroCard({ session, now = Date.now() }: NextFami
             to={paths.scheduling.sessionDetail(session.sessionId)}
             variant="contained"
             startIcon={<EventAvailableRoundedIcon />}
-            sx={{ alignSelf: "flex-start" }}
+            sx={{ alignSelf: { xs: "stretch", sm: "flex-start" } }}
           >
             View Lesson
           </Button>

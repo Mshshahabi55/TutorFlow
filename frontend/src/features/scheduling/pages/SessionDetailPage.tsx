@@ -129,6 +129,7 @@ function BookAgainAction({ session }: { session: SessionDto }) {
       to={`${paths.scheduling.bookSession}?tutorId=${session.tutorId}`}
       variant="contained"
       startIcon={<EventRoundedIcon />}
+      sx={{ alignSelf: { xs: "stretch", sm: "flex-start" } }}
     >
       Book Again
     </Button>

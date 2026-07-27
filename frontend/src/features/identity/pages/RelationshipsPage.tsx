@@ -196,7 +196,7 @@ function AddChildCard() {
         </Typography>
 
         <Form form={form} onSubmit={handleSubmit}>
-          <Stack spacing={2} mt={1} alignItems="flex-start">
+          <Stack spacing={2} mt={1} alignItems={{ xs: "stretch", sm: "flex-start" }}>
             <FormTextField name="studentId" label="Student id" fullWidth />
             <Button type="submit" variant="contained" disabled={inviteRelationship.isPending}>
               {inviteRelationship.isPending ? "Sending…" : "Send invitation"}

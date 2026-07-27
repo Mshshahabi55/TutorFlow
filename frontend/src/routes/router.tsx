@@ -109,6 +109,11 @@ const TutorSessionListPage = lazy(() =>
     default: module.TutorSessionListPage,
   })),
 );
+const TutorStudentsPage = lazy(() =>
+  import("@/features/scheduling/pages/TutorStudentsPage").then((module) => ({
+    default: module.TutorStudentsPage,
+  })),
+);
 
 const TutorSearchPage = lazy(() =>
   import("@/features/discovery/pages/TutorSearchPage").then((module) => ({
@@ -263,6 +268,10 @@ export const router = createBrowserRouter([
       {
         path: paths.scheduling.tutorSchedulePattern,
         element: withSuspense(withRole(["Tutor", "AdminStaff"], <TutorSessionListPage />)),
+      },
+      {
+        path: paths.scheduling.tutorStudents,
+        element: withSuspense(withRole(["Tutor", "AdminStaff"], <TutorStudentsPage />)),
       },
 
       { path: paths.discovery.tutorSearch, element: withSuspense(<TutorSearchPage />) },

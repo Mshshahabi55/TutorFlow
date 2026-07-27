@@ -11,7 +11,14 @@ export default defineConfig({
     },
   },
   server: {
+    // Deterministic dev port: silently drifting to another port (Vite's
+    // default fallback when 5173 is already taken) is exactly what broke
+    // every form behind CORS in Phase 4.8 — the backend's
+    // Cors:AllowedOrigins only ever matched the port that happened to be
+    // free, not necessarily 5173. strictPort makes a port conflict a loud
+    // startup failure instead of a silent drift.
     port: 5173,
+    strictPort: true,
   },
   build: {
     rollupOptions: {

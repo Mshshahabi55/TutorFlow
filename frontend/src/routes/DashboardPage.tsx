@@ -1,14 +1,5 @@
-import type { ReactNode } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import { Box, Button, Card, CardContent, Stack, Typography } from "@mui/material";
-import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
-import EventRoundedIcon from "@mui/icons-material/EventRounded";
-import CalendarMonthRoundedIcon from "@mui/icons-material/CalendarMonthRounded";
-import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded";
-import LinkRoundedIcon from "@mui/icons-material/LinkRounded";
-import FactCheckRoundedIcon from "@mui/icons-material/FactCheckRounded";
-import AdminPanelSettingsRoundedIcon from "@mui/icons-material/AdminPanelSettingsRounded";
-import ListAltRoundedIcon from "@mui/icons-material/ListAltRounded";
 import { useQuery } from "@tanstack/react-query";
 import { fetchHealthStatus } from "@/services/api/healthService";
 import { LoadingState } from "@/shared/components/feedback/LoadingState";
@@ -16,8 +7,9 @@ import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { StatusPill } from "@/shared/components/feedback/StatusPill";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { useCurrentActor } from "@/shared/hooks/useCurrentActor";
-import type { ActorRole } from "@/shared/context/ActorContext";
-import { paths } from "@/routes/paths";
+import type { ActorRole, CurrentActor } from "@/shared/context/ActorContext";
+import { StudentDashboard } from "@/routes/dashboard/StudentDashboard";
+import { ROLE_QUICK_ACTIONS } from "@/routes/dashboardRoleConfig";
 
 const ROLE_SUMMARY: Record<ActorRole, string> = {
   Student:
@@ -30,76 +22,29 @@ const ROLE_SUMMARY: Record<ActorRole, string> = {
     "Review pending Tutor applications and oversee every session on the platform from the navigation. Administrative conflict resolution is not yet available.",
 };
 
-interface QuickAction {
-  label: string;
-  to: string;
-  icon: ReactNode;
-}
-
 /**
- * Phase D2 Task 4: replaces the old static "Available modules" list — four
- * inert, non-interactive pills naming every bounded context, with no link
- * and no distinction between them (the Task 1 audit's clutter finding).
- * Each role instead gets its own short, actually-navigable set of next
- * steps, reusing the exact routes NavSidebar already exposes for that role
- * — no new page, no new capability, just the same destinations surfaced
- * one click sooner from the page a signed-in user lands on first.
- */
-const ROLE_QUICK_ACTIONS: Record<ActorRole, QuickAction[]> = {
-  Student: [
-    { label: "Search Tutors", to: paths.discovery.tutorSearch, icon: <SearchRoundedIcon /> },
-    { label: "Book a session", to: paths.scheduling.bookSession, icon: <EventRoundedIcon /> },
-    {
-      label: "My sessions",
-      to: paths.scheduling.studentScheduleBase,
-      icon: <CalendarMonthRoundedIcon />,
-    },
-  ],
-  Tutor: [
-    {
-      label: "Declare availability",
-      to: paths.scheduling.declareAvailability,
-      icon: <EventAvailableRoundedIcon />,
-    },
-    {
-      label: "My sessions",
-      to: paths.scheduling.tutorScheduleBase,
-      icon: <CalendarMonthRoundedIcon />,
-    },
-  ],
-  ParentGuardian: [
-    { label: "Relationships", to: paths.identity.relationships, icon: <LinkRoundedIcon /> },
-    { label: "Book a session", to: paths.scheduling.bookSession, icon: <EventRoundedIcon /> },
-    {
-      label: "Student sessions",
-      to: paths.scheduling.studentScheduleBase,
-      icon: <CalendarMonthRoundedIcon />,
-    },
-  ],
-  AdminStaff: [
-    {
-      label: "Pending Tutor approvals",
-      to: paths.identity.tutorPending,
-      icon: <FactCheckRoundedIcon />,
-    },
-    {
-      label: "Admin dashboard",
-      to: paths.oversight.adminDashboard,
-      icon: <AdminPanelSettingsRoundedIcon />,
-    },
-    { label: "All sessions", to: paths.oversight.globalSessions, icon: <ListAltRoundedIcon /> },
-  ],
-};
-
-/**
- * The application's landing page. Exercises the real GET /health capability
- * end-to-end (QueryClient, Axios client, loading/error states) and, once a
- * role is known, surfaces that role's most relevant next steps as direct
- * links — every destination is already live, reachable from the navigation
- * too.
+ * The application's landing page. Student gets its own marketplace-style
+ * home (`StudentDashboard`, Phase 3 Step 1) — every other role keeps the
+ * original generic dashboard (`GenericDashboard`) unchanged, since this
+ * phase's scope is the Student discovery experience only.
  */
 export function DashboardPage() {
   const { actor } = useCurrentActor();
+
+  if (actor.role === "Student") {
+    return <StudentDashboard />;
+  }
+
+  return <GenericDashboard actor={actor} />;
+}
+
+/**
+ * Exercises the real GET /health capability end-to-end (QueryClient, Axios
+ * client, loading/error states) and, once a role is known, surfaces that
+ * role's most relevant next steps as direct links — every destination is
+ * already live, reachable from the navigation too.
+ */
+function GenericDashboard({ actor }: { actor: CurrentActor }) {
   const healthQuery = useQuery({
     queryKey: ["health"],
     queryFn: fetchHealthStatus,

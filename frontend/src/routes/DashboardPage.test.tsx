@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { DashboardPage } from "@/routes/DashboardPage";
 import { ActorProvider } from "@/shared/context/ActorProvider";
 import * as healthService from "@/services/api/healthService";
+import * as discoveryService from "@/features/discovery/api/discoveryService";
 
 function renderDashboard() {
   const queryClient = new QueryClient({
@@ -90,6 +91,12 @@ describe("DashboardPage", () => {
   it("shows a different quick-action set for the Student role", () => {
     window.localStorage.setItem("tutorflow.devActorRole", "Student");
     vi.spyOn(healthService, "fetchHealthStatus").mockResolvedValue("Healthy");
+    vi.spyOn(discoveryService, "searchTutors").mockResolvedValue({
+      items: [],
+      totalCount: 0,
+      page: 1,
+      pageSize: 4,
+    });
 
     renderDashboard();
 
@@ -98,5 +105,84 @@ describe("DashboardPage", () => {
       "/discovery/tutors/search",
     );
     expect(screen.queryByRole("link", { name: /Declare availability/ })).not.toBeInTheDocument();
+  });
+});
+
+// Phase 3 Step 1: the Student role now gets its own marketplace-style home
+// (`StudentDashboard`) instead of the generic role-summary dashboard every
+// other role still sees — that generic path (asserted above) is unchanged.
+describe("DashboardPage — Student dashboard", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.localStorage.setItem("tutorflow.devActorRole", "Student");
+  });
+
+  it("shows a Welcome heading and every required section", async () => {
+    vi.spyOn(discoveryService, "searchTutors").mockResolvedValue({
+      items: [],
+      totalCount: 0,
+      page: 1,
+      pageSize: 4,
+    });
+
+    renderDashboard();
+
+    expect(screen.getByRole("heading", { name: "Welcome back" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Upcoming Sessions" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Continue Learning" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Recommended Tutors" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Recent Activity" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Quick actions" })).toBeInTheDocument();
+
+    expect(screen.getByText("No upcoming sessions yet")).toBeInTheDocument();
+    expect(screen.getByText("Nothing in progress yet")).toBeInTheDocument();
+    expect(screen.getByText("No recent activity yet")).toBeInTheDocument();
+    expect(await screen.findByText("No tutors available yet")).toBeInTheDocument();
+  });
+
+  it("offers a Book a session action from the empty Upcoming Sessions section", () => {
+    vi.spyOn(discoveryService, "searchTutors").mockResolvedValue({
+      items: [],
+      totalCount: 0,
+      page: 1,
+      pageSize: 4,
+    });
+
+    renderDashboard();
+
+    const upcomingSessions = screen.getByRole("region", { name: "Upcoming Sessions" });
+    expect(within(upcomingSessions).getByRole("link", { name: /Book a session/ })).toHaveAttribute(
+      "href",
+      "/scheduling/sessions/book",
+    );
+  });
+
+  it("shows Recommended Tutors sourced from the existing Discovery search capability", async () => {
+    vi.spyOn(discoveryService, "searchTutors").mockResolvedValue({
+      items: [
+        {
+          tutorId: "22222222-2222-2222-2222-222222222222",
+          isApproved: true,
+          isSuspended: false,
+          isDiscoverable: true,
+          hourlyRate: 300_000,
+          subject: "Physics",
+          language: "Persian",
+          location: "Tehran",
+          offeredDurations: [],
+        },
+      ],
+      totalCount: 1,
+      page: 1,
+      pageSize: 4,
+    });
+
+    renderDashboard();
+
+    expect(await screen.findByText("Physics")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View profile" })).toHaveAttribute(
+      "href",
+      "/identity/tutors/22222222-2222-2222-2222-222222222222",
+    );
   });
 });

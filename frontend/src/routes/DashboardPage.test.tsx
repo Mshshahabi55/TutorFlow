@@ -179,6 +179,53 @@ describe("DashboardPage — Student dashboard", () => {
       "/identity/tutors/22222222-2222-2222-2222-222222222222",
     );
   });
+
+  // Once a Student id has been remembered (e.g. from visiting My Lessons or
+  // the booking wizard once), Upcoming Sessions/Recent Activity show real
+  // data instead of the permanent empty state a brand new visitor sees.
+  it("shows the next upcoming Session and recent activity once a Student id is remembered", async () => {
+    const STUDENT_ID = "33333333-3333-3333-3333-333333333333";
+    window.localStorage.setItem("tutorflow.rememberedId.student", STUDENT_ID);
+    vi.spyOn(discoveryService, "searchTutors").mockResolvedValue({
+      items: [],
+      totalCount: 0,
+      page: 1,
+      pageSize: 4,
+    });
+    vi.spyOn(schedulingService, "fetchStudentSchedule").mockResolvedValue([
+      {
+        sessionId: "44444444-4444-4444-4444-444444444444",
+        tutorId: "t1",
+        studentId: STUDENT_ID,
+        parentGuardianId: null,
+        availabilitySlotId: "a1",
+        scheduledTimeUtc: "2026-08-01T14:00:00Z",
+        endTimeUtc: "2026-08-01T15:00:00Z",
+        duration: "01:00:00",
+        deliveryMode: DeliveryMode.Online,
+        status: SessionStatus.Scheduled,
+      },
+      {
+        sessionId: "55555555-5555-5555-5555-555555555555",
+        tutorId: "t2",
+        studentId: STUDENT_ID,
+        parentGuardianId: null,
+        availabilitySlotId: "a2",
+        scheduledTimeUtc: "2020-01-01T10:00:00Z",
+        endTimeUtc: "2020-01-01T11:00:00Z",
+        duration: "01:00:00",
+        deliveryMode: DeliveryMode.Online,
+        status: SessionStatus.Completed,
+      },
+    ]);
+
+    renderDashboard();
+
+    expect(await screen.findByText("Tutor: t1")).toBeInTheDocument();
+    expect(screen.getByText("Tutor: t2")).toBeInTheDocument();
+    expect(screen.queryByText("No upcoming sessions yet")).not.toBeInTheDocument();
+    expect(screen.queryByText("No recent activity yet")).not.toBeInTheDocument();
+  });
 });
 
 // Phase 3 Step 6: the Tutor role now gets its own workspace dashboard

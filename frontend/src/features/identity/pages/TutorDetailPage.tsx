@@ -1,9 +1,13 @@
-import { Link as RouterLink, useParams } from "react-router-dom";
-import { Box, Button, Chip, Stack, Typography } from "@mui/material";
+import type { MouseEvent } from "react";
+import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
+import { Box, Button, Chip, Link as MuiLink, Stack, Typography } from "@mui/material";
 import ReviewsRoundedIcon from "@mui/icons-material/ReviewsRounded";
 import EventRoundedIcon from "@mui/icons-material/EventRounded";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import { useTutor } from "@/features/identity/hooks/useTutorQueries";
+import { useTutorAvailabilitySlots } from "@/features/scheduling/hooks/useAvailabilitySlotQueries";
+import { AvailabilityCard } from "@/features/scheduling/components/AvailabilityCard";
+import { AvailabilitySummaryCardSkeleton } from "@/features/scheduling/components/AvailabilitySummaryCardSkeleton";
 import { TutorApprovalActions } from "@/features/identity/components/TutorApprovalActions";
 import { TutorProfileHero } from "@/features/identity/components/TutorProfileHero";
 import { TutorProfileSkeleton } from "@/features/identity/components/TutorProfileSkeleton";
@@ -15,7 +19,60 @@ import { StatusPill } from "@/shared/components/feedback/StatusPill";
 import { CopyableId } from "@/shared/components/CopyableId";
 import { useEffectiveRole } from "@/shared/hooks/useEffectiveRole";
 import { paths } from "@/routes/paths";
-import type { TutorDto } from "@/services/api/dtos";
+import type { AvailabilitySlotDto, TutorDto } from "@/services/api/dtos";
+
+const AVAILABILITY_PREVIEW_LIMIT = 3;
+
+const PROFILE_SECTIONS = [
+  { id: "subjects", label: "Subjects" },
+  { id: "teaching-information", label: "Teaching Info" },
+  { id: "availability", label: "Availability" },
+  { id: "reviews", label: "Reviews" },
+] as const;
+
+/**
+ * In-page anchor jumps, not routes — every section already renders on this
+ * one page (there is no per-section data to lazily load), so this is only
+ * a faster way to reach a section that's already there, same spirit as
+ * `Breadcrumbs`' "don't invent a second navigation model."
+ */
+function TutorProfileSectionNav() {
+  function handleJump(event: MouseEvent<HTMLAnchorElement>, id: string) {
+    event.preventDefault();
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  return (
+    <Stack
+      direction="row"
+      spacing={3}
+      flexWrap="wrap"
+      sx={{
+        position: "sticky",
+        top: 0,
+        zIndex: 1,
+        bgcolor: "background.default",
+        py: 1.5,
+        borderBottom: "1px solid",
+        borderColor: "divider",
+      }}
+    >
+      {PROFILE_SECTIONS.map((section) => (
+        <MuiLink
+          key={section.id}
+          href={`#${section.id}`}
+          onClick={(event) => handleJump(event, section.id)}
+          underline="hover"
+          color="text.secondary"
+          fontWeight={600}
+          variant="body2"
+        >
+          {section.label}
+        </MuiLink>
+      ))}
+    </Stack>
+  );
+}
 
 /**
  * Phase 4.9 Task 4: Edit offering (Tutor-only, `ManageTutorOffering`) and
@@ -96,7 +153,7 @@ function SubjectsAndLanguagesSection({ tutor }: { tutor: TutorDto }) {
   }
 
   return (
-    <SectionCard headingComponent="h2" title="Subjects & Languages">
+    <SectionCard id="subjects" headingComponent="h2" title="Subjects & Languages">
       <Stack spacing={2}>
         {tutor.subject ? (
           <Box>
@@ -125,7 +182,7 @@ function SubjectsAndLanguagesSection({ tutor }: { tutor: TutorDto }) {
 
 function TeachingInformationSection({ tutor }: { tutor: TutorDto }) {
   return (
-    <SectionCard headingComponent="h2" title="Teaching Information">
+    <SectionCard id="teaching-information" headingComponent="h2" title="Teaching Information">
       <Stack spacing={2}>
         <Box>
           <Typography variant="caption" color="text.secondary">
@@ -153,17 +210,83 @@ function TeachingInformationSection({ tutor }: { tutor: TutorDto }) {
 /** No review capability exists in this API version — a professional placeholder, never a fabricated review. */
 function ReviewsSection() {
   return (
-    <SectionCard headingComponent="h2" title="Reviews">
+    <SectionCard id="reviews" headingComponent="h2" title="Reviews">
       <Stack spacing={1} alignItems="flex-start">
         <ReviewsRoundedIcon color="disabled" fontSize="large" aria-hidden="true" />
         <Typography variant="body1" fontWeight={600}>
           No reviews yet
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          This tutor hasn&rsquo;t received any reviews yet. Book a session to be one of the first to
+          This tutor hasn&rsquo;t received any reviews yet. Book a lesson to be one of the first to
           share your experience.
         </Typography>
       </Stack>
+    </SectionCard>
+  );
+}
+
+/**
+ * Reuses `useTutorAvailabilitySlots` — the same capability the Booking
+ * wizard's Choose Date/Choose Time steps and the Tutor Dashboard's
+ * Availability Summary already use — for a read-only teaser of the next
+ * few open times. Clicking one jumps straight into the booking wizard with
+ * that exact slot pre-selected (skipping straight to Review), the same
+ * deep link `AvailabilitySlotDetailPage`'s "Book this slot" link already
+ * uses.
+ */
+function AvailabilityPreviewSection({ tutor }: { tutor: TutorDto }) {
+  const navigate = useNavigate();
+  const slotsQuery = useTutorAvailabilitySlots(tutor.tutorId);
+
+  function openInWizard(slot: AvailabilitySlotDto) {
+    void navigate(
+      `${paths.scheduling.bookSession}?tutorId=${tutor.tutorId}&availabilitySlotId=${slot.availabilitySlotId}`,
+    );
+  }
+
+  if (slotsQuery.isPending) {
+    return (
+      <SectionCard id="availability" headingComponent="h2" title="Availability">
+        <Stack direction="row" flexWrap="wrap" gap={2}>
+          {Array.from({ length: 2 }, (_, index) => (
+            <AvailabilitySummaryCardSkeleton key={index} />
+          ))}
+        </Stack>
+      </SectionCard>
+    );
+  }
+
+  if (slotsQuery.isError) {
+    return (
+      <SectionCard id="availability" headingComponent="h2" title="Availability">
+        <ErrorState error={slotsQuery.error} onRetry={() => void slotsQuery.refetch()} />
+      </SectionCard>
+    );
+  }
+
+  const openSlots = slotsQuery.data
+    .filter((slot) => !slot.isConsumed)
+    .sort((a, b) => Date.parse(a.startTimeUtc) - Date.parse(b.startTimeUtc))
+    .slice(0, AVAILABILITY_PREVIEW_LIMIT);
+
+  return (
+    <SectionCard id="availability" headingComponent="h2" title="Availability">
+      {openSlots.length === 0 ? (
+        <Typography variant="body2" color="text.secondary">
+          No open times right now — check back later.
+        </Typography>
+      ) : (
+        <Stack direction="row" flexWrap="wrap" gap={2}>
+          {openSlots.map((slot) => (
+            <AvailabilityCard
+              key={slot.availabilitySlotId}
+              slot={slot}
+              selected={false}
+              onSelect={openInWizard}
+            />
+          ))}
+        </Stack>
+      )}
     </SectionCard>
   );
 }
@@ -173,7 +296,7 @@ function BookingCallToActionSection({ tutor }: { tutor: TutorDto }) {
     <SectionCard headingComponent="h2" title="Ready to get started?">
       <Stack spacing={2} alignItems="flex-start">
         <Typography variant="body2" color="text.secondary">
-          Book a session directly with this tutor.
+          Book a lesson directly with this tutor.
         </Typography>
         <Button
           component={RouterLink}
@@ -182,7 +305,7 @@ function BookingCallToActionSection({ tutor }: { tutor: TutorDto }) {
           startIcon={<EventRoundedIcon />}
           fullWidth
         >
-          Book Session
+          Book Lesson
         </Button>
       </Stack>
     </SectionCard>
@@ -211,12 +334,14 @@ function TutorNotFound({ error, onRetry }: { error: unknown; onRetry: () => void
 }
 
 /**
- * GET /tutors/{id} (`useTutor`) — the same query hook and route as before
- * (Phase 3 Step 3 is presentation-only). No booking, availability, or
- * review endpoint is queried here: there is no per-Tutor availability or
- * review capability in this API version, so those sections are omitted
- * rather than fabricated (Statistics is omitted for the same reason — no
- * such field exists on `TutorDto`).
+ * GET /tutors/{id} (`useTutor`) — the same query hook and route as before.
+ * RC2 adds an in-page section nav (jump links, not routes), an Availability
+ * preview reusing `useTutorAvailabilitySlots` (the same capability the
+ * Booking wizard and Tutor Dashboard already use), and a booking card that
+ * stays in view while scrolling on desktop. No review endpoint is queried:
+ * there is no review capability in this API version, so that section stays
+ * an honest placeholder rather than a fabricated one (Statistics is
+ * omitted for the same reason — no such field exists on `TutorDto`).
  */
 export function TutorDetailPage() {
   const { tutorId } = useParams<{ tutorId: string }>();
@@ -235,14 +360,21 @@ export function TutorDetailPage() {
   return (
     <Stack spacing={3}>
       <TutorProfileHero tutor={tutor} />
+      <TutorProfileSectionNav />
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={3} alignItems="flex-start">
         <Stack flex={2} spacing={3} width="100%">
           <SubjectsAndLanguagesSection tutor={tutor} />
+          <TeachingInformationSection tutor={tutor} />
+          <AvailabilityPreviewSection tutor={tutor} />
           <ReviewsSection />
         </Stack>
-        <Stack flex={1} spacing={3} width="100%">
-          <TeachingInformationSection tutor={tutor} />
+        <Stack
+          flex={1}
+          spacing={3}
+          width="100%"
+          sx={{ position: { md: "sticky" }, top: { md: 88 } }}
+        >
           <ManageListingSection tutor={tutor} />
           <BookingCallToActionSection tutor={tutor} />
         </Stack>

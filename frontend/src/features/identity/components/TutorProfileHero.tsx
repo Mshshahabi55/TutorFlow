@@ -65,7 +65,7 @@ export function TutorProfileHero({ tutor }: { tutor: TutorDto }) {
         startIcon={<EventRoundedIcon />}
         sx={{ flexShrink: 0, alignSelf: { xs: "stretch", sm: "center" } }}
       >
-        Book Session
+        Book Lesson
       </Button>
     </Stack>
   );

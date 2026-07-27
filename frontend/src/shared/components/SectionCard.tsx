@@ -6,6 +6,8 @@ export interface SectionCardProps {
   /** An optional link/button rendered top-right of the section (e.g. "View all"). */
   action?: ReactNode;
   children: ReactNode;
+  /** An optional DOM id, e.g. so an in-page anchor nav (TutorDetailPage's section nav) can scroll to this section. */
+  id?: string;
   /**
    * The heading's semantic tag. Defaults to `<h5>`, correct directly under
    * this app's usual `<h4>` `PageHeader` (every Dashboard, Booking,
@@ -31,11 +33,17 @@ export interface SectionCardProps {
  * by its own heading so screen-reader users can jump between sections the
  * same way sighted users scan cards.
  */
-export function SectionCard({ title, action, children, headingComponent = "h5" }: SectionCardProps) {
+export function SectionCard({ title, action, children, headingComponent = "h5", id }: SectionCardProps) {
   const headingId = useId();
 
   return (
-    <Card variant="outlined" component="section" aria-labelledby={headingId} sx={{ height: "100%" }}>
+    <Card
+      id={id}
+      variant="outlined"
+      component="section"
+      aria-labelledby={headingId}
+      sx={{ height: "100%", scrollMarginTop: 72 }}
+    >
       <CardContent>
         <Stack
           direction="row"

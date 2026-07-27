@@ -3,6 +3,7 @@ import { screen } from "@testing-library/react";
 import { TutorDetailPage } from "@/features/identity/pages/TutorDetailPage";
 import { renderWithProviders } from "@/test/renderWithProviders";
 import * as identityService from "@/features/identity/api/identityService";
+import * as schedulingService from "@/features/scheduling/api/schedulingService";
 
 const TUTOR_ID = "11111111-1111-1111-1111-111111111111";
 
@@ -28,6 +29,7 @@ const TUTOR = {
 describe("TutorDetailPage", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    vi.spyOn(schedulingService, "fetchTutorAvailabilitySlots").mockResolvedValue([]);
   });
 
   it("shows a profile skeleton while loading", () => {
@@ -82,16 +84,74 @@ describe("TutorDetailPage", () => {
     expect(await screen.findByText("No reviews yet")).toBeInTheDocument();
   });
 
-  it("links its Book Session action(s) to the existing booking route", async () => {
+  it("links its Book Lesson action(s) to the existing booking route", async () => {
     vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
 
     renderPage();
 
-    const bookLinks = await screen.findAllByRole("link", { name: "Book Session" });
+    const bookLinks = await screen.findAllByRole("link", { name: "Book Lesson" });
     expect(bookLinks.length).toBeGreaterThan(0);
     for (const link of bookLinks) {
       expect(link).toHaveAttribute("href", `/scheduling/sessions/book?tutorId=${TUTOR_ID}`);
     }
+  });
+
+  it("shows a section nav that jumps to each section by id", async () => {
+    vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
+
+    renderPage();
+
+    await screen.findByRole("heading", { name: "Mathematics" });
+    expect(screen.getByRole("link", { name: "Subjects" })).toHaveAttribute("href", "#subjects");
+    expect(screen.getByRole("link", { name: "Teaching Info" })).toHaveAttribute(
+      "href",
+      "#teaching-information",
+    );
+    expect(screen.getByRole("link", { name: "Availability" })).toHaveAttribute(
+      "href",
+      "#availability",
+    );
+    expect(screen.getByRole("link", { name: "Reviews" })).toHaveAttribute("href", "#reviews");
+  });
+
+  describe("Availability preview", () => {
+    it("shows an honest 'no open times' message when the Tutor has no open Availability Slots", async () => {
+      vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
+      vi.spyOn(schedulingService, "fetchTutorAvailabilitySlots").mockResolvedValue([]);
+
+      renderPage();
+
+      expect(await screen.findByText("No open times right now — check back later.")).toBeInTheDocument();
+    });
+
+    it("shows the Tutor's next open Availability Slots, excluding consumed ones", async () => {
+      vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
+      vi.spyOn(schedulingService, "fetchTutorAvailabilitySlots").mockResolvedValue([
+        {
+          availabilitySlotId: "22222222-2222-2222-2222-222222222222",
+          tutorId: TUTOR_ID,
+          startTimeUtc: "2026-08-01T14:00:00Z",
+          endTimeUtc: "2026-08-01T15:00:00Z",
+          duration: "01:00:00",
+          deliveryMode: 0,
+          isConsumed: false,
+        },
+        {
+          availabilitySlotId: "33333333-3333-3333-3333-333333333333",
+          tutorId: TUTOR_ID,
+          startTimeUtc: "2026-08-02T14:00:00Z",
+          endTimeUtc: "2026-08-02T15:00:00Z",
+          duration: "01:00:00",
+          deliveryMode: 0,
+          isConsumed: true,
+        },
+      ]);
+
+      renderPage();
+
+      expect(await screen.findByRole("button", { name: /min · Online/ })).toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: /min · Online/ })).toHaveLength(1);
+    });
   });
 
   // Phase 4.5: Domain now rejects a new HourlyRate not divisible by 10, but

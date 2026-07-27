@@ -1,0 +1,147 @@
+import { Box, Chip, Stack, Typography } from "@mui/material";
+import { tehranDateKey, tehranDateLabel, toTehranDisplay } from "@/shared/time/tehranTime";
+import { timeSpanToMinutes } from "@/shared/utils/duration";
+import type { AvailabilitySlotDto, SessionDto } from "@/services/api/dtos";
+
+const DAYS_SHOWN = 7;
+
+type SlotState = "booked" | "available" | "past";
+
+function classifySlot(slot: AvailabilitySlotDto, now: number): SlotState {
+  if (slot.isConsumed) {
+    return "booked";
+  }
+  return Date.parse(slot.startTimeUtc) < now ? "past" : "available";
+}
+
+/** The next `DAYS_SHOWN` Tehran-local calendar dates, starting today — the calendar's week window. */
+function upcomingDateKeys(now: Date): string[] {
+  return Array.from({ length: DAYS_SHOWN }, (_, index) =>
+    tehranDateKey(new Date(now.getTime() + index * 86_400_000).toISOString()),
+  );
+}
+
+export interface WeeklyAvailabilityCalendarProps {
+  slots: AvailabilitySlotDto[];
+  /** The Tutor's own schedule — used only to resolve which Session a Booked slot belongs to, so it can link there. */
+  sessions: SessionDto[];
+  onOpenSession: (session: SessionDto) => void;
+  now?: Date;
+}
+
+/**
+ * A week-at-a-glance view of the Tutor's own teaching time — RC2.2's
+ * "calendar first" spec. Colour states come straight from data already on
+ * `AvailabilitySlotDto` (`isConsumed`) and the current instant — there is
+ * no "Unavailable" state to render: the domain has no such concept, an
+ * empty day column already communicates it honestly. Only a Booked slot
+ * is clickable (linking to its Session, resolved from the same schedule
+ * data already fetched) — there is no cancel/delete-availability
+ * capability in this API, so an open or expired slot has no action to
+ * offer beyond being seen.
+ */
+export function WeeklyAvailabilityCalendar({
+  slots,
+  sessions,
+  onOpenSession,
+  now = new Date(),
+}: WeeklyAvailabilityCalendarProps) {
+  const nowMs = now.getTime();
+  const todayKey = tehranDateKey(now.toISOString());
+  const dateKeys = upcomingDateKeys(now);
+
+  const sessionBySlotId = new Map(sessions.map((session) => [session.availabilitySlotId, session]));
+
+  const slotsByDate = new Map<string, AvailabilitySlotDto[]>();
+  for (const slot of slots) {
+    const key = tehranDateKey(slot.startTimeUtc);
+    const existing = slotsByDate.get(key) ?? [];
+    existing.push(slot);
+    slotsByDate.set(key, existing);
+  }
+
+  return (
+    <Stack spacing={2}>
+      <Stack direction="row" spacing={2} flexWrap="wrap">
+        <LegendItem color="success.main" label="Available" />
+        <LegendItem color="primary.main" label="Booked" />
+        <LegendItem color="text.disabled" label="Past (unbooked)" />
+      </Stack>
+
+      <Stack direction="row" spacing={2} sx={{ overflowX: "auto", pb: 1 }}>
+      {dateKeys.map((dateKey) => {
+        const isToday = dateKey === todayKey;
+        const daySlots = (slotsByDate.get(dateKey) ?? []).sort(
+          (a, b) => Date.parse(a.startTimeUtc) - Date.parse(b.startTimeUtc),
+        );
+
+        return (
+          <Box
+            key={dateKey}
+            flex="1 1 160px"
+            minWidth={160}
+            sx={{
+              borderRadius: 1,
+              border: "1px solid",
+              borderColor: isToday ? "primary.main" : "divider",
+              bgcolor: isToday ? "action.hover" : "background.paper",
+              p: 1.5,
+            }}
+          >
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+              {tehranDateLabel(dateKey)}
+              {isToday ? " · Today" : ""}
+            </Typography>
+
+            {daySlots.length === 0 ? (
+              <Typography variant="caption" color="text.secondary">
+                No teaching time
+              </Typography>
+            ) : (
+              <Stack spacing={1} mt={1}>
+                {daySlots.map((slot) => {
+                  const state = classifySlot(slot, nowMs);
+                  const session = sessionBySlotId.get(slot.availabilitySlotId);
+                  const label = `${toTehranDisplay(slot.startTimeUtc).split(", ").pop()} · ${timeSpanToMinutes(slot.duration)}min`;
+
+                  return (
+                    <Chip
+                      key={slot.availabilitySlotId}
+                      label={label}
+                      size="small"
+                      clickable={state === "booked" && Boolean(session)}
+                      onClick={
+                        state === "booked" && session ? () => onOpenSession(session) : undefined
+                      }
+                      color={state === "booked" ? "primary" : state === "available" ? "success" : "default"}
+                      variant={state === "past" ? "outlined" : "filled"}
+                      sx={{
+                        justifyContent: "flex-start",
+                        opacity: state === "past" ? 0.6 : 1,
+                        height: "auto",
+                        minHeight: 32,
+                        "& .MuiChip-label": { whiteSpace: "normal", py: 0.5 },
+                      }}
+                    />
+                  );
+                })}
+              </Stack>
+            )}
+          </Box>
+        );
+      })}
+      </Stack>
+    </Stack>
+  );
+}
+
+function LegendItem({ color, label }: { color: string; label: string }) {
+  return (
+    <Stack direction="row" spacing={0.75} alignItems="center">
+      <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: color }} />
+      <Typography variant="caption" color="text.secondary">
+        {label}
+      </Typography>
+    </Stack>
+  );
+}

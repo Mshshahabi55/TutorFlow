@@ -11,6 +11,8 @@ import { AvailabilitySummaryCardSkeleton } from "@/features/scheduling/component
 import { TutorApprovalActions } from "@/features/identity/components/TutorApprovalActions";
 import { TutorProfileHero } from "@/features/identity/components/TutorProfileHero";
 import { TutorProfileSkeleton } from "@/features/identity/components/TutorProfileSkeleton";
+import { ProfileCompletionCard } from "@/features/identity/components/ProfileCompletionCard";
+import { deriveProfileCompletion } from "@/features/identity/utils/profileCompletion";
 import { SectionCard } from "@/shared/components/SectionCard";
 import { formatMinutesList } from "@/shared/utils/duration";
 import { formatToman } from "@/shared/money/rial";
@@ -144,6 +146,29 @@ function ManageListingSection({ tutor }: { tutor: TutorDto }) {
         <TutorDetailActions tutor={tutor} />
       </Stack>
     </SectionCard>
+  );
+}
+
+/**
+ * The Tutor's own "how complete is my listing" checklist — same
+ * `deriveProfileCompletion`/`ProfileCompletionCard` the Dashboard shows,
+ * reused here rather than duplicated. Only the Tutor viewing their own
+ * profile sees it: it's a self-service checklist, not an Admin or public
+ * concern (unlike "Manage this listing", which both Tutor and Admin need).
+ */
+function OwnProfileCompletionSection({ tutor }: { tutor: TutorDto }) {
+  const role = useEffectiveRole();
+  const slotsQuery = useTutorAvailabilitySlots(tutor.tutorId);
+
+  if (role !== "Tutor" || !slotsQuery.isSuccess) {
+    return null;
+  }
+
+  return (
+    <ProfileCompletionCard
+      completion={deriveProfileCompletion(tutor, slotsQuery.data.length > 0)}
+      tutorId={tutor.tutorId}
+    />
   );
 }
 
@@ -389,6 +414,7 @@ export function TutorDetailPage() {
           sx={{ position: { md: "sticky" }, top: { md: 88 } }}
         >
           <ManageListingSection tutor={tutor} />
+          <OwnProfileCompletionSection tutor={tutor} />
           <BookingCallToActionSection tutor={tutor} />
         </Stack>
       </Stack>

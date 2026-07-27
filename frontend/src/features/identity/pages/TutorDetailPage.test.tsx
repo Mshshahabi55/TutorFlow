@@ -233,6 +233,25 @@ describe("TutorDetailPage", () => {
       expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
     });
 
+    it("shows the Tutor's own Profile Completion checklist only for the Tutor role", async () => {
+      window.localStorage.setItem("tutorflow.devActorRole", "Tutor");
+      vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
+
+      renderPage();
+
+      expect(await screen.findByRole("heading", { name: "Profile Completion" })).toBeInTheDocument();
+    });
+
+    it("hides the Profile Completion checklist for an AdminStaff viewer", async () => {
+      window.localStorage.setItem("tutorflow.devActorRole", "AdminStaff");
+      vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
+
+      renderPage();
+
+      await screen.findByText("Approved");
+      expect(screen.queryByRole("heading", { name: "Profile Completion" })).not.toBeInTheDocument();
+    });
+
     it("shows no management action or raw moderation state for a Student viewer", async () => {
       window.localStorage.setItem("tutorflow.devActorRole", "Student");
       vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);

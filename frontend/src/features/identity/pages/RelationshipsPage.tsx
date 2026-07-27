@@ -18,7 +18,14 @@ import { Form } from "@/shared/components/forms/Form";
 import { FormTextField } from "@/shared/components/forms/FormTextField";
 import { DataTable, type DataTableColumn } from "@/shared/components/table/DataTable";
 import { StatusPill } from "@/shared/components/feedback/StatusPill";
+import { ChildSummaryCard } from "@/features/identity/components/ChildSummaryCard";
+import { ChildSummaryCardSkeleton } from "@/features/identity/components/ChildSummaryCardSkeleton";
+import { IdentityGate } from "@/shared/components/IdentityGate";
+import { EmptyState } from "@/shared/components/feedback/EmptyState";
+import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { useNotification } from "@/shared/hooks/useNotification";
+import { useRememberedId } from "@/shared/hooks/useRememberedId";
+import { useEffectiveRole } from "@/shared/hooks/useEffectiveRole";
 import { RelationshipStatus } from "@/services/api/dtos";
 import type { RelationshipDto } from "@/services/api/dtos";
 
@@ -153,7 +160,135 @@ function RelationshipsForAccountCard() {
   );
 }
 
+/**
+ * A friendlier, card-based add-a-child form for the Parent's own "My
+ * Children" view — same `useInviteRelationship` mutation and
+ * `relationshipInviteSchema` as `InviteRelationshipCard`, but the Parent's
+ * own id is prefilled from `useRememberedId` (never re-typed) rather than
+ * asked for again, so only the Student's id needs entering.
+ */
+function AddChildCard() {
+  const { notify } = useNotification();
+  const { id: rememberedParentGuardianId } = useRememberedId("parentGuardian");
+  const inviteRelationship = useInviteRelationship();
+  const form = useForm<RelationshipInviteFormValues>({
+    resolver: zodResolver(relationshipInviteSchema),
+    defaultValues: { parentGuardianId: rememberedParentGuardianId ?? "", studentId: "" },
+  });
+
+  function handleSubmit(values: RelationshipInviteFormValues) {
+    inviteRelationship.mutate(values, {
+      onSuccess: () => {
+        notify({ message: "Invitation sent — it will show up here once confirmed.", severity: "success" });
+        form.reset({ parentGuardianId: values.parentGuardianId, studentId: "" });
+      },
+    });
+  }
+
+  return (
+    <Card variant="outlined">
+      <CardContent>
+        <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+          Add a Child
+        </Typography>
+        <Typography variant="body2" color="text.secondary" gutterBottom>
+          Enter your child&rsquo;s Student id — they&rsquo;ll show up here once they confirm.
+        </Typography>
+
+        <Form form={form} onSubmit={handleSubmit}>
+          <Stack spacing={2} mt={1} alignItems="flex-start">
+            <FormTextField name="studentId" label="Student id" fullWidth />
+            <Button type="submit" variant="contained" disabled={inviteRelationship.isPending}>
+              {inviteRelationship.isPending ? "Sending…" : "Send invitation"}
+            </Button>
+          </Stack>
+        </Form>
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Card-based "My Children" — reuses the same `useRelationshipsForAccount` query the generic Relationships view uses, presented as ChildSummaryCards instead of a raw table row per child. */
+function MyChildrenView({ accountId }: { accountId: string }) {
+  const relationshipsQuery = useRelationshipsForAccount(accountId);
+
+  if (relationshipsQuery.isPending) {
+    return (
+      <Stack spacing={2}>
+        <ChildSummaryCardSkeleton />
+        <ChildSummaryCardSkeleton />
+      </Stack>
+    );
+  }
+
+  if (relationshipsQuery.isError) {
+    return <ErrorState error={relationshipsQuery.error} onRetry={() => void relationshipsQuery.refetch()} />;
+  }
+
+  const relationships = relationshipsQuery.data;
+
+  if (relationships.length === 0) {
+    return (
+      <EmptyState
+        title="You haven't added a child yet"
+        description="Add your child's Student id below to get started."
+      />
+    );
+  }
+
+  return (
+    <Stack spacing={2}>
+      {relationships.map((relationship) => (
+        <ChildSummaryCard key={relationship.relationshipId} relationship={relationship} />
+      ))}
+    </Stack>
+  );
+}
+
+/**
+ * A Parent/Guardian sees a warm, card-based "My Children" view of this
+ * same page (reusing `IdentityGate` so their own id is asked for once,
+ * never re-typed). A Student or AdminStaff viewer — this route is shared
+ * with both (`router.tsx`) since either side of a Relationship, or an
+ * Admin, may need to look one up — still sees the original generic
+ * lookup-by-account-id/DataTable experience: "My Children" would misframe
+ * a Student looking at their own Parent/Guardian relationships, and an
+ * Admin genuinely needs the raw, any-account lookup tool.
+ */
+function ParentChildrenView() {
+  return (
+    <Stack spacing={3} maxWidth={720}>
+      <PageHeader
+        title="My Children"
+        subtitle={
+          <Typography variant="body1" color="text.secondary">
+            See your children and add a new one — a Relationship becomes active once they confirm
+            it.
+          </Typography>
+        }
+      />
+
+      <IdentityGate
+        kind="parentGuardian"
+        fieldLabel="Parent/Guardian id"
+        title="Let's find your children"
+        description="Enter your Parent/Guardian id once — we'll remember it on this device so you won't need to again."
+      >
+        {(accountId) => <MyChildrenView accountId={accountId} />}
+      </IdentityGate>
+
+      <AddChildCard />
+    </Stack>
+  );
+}
+
 export function RelationshipsPage() {
+  const role = useEffectiveRole();
+
+  if (role === "ParentGuardian") {
+    return <ParentChildrenView />;
+  }
+
   return (
     <Stack spacing={3} maxWidth={720}>
       <PageHeader

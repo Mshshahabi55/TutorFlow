@@ -1,9 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RelationshipsPage } from "@/features/identity/pages/RelationshipsPage";
 import { renderWithProviders } from "@/test/renderWithProviders";
 import * as identityService from "@/features/identity/api/identityService";
+import * as schedulingService from "@/features/scheduling/api/schedulingService";
 import { RelationshipStatus } from "@/services/api/dtos";
 
 const PARENT_GUARDIAN_ID = "44444444-4444-4444-4444-444444444444";
@@ -11,6 +12,10 @@ const STUDENT_ID = "22222222-2222-2222-2222-222222222222";
 const RELATIONSHIP_ID = "55555555-5555-5555-5555-555555555555";
 
 describe("RelationshipsPage", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
   it("invites a Relationship and shows the returned id", async () => {
     const inviteRelationship = vi.spyOn(identityService, "inviteRelationship").mockResolvedValue({
       relationshipId: RELATIONSHIP_ID,
@@ -77,5 +82,57 @@ describe("RelationshipsPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Look up" }));
 
     expect(await screen.findByText("No Relationships for this account")).toBeInTheDocument();
+  });
+
+  describe("as a Parent/Guardian", () => {
+    beforeEach(() => {
+      window.localStorage.setItem("tutorflow.devActorRole", "ParentGuardian");
+    });
+
+    it("shows a friendly My Children heading and identity prompt instead of the generic lookup", () => {
+      renderWithProviders(<RelationshipsPage />);
+
+      expect(screen.getByRole("heading", { name: "My Children" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Let's find your children" })).toBeInTheDocument();
+      expect(screen.queryByLabelText("Account id")).not.toBeInTheDocument();
+    });
+
+    it("shows each child as a card once the Parent's own id is known", async () => {
+      window.localStorage.setItem("tutorflow.rememberedId.parentGuardian", PARENT_GUARDIAN_ID);
+      vi.spyOn(identityService, "fetchRelationshipsForAccount").mockResolvedValue([
+        {
+          relationshipId: RELATIONSHIP_ID,
+          parentGuardianId: PARENT_GUARDIAN_ID,
+          studentId: STUDENT_ID,
+          status: RelationshipStatus.Confirmed,
+        },
+      ]);
+      vi.spyOn(schedulingService, "fetchStudentSchedule").mockResolvedValue([]);
+
+      renderWithProviders(<RelationshipsPage />);
+
+      expect(await screen.findByText(STUDENT_ID)).toBeInTheDocument();
+      expect(screen.getByText("Confirmed")).toBeInTheDocument();
+    });
+
+    it("sends an invitation for the Student id alone — the Parent's own id is prefilled, not re-typed", async () => {
+      window.localStorage.setItem("tutorflow.rememberedId.parentGuardian", PARENT_GUARDIAN_ID);
+      vi.spyOn(identityService, "fetchRelationshipsForAccount").mockResolvedValue([]);
+      const inviteRelationship = vi.spyOn(identityService, "inviteRelationship").mockResolvedValue({
+        relationshipId: RELATIONSHIP_ID,
+        parentGuardianId: PARENT_GUARDIAN_ID,
+        studentId: STUDENT_ID,
+        status: RelationshipStatus.Invited,
+      });
+
+      renderWithProviders(<RelationshipsPage />);
+      await screen.findByText("You haven't added a child yet");
+
+      expect(screen.queryByLabelText("Parent/Guardian id")).not.toBeInTheDocument();
+      await userEvent.type(screen.getByLabelText("Student id"), STUDENT_ID);
+      await userEvent.click(screen.getByRole("button", { name: "Send invitation" }));
+
+      expect(inviteRelationship).toHaveBeenCalledWith(PARENT_GUARDIAN_ID, STUDENT_ID);
+    });
   });
 });

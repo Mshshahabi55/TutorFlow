@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { ChildSummaryCard } from "@/features/identity/components/ChildSummaryCard";
+import { NotificationProvider } from "@/shared/context/NotificationProvider";
 import * as schedulingService from "@/features/scheduling/api/schedulingService";
 import * as identityService from "@/features/identity/api/identityService";
 import { DeliveryMode, RelationshipStatus, SessionStatus } from "@/services/api/dtos";
@@ -19,21 +21,31 @@ function renderCard(relationship: RelationshipDto) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
-        <ChildSummaryCard relationship={relationship} />
-      </MemoryRouter>
+      <NotificationProvider>
+        <MemoryRouter>
+          <ChildSummaryCard relationship={relationship} />
+        </MemoryRouter>
+      </NotificationProvider>
     </QueryClientProvider>,
   );
 }
 
 describe("ChildSummaryCard", () => {
-  it("shows an Invited badge and no schedule detail for an unconfirmed relationship", () => {
+  it("shows an Invited badge, no schedule detail, and a Confirm action for an unconfirmed relationship", async () => {
+    const confirmRelationship = vi
+      .spyOn(identityService, "confirmRelationship")
+      .mockResolvedValue(undefined);
+
     renderCard({ ...RELATIONSHIP, status: RelationshipStatus.Invited });
 
     expect(screen.getByText("st1")).toBeInTheDocument();
     expect(screen.getByText("Invited")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /View Lessons/ })).not.toBeInTheDocument();
     expect(screen.getByText(/waiting for this relationship to be confirmed/i)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+    expect(confirmRelationship).toHaveBeenCalledWith("r1");
   });
 
   it("shows a Confirmed badge, next/recent lesson, current tutor, and View Lessons/Book Lesson actions", async () => {

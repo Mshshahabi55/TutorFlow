@@ -5,10 +5,12 @@ import CalendarMonthRoundedIcon from "@mui/icons-material/CalendarMonthRounded";
 import EventRoundedIcon from "@mui/icons-material/EventRounded";
 import { useStudentSchedule } from "@/features/scheduling/hooks/useSessionQueries";
 import { useTutor } from "@/features/identity/hooks/useTutorQueries";
+import { useConfirmRelationship } from "@/features/identity/hooks/useRelationshipMutations";
 import { byScheduledTimeAscending, byScheduledTimeDescending } from "@/features/scheduling/utils/sessionSort";
 import { StatusPill } from "@/shared/components/feedback/StatusPill";
 import { monoFontFamily } from "@/app/theme";
 import { toTehranDisplay } from "@/shared/time/tehranTime";
+import { useNotification } from "@/shared/hooks/useNotification";
 import { RelationshipStatus, SessionStatus } from "@/services/api/dtos";
 import type { RelationshipDto } from "@/services/api/dtos";
 import { paths } from "@/routes/paths";
@@ -28,12 +30,22 @@ export interface ChildSummaryCardProps {
  * "Current tutor" (`useTutor`, resolving that lesson's own `tutorId` — the
  * Tutor's `subject` stands in for a name, same convention as everywhere
  * else `TutorDto` is shown). An Invited-but-not-yet-confirmed Relationship
- * isn't an authorized family link yet, so it only shows its own status,
- * never session data that isn't really the parent's to view.
+ * isn't an authorized family link yet, so it shows no session data that
+ * isn't really the parent's to view yet — only its own status and a
+ * Confirm action (`useConfirmRelationship`, the same mutation the old
+ * DataTable-based Relationships page already exposed).
  */
 export function ChildSummaryCard({ relationship }: ChildSummaryCardProps) {
   const isConfirmed = relationship.status === RelationshipStatus.Confirmed;
   const scheduleQuery = useStudentSchedule(isConfirmed ? relationship.studentId : undefined);
+  const confirmRelationship = useConfirmRelationship();
+  const { notify } = useNotification();
+
+  function handleConfirm() {
+    confirmRelationship.mutate(relationship.relationshipId, {
+      onSuccess: () => notify({ message: "Relationship confirmed.", severity: "success" }),
+    });
+  }
 
   const sessions = scheduleQuery.data ?? [];
   const nextSession = sessions
@@ -141,9 +153,19 @@ export function ChildSummaryCard({ relationship }: ChildSummaryCardProps) {
             </Stack>
           </Stack>
         ) : (
-          <Typography variant="body2" color="text.secondary" mt={2}>
-            Waiting for this Relationship to be confirmed.
-          </Typography>
+          <Stack spacing={1.5} mt={2} alignItems="flex-start">
+            <Typography variant="body2" color="text.secondary">
+              Waiting for this Relationship to be confirmed.
+            </Typography>
+            <Button
+              size="small"
+              variant="contained"
+              disabled={confirmRelationship.isPending}
+              onClick={handleConfirm}
+            >
+              {confirmRelationship.isPending ? "Confirming…" : "Confirm"}
+            </Button>
+          </Stack>
         )}
       </CardContent>
     </Card>

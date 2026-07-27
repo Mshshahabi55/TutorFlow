@@ -34,7 +34,7 @@ describe("TutorSessionListPage", () => {
   it("shows a friendly identity prompt, not a raw id field, when no id is known", () => {
     renderWithProviders(<TutorSessionListPage />);
 
-    expect(screen.getByRole("heading", { name: "Let's find your calendar" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Let's find your lessons" })).toBeInTheDocument();
     expect(screen.getByLabelText("Tutor id")).toBeInTheDocument();
   });
 
@@ -66,8 +66,8 @@ describe("TutorSessionListPage", () => {
       routePath: "/scheduling/tutors/:tutorId/schedule",
     });
 
-    expect(await screen.findByText("No sessions yet")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Declare availability/ })).toHaveAttribute(
+    expect(await screen.findByText("No lessons yet")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Manage Your Schedule/ })).toHaveAttribute(
       "href",
       "/scheduling/availability/declare",
     );
@@ -84,7 +84,7 @@ describe("TutorSessionListPage", () => {
       routePath: "/scheduling/tutors/:tutorId/schedule",
     });
 
-    expect(await screen.findByRole("heading", { name: "Upcoming Sessions" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Upcoming Lessons" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Completed" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Cancelled & No-Show" })).toBeInTheDocument();
     expect(screen.getAllByText("Student: st1")).toHaveLength(3);

@@ -59,14 +59,14 @@ describe("NavSidebar", () => {
     expect(screen.getAllByRole("link")).toHaveLength(5);
   });
 
-  it("shows the Tutor's flat nav — Dashboard, My Students, Calendar, Availability, Profile", () => {
+  it("shows the Tutor's flat nav — Dashboard, My Students, My Lessons, Availability, Profile", () => {
     window.localStorage.setItem("tutorflow.devActorRole", "Tutor");
 
     renderNavSidebar({ variant: "permanent" });
 
     expect(screen.getByRole("link", { name: "Dashboard" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "My Students" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Calendar" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "My Lessons" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Availability" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Profile" })).toBeInTheDocument();
   });

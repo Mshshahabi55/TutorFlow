@@ -32,8 +32,8 @@ function TutorSessionsWorkspace({ sessions, onOpen }: TutorSessionsWorkspaceProp
   if (sessions.length === 0) {
     return (
       <EmptyState
-        title="No sessions yet"
-        description="Sessions booked with you will appear here once you've declared availability."
+        title="No lessons yet"
+        description="Lessons booked with you will appear here once you've added some teaching time."
         action={
           <Button
             component={RouterLink}
@@ -41,7 +41,7 @@ function TutorSessionsWorkspace({ sessions, onOpen }: TutorSessionsWorkspaceProp
             variant="contained"
             startIcon={<EventAvailableRoundedIcon />}
           >
-            Declare availability
+            Manage Your Schedule
           </Button>
         }
       />
@@ -62,10 +62,10 @@ function TutorSessionsWorkspace({ sessions, onOpen }: TutorSessionsWorkspaceProp
 
   return (
     <Stack spacing={3}>
-      <SectionCard title="Upcoming Sessions">
+      <SectionCard title="Upcoming Lessons">
         {upcoming.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
-            No upcoming sessions right now.
+            No upcoming lessons right now.
           </Typography>
         ) : (
           <Stack spacing={2}>
@@ -111,7 +111,7 @@ export function TutorSessionListPage() {
   }, [routeTutorId, remember]);
 
   const tutorId = routeTutorId ?? rememberedTutorId;
-  const header = <PageHeader title="Calendar" />;
+  const header = <PageHeader title="My Lessons" />;
 
   if (!routeTutorId && rememberedTutorId) {
     return <Navigate to={paths.scheduling.tutorSchedule(rememberedTutorId)} replace />;
@@ -124,7 +124,7 @@ export function TutorSessionListPage() {
         <IdentityGate
           kind="tutor"
           fieldLabel="Tutor id"
-          title="Let's find your calendar"
+          title="Let's find your lessons"
           description="Enter your tutor id once — we'll remember it on this device so you won't need to again."
         >
           {(id) => <Navigate to={paths.scheduling.tutorSchedule(id)} replace />}

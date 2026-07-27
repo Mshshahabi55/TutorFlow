@@ -131,6 +131,22 @@ describe("SessionDetailPage", () => {
     expect(screen.getByRole("button", { name: "Complete" })).toBeEnabled();
   });
 
+  it("shows honest Notes and History placeholders, grouped with Actions", async () => {
+    mockTutor();
+    vi.spyOn(schedulingService, "fetchSessionById").mockResolvedValue(SCHEDULED_SESSION);
+    vi.spyOn(schedulingService, "fetchTutorAvailabilitySlots").mockResolvedValue(OPEN_SLOTS);
+
+    renderWithProviders(<SessionDetailPage />, {
+      initialEntries: [`/scheduling/sessions/${SESSION_ID}`],
+      routePath: "/scheduling/sessions/:sessionId",
+    });
+
+    expect(await screen.findByRole("heading", { name: "Notes" })).toBeInTheDocument();
+    expect(screen.getByText(/Lesson notes are coming soon/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "History" })).toBeInTheDocument();
+    expect(screen.getByText(/A history of changes to this lesson is coming soon/)).toBeInTheDocument();
+  });
+
   it("reschedules a session onto a different, open Availability Slot for the same Tutor", async () => {
     mockTutor();
     vi.spyOn(schedulingService, "fetchSessionById").mockResolvedValue(SCHEDULED_SESSION);

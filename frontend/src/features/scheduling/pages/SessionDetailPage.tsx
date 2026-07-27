@@ -153,6 +153,18 @@ function SessionDetailContent({ session }: { session: SessionDto }) {
           ) : null}
         </Stack>
       </SectionCard>
+
+      <SectionCard title="Notes">
+        <Typography variant="body2" color="text.secondary">
+          Lesson notes are coming soon — you&rsquo;ll be able to jot down what to cover next time.
+        </Typography>
+      </SectionCard>
+
+      <SectionCard title="History">
+        <Typography variant="body2" color="text.secondary">
+          A history of changes to this lesson is coming soon.
+        </Typography>
+      </SectionCard>
     </Stack>
   );
 }

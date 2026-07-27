@@ -45,7 +45,7 @@ export const STUDENT_NAV: NavEntry[] = [
 export const TUTOR_NAV: NavEntry[] = [
   { to: paths.home, label: "Dashboard", icon: <DashboardRoundedIcon />, exact: true },
   { to: paths.scheduling.tutorStudents, label: "My Students", icon: <GroupsRoundedIcon /> },
-  { to: paths.scheduling.tutorScheduleBase, label: "Calendar", icon: <CalendarMonthRoundedIcon /> },
+  { to: paths.scheduling.tutorScheduleBase, label: "My Lessons", icon: <CalendarMonthRoundedIcon /> },
   { to: paths.scheduling.declareAvailability, label: "Availability", icon: <EventAvailableRoundedIcon /> },
   { to: paths.profile, label: "Profile", icon: <PersonRoundedIcon /> },
 ];

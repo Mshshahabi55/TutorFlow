@@ -42,14 +42,19 @@ describe("ParentGuardianDetailPage", () => {
     expect(await screen.findByText(PARENT_GUARDIAN_ID)).toBeInTheDocument();
   });
 
-  it("shows an error state when the lookup fails", async () => {
-    vi.spyOn(identityService, "fetchParentGuardianById").mockRejectedValue(new Error("Not found"));
+  it("shows a friendly error state, never the raw backend error, when the lookup fails", async () => {
+    vi.spyOn(identityService, "fetchParentGuardianById").mockRejectedValue(
+      new Error("404 Not Found"),
+    );
 
     renderWithProviders(<ParentGuardianDetailPage />, {
       initialEntries: [`/identity/parent-guardians/${PARENT_GUARDIAN_ID}`],
       routePath: "/identity/parent-guardians/:parentGuardianId",
     });
 
-    expect(await screen.findByText("Not found")).toBeInTheDocument();
+    expect(
+      await screen.findByText("We couldn’t find that Parent/Guardian"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("404 Not Found")).not.toBeInTheDocument();
   });
 });

@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from "react-router-dom";
+import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 import { Button, Stack, Typography } from "@mui/material";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -158,6 +158,32 @@ function SessionDetailContent({ session }: { session: SessionDto }) {
 }
 
 /**
+ * A friendly placeholder for "this session's id doesn't resolve" — never
+ * the raw backend error text (RC2: no technical wording for a Student/
+ * Tutor-facing failure).
+ */
+function SessionNotFound({ onRetry }: { onRetry: () => void }) {
+  return (
+    <Stack spacing={2} alignItems="center" textAlign="center" py={6} maxWidth={480} mx="auto">
+      <Typography variant="h4" component="h1">
+        We couldn&rsquo;t load this lesson
+      </Typography>
+      <Typography variant="body1" color="text.secondary">
+        It may have been removed, or the link might be broken.
+      </Typography>
+      <Stack direction="row" spacing={1.5} mt={1}>
+        <Button variant="outlined" onClick={onRetry}>
+          Try again
+        </Button>
+        <Button component={RouterLink} to={paths.home} variant="contained">
+          Go Home
+        </Button>
+      </Stack>
+    </Stack>
+  );
+}
+
+/**
  * Session status transitions follow the backend's own guard exactly: only a
  * Scheduled Session may be rescheduled, cancelled, completed, or marked
  * No-Show (Session.Reschedule/Cancel/Complete/MarkNoShow all throw
@@ -184,7 +210,7 @@ export function SessionDetailPage() {
       ) : sessionQuery.isPending ? (
         <SessionDetailSkeleton />
       ) : sessionQuery.isError ? (
-        <ErrorState error={sessionQuery.error} onRetry={() => void sessionQuery.refetch()} />
+        <SessionNotFound onRetry={() => void sessionQuery.refetch()} />
       ) : (
         <SessionDetailContent session={sessionQuery.data} />
       )}

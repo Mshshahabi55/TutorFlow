@@ -1,10 +1,9 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { Card, CardContent, Stack, Typography } from "@mui/material";
+import { Button, Card, CardContent, Stack, Typography } from "@mui/material";
 import { useParentGuardian } from "@/features/identity/hooks/useParentGuardianQueries";
 import { IdLookupForm } from "@/shared/components/forms/IdLookupForm";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { LoadingState } from "@/shared/components/feedback/LoadingState";
-import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { paths } from "@/routes/paths";
 
 /**
@@ -42,10 +41,17 @@ export function ParentGuardianDetailPage() {
               <LoadingState label="Loading Parent/Guardian…" />
             ) : null}
             {parentGuardianQuery.isError ? (
-              <ErrorState
-                error={parentGuardianQuery.error}
-                onRetry={() => void parentGuardianQuery.refetch()}
-              />
+              <Stack spacing={2} alignItems="flex-start">
+                <Typography variant="subtitle1" fontWeight={600}>
+                  We couldn&rsquo;t find that Parent/Guardian
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Double-check the id, or try again.
+                </Typography>
+                <Button variant="outlined" onClick={() => void parentGuardianQuery.refetch()}>
+                  Try again
+                </Button>
+              </Stack>
             ) : null}
             {parentGuardianQuery.isSuccess ? (
               <Typography variant="body2" fontFamily="ui-monospace, monospace">

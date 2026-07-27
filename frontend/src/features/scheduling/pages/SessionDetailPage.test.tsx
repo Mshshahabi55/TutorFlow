@@ -75,6 +75,21 @@ describe("SessionDetailPage", () => {
     expect(screen.getByLabelText("Session id")).toBeInTheDocument();
   });
 
+  it("shows a friendly not-found panel, never the raw backend error, when the Session fails to load", async () => {
+    vi.spyOn(schedulingService, "fetchSessionById").mockRejectedValue(new Error("404 Not Found"));
+
+    renderWithProviders(<SessionDetailPage />, {
+      initialEntries: [`/scheduling/sessions/${SESSION_ID}`],
+      routePath: "/scheduling/sessions/:sessionId",
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "We couldn’t load this lesson" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("404 Not Found")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Go Home" })).toHaveAttribute("href", "/");
+  });
+
   it("shows a session detail skeleton while loading, not an abrupt spinner", () => {
     vi.spyOn(schedulingService, "fetchSessionById").mockReturnValue(new Promise(() => {}));
 

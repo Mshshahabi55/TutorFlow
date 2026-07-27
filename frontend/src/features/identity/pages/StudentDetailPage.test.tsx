@@ -41,14 +41,15 @@ describe("StudentDetailPage", () => {
     expect(screen.getByText(STUDENT_ID)).toBeInTheDocument();
   });
 
-  it("shows an error state when the lookup fails", async () => {
-    vi.spyOn(identityService, "fetchStudentById").mockRejectedValue(new Error("Not found"));
+  it("shows a friendly error state, never the raw backend error, when the lookup fails", async () => {
+    vi.spyOn(identityService, "fetchStudentById").mockRejectedValue(new Error("404 Not Found"));
 
     renderWithProviders(<StudentDetailPage />, {
       initialEntries: [`/identity/students/${STUDENT_ID}`],
       routePath: "/identity/students/:studentId",
     });
 
-    expect(await screen.findByText("Not found")).toBeInTheDocument();
+    expect(await screen.findByText("We couldn’t find that student")).toBeInTheDocument();
+    expect(screen.queryByText("404 Not Found")).not.toBeInTheDocument();
   });
 });

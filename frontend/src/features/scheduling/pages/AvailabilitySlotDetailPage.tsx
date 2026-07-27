@@ -4,7 +4,6 @@ import { useAvailabilitySlot } from "@/features/scheduling/hooks/useAvailability
 import { IdLookupForm } from "@/shared/components/forms/IdLookupForm";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { LoadingState } from "@/shared/components/feedback/LoadingState";
-import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { StatusPill } from "@/shared/components/feedback/StatusPill";
 import { timeSpanToMinutes } from "@/shared/utils/duration";
 import { toTehranDisplay } from "@/shared/time/tehranTime";
@@ -45,7 +44,17 @@ export function AvailabilitySlotDetailPage() {
           <CardContent>
             {slotQuery.isPending ? <LoadingState label="Loading Availability Slot…" /> : null}
             {slotQuery.isError ? (
-              <ErrorState error={slotQuery.error} onRetry={() => void slotQuery.refetch()} />
+              <Stack spacing={2} alignItems="flex-start">
+                <Typography variant="subtitle1" fontWeight={600}>
+                  We couldn&rsquo;t find that Availability Slot
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  It may have already been booked, or the link might be broken.
+                </Typography>
+                <Button variant="outlined" onClick={() => void slotQuery.refetch()}>
+                  Try again
+                </Button>
+              </Stack>
             ) : null}
             {slotQuery.isSuccess ? (
               <Stack spacing={2}>

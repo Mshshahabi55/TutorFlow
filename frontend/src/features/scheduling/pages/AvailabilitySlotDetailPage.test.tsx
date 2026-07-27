@@ -54,9 +54,9 @@ describe("AvailabilitySlotDetailPage", () => {
     );
   });
 
-  it("shows an error state when the lookup fails", async () => {
+  it("shows a friendly error state, never the raw backend error, when the lookup fails", async () => {
     vi.spyOn(schedulingService, "fetchAvailabilitySlotById").mockRejectedValue(
-      new Error("Not found"),
+      new Error("404 Not Found"),
     );
 
     renderWithProviders(<AvailabilitySlotDetailPage />, {
@@ -64,6 +64,9 @@ describe("AvailabilitySlotDetailPage", () => {
       routePath: "/scheduling/availability/:availabilitySlotId",
     });
 
-    expect(await screen.findByText("Not found")).toBeInTheDocument();
+    expect(
+      await screen.findByText("We couldn’t find that Availability Slot"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("404 Not Found")).not.toBeInTheDocument();
   });
 });

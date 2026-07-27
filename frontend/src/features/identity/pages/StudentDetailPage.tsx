@@ -1,10 +1,9 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { Card, CardContent, Stack, Typography } from "@mui/material";
+import { Button, Card, CardContent, Stack, Typography } from "@mui/material";
 import { useStudent } from "@/features/identity/hooks/useStudentQueries";
 import { IdLookupForm } from "@/shared/components/forms/IdLookupForm";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { LoadingState } from "@/shared/components/feedback/LoadingState";
-import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { StatusPill } from "@/shared/components/feedback/StatusPill";
 import { paths } from "@/routes/paths";
 
@@ -41,7 +40,17 @@ export function StudentDetailPage() {
           <CardContent>
             {studentQuery.isPending ? <LoadingState label="Loading Student…" /> : null}
             {studentQuery.isError ? (
-              <ErrorState error={studentQuery.error} onRetry={() => void studentQuery.refetch()} />
+              <Stack spacing={2} alignItems="flex-start">
+                <Typography variant="subtitle1" fontWeight={600}>
+                  We couldn&rsquo;t find that student
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Double-check the id, or try again.
+                </Typography>
+                <Button variant="outlined" onClick={() => void studentQuery.refetch()}>
+                  Try again
+                </Button>
+              </Stack>
             ) : null}
             {studentQuery.isSuccess ? (
               <Stack spacing={1.5}>

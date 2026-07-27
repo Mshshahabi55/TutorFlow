@@ -61,8 +61,11 @@ const OPEN_SLOTS = [
   },
 ];
 
+const STUDENT = { studentId: "st1", isMinor: false };
+
 function mockTutor() {
   vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
+  vi.spyOn(identityService, "fetchStudentById").mockResolvedValue(STUDENT);
 }
 
 describe("SessionDetailPage", () => {
@@ -182,5 +185,20 @@ describe("SessionDetailPage", () => {
     expect(await screen.findByRole("heading", { name: "Session Summary" })).toBeInTheDocument();
     expect(screen.getByText("60 minutes")).toBeInTheDocument();
     expect(screen.getByText("Online")).toBeInTheDocument();
+  });
+
+  it("shows a Student Summary card with the Student's real id and minor status", async () => {
+    mockTutor();
+    vi.spyOn(identityService, "fetchStudentById").mockResolvedValue({ studentId: "st1", isMinor: true });
+    vi.spyOn(schedulingService, "fetchSessionById").mockResolvedValue(SCHEDULED_SESSION);
+    vi.spyOn(schedulingService, "fetchTutorAvailabilitySlots").mockResolvedValue(OPEN_SLOTS);
+
+    renderWithProviders(<SessionDetailPage />, {
+      initialEntries: [`/scheduling/sessions/${SESSION_ID}`],
+      routePath: "/scheduling/sessions/:sessionId",
+    });
+
+    expect(await screen.findByText("st1")).toBeInTheDocument();
+    expect(screen.getByText("Minor")).toBeInTheDocument();
   });
 });

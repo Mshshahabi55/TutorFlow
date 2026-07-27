@@ -3,10 +3,14 @@ import { Button, Card, CardContent, Stack, Typography } from "@mui/material";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useDeclareAvailability } from "@/features/scheduling/hooks/useAvailabilitySlotMutations";
+import { useTutorAvailabilitySlots } from "@/features/scheduling/hooks/useAvailabilitySlotQueries";
 import {
   declareAvailabilitySchema,
   type DeclareAvailabilityFormValues,
 } from "@/features/scheduling/validation/declareAvailabilitySchema";
+import { AvailabilitySummaryCard } from "@/features/scheduling/components/AvailabilitySummaryCard";
+import { AvailabilitySummaryCardSkeleton } from "@/features/scheduling/components/AvailabilitySummaryCardSkeleton";
+import { BookingSectionCard } from "@/features/scheduling/components/BookingSectionCard";
 import { minutesToTimeSpan } from "@/shared/utils/duration";
 import { Form } from "@/shared/components/forms/Form";
 import { FormTextField } from "@/shared/components/forms/FormTextField";
@@ -15,6 +19,7 @@ import { PageHeader } from "@/shared/components/PageHeader";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { useNotification } from "@/shared/hooks/useNotification";
 import { fromTehranInput, toTehranDisplay } from "@/shared/time/tehranTime";
+import { guidSchema } from "@/shared/validation/guid";
 import { paths } from "@/routes/paths";
 
 const DELIVERY_MODE_OPTIONS = [
@@ -23,12 +28,71 @@ const DELIVERY_MODE_OPTIONS = [
 ];
 
 /**
- * POST /availability-slots declares a new open slot for a Tutor. There is
- * no capability to list or browse a Tutor's open slots (see the Sprint 7
- * Completion Report) — the returned id is the only way anyone, including
- * the declaring Tutor, can find this slot again, so it's surfaced clearly
- * for sharing with whoever should book it.
+ * Reuses `GET /tutors/{id}/availability-slots` (Phase 4.7) — the same
+ * capability `RescheduleSessionForm` and the Booking flow's Availability
+ * picker already reuse — to show the Tutor's own slots split into "Your
+ * Availability" (open) and "Availability History" (booked), once the same
+ * Tutor id already being typed into the declare form above looks like a
+ * real id. Not a new endpoint, and not a new interaction step: the id is
+ * already required to declare availability at all.
  */
+function YourAvailability({ tutorId }: { tutorId: string }) {
+  const slotsQuery = useTutorAvailabilitySlots(tutorId);
+
+  if (slotsQuery.isPending) {
+    return (
+      <Stack spacing={3}>
+        <BookingSectionCard title="Your Availability">
+          <Stack spacing={2}>
+            <AvailabilitySummaryCardSkeleton />
+            <AvailabilitySummaryCardSkeleton />
+          </Stack>
+        </BookingSectionCard>
+      </Stack>
+    );
+  }
+
+  if (slotsQuery.isError) {
+    return <ErrorState error={slotsQuery.error} onRetry={() => void slotsQuery.refetch()} />;
+  }
+
+  const openSlots = slotsQuery.data
+    .filter((slot) => !slot.isConsumed)
+    .sort((a, b) => Date.parse(a.startTimeUtc) - Date.parse(b.startTimeUtc));
+  const bookedSlots = slotsQuery.data
+    .filter((slot) => slot.isConsumed)
+    .sort((a, b) => Date.parse(b.startTimeUtc) - Date.parse(a.startTimeUtc));
+
+  return (
+    <Stack spacing={3}>
+      <BookingSectionCard title="Your Availability">
+        {openSlots.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            No open Availability Slots yet — declare one above.
+          </Typography>
+        ) : (
+          <Stack spacing={2}>
+            {openSlots.map((slot) => (
+              <AvailabilitySummaryCard key={slot.availabilitySlotId} slot={slot} />
+            ))}
+          </Stack>
+        )}
+      </BookingSectionCard>
+
+      {bookedSlots.length > 0 ? (
+        <BookingSectionCard title="Availability History">
+          <Stack spacing={2}>
+            {bookedSlots.map((slot) => (
+              <AvailabilitySummaryCard key={slot.availabilitySlotId} slot={slot} />
+            ))}
+          </Stack>
+        </BookingSectionCard>
+      ) : null}
+    </Stack>
+  );
+}
+
+/** POST /availability-slots declares a new open slot for a Tutor. */
 export function DeclareAvailabilityPage() {
   const declareAvailability = useDeclareAvailability();
   const { notify } = useNotification();
@@ -37,6 +101,9 @@ export function DeclareAvailabilityPage() {
     resolver: zodResolver(declareAvailabilitySchema),
     defaultValues: { tutorId: "", startTimeLocal: "", durationMinutes: "", deliveryMode: "" },
   });
+
+  const tutorIdValue = form.watch("tutorId");
+  const hasValidTutorId = guidSchema.safeParse(tutorIdValue).success;
 
   function handleSubmit(values: DeclareAvailabilityFormValues) {
     declareAvailability.mutate(
@@ -53,7 +120,7 @@ export function DeclareAvailabilityPage() {
   }
 
   return (
-    <Stack spacing={3} maxWidth={560}>
+    <Stack spacing={3} maxWidth={720}>
       <PageHeader
         title="Declare availability"
         subtitle={
@@ -79,7 +146,7 @@ export function DeclareAvailabilityPage() {
                 {toTehranDisplay(declareAvailability.data.endTimeUtc)} (Tehran)
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                There is no way to browse open slots — share this id with whoever should book it.
+                Share this id with whoever should book it, or find it again below.
               </Typography>
               <Button
                 component={RouterLink}
@@ -123,6 +190,8 @@ export function DeclareAvailabilityPage() {
           )}
         </CardContent>
       </Card>
+
+      {hasValidTutorId ? <YourAvailability tutorId={tutorIdValue} /> : null}
     </Stack>
   );
 }

@@ -46,6 +46,22 @@ function pad2(value: number): string {
 }
 
 /**
+ * True if `utcIsoString`, read as a Tehran-local calendar date, falls on
+ * the same day as `now` (also read as Tehran-local; defaults to the
+ * current instant). Presentational only — used to group a Tutor's
+ * schedule into "Today" vs "Upcoming" without any new business rule.
+ */
+export function isTodayInTehran(utcIsoString: string, now: Date = new Date()): boolean {
+  const target = toTehranShifted(utcIsoString);
+  const reference = toTehranShifted(now.toISOString());
+  return (
+    target.getUTCFullYear() === reference.getUTCFullYear() &&
+    target.getUTCMonth() === reference.getUTCMonth() &&
+    target.getUTCDate() === reference.getUTCDate()
+  );
+}
+
+/**
  * A UTC ISO 8601 instant -> a human-readable Tehran-local string, e.g.
  * "Aug 1, 2026, 17:30". Does not append a "(Tehran)" label — callers own
  * that, matching the existing "(UTC)" label-on-the-field-name convention.

@@ -33,7 +33,18 @@ describe("TutorSessionListPage", () => {
     expect(screen.getByLabelText("Tutor id")).toBeInTheDocument();
   });
 
-  it("shows an empty state when the Tutor has no sessions", async () => {
+  it("shows a skeleton layout while loading, not an abrupt spinner", () => {
+    vi.spyOn(schedulingService, "fetchTutorSchedule").mockReturnValue(new Promise(() => {}));
+
+    renderWithProviders(<TutorSessionListPage />, {
+      initialEntries: [`/scheduling/tutors/${TUTOR_ID}/schedule`],
+      routePath: "/scheduling/tutors/:tutorId/schedule",
+    });
+
+    expect(screen.getAllByTestId("session-card-skeleton").length).toBeGreaterThan(0);
+  });
+
+  it("shows a professional empty state guiding the Tutor to declare availability, when there are no sessions", async () => {
     vi.spyOn(schedulingService, "fetchTutorSchedule").mockResolvedValue([]);
 
     renderWithProviders(<TutorSessionListPage />, {
@@ -42,6 +53,27 @@ describe("TutorSessionListPage", () => {
     });
 
     expect(await screen.findByText("No sessions yet")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Declare availability/ })).toHaveAttribute(
+      "href",
+      "/scheduling/availability/declare",
+    );
+  });
+
+  it("groups sessions into Upcoming, Completed, and Cancelled & No-Show", async () => {
+    const upcoming = SESSION;
+    const completed = { ...SESSION, sessionId: "66666666-6666-6666-6666-666666666666", status: SessionStatus.Completed };
+    const cancelled = { ...SESSION, sessionId: "77777777-7777-7777-7777-777777777777", status: SessionStatus.Cancelled };
+    vi.spyOn(schedulingService, "fetchTutorSchedule").mockResolvedValue([upcoming, completed, cancelled]);
+
+    renderWithProviders(<TutorSessionListPage />, {
+      initialEntries: [`/scheduling/tutors/${TUTOR_ID}/schedule`],
+      routePath: "/scheduling/tutors/:tutorId/schedule",
+    });
+
+    expect(await screen.findByRole("heading", { name: "Upcoming Sessions" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Completed" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Cancelled & No-Show" })).toBeInTheDocument();
+    expect(screen.getAllByText("Student: st1")).toHaveLength(3);
   });
 
   it("clicking a row action does not also navigate the row to the detail page", async () => {

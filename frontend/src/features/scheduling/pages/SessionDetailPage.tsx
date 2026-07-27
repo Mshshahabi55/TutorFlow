@@ -6,6 +6,7 @@ import { useSession } from "@/features/scheduling/hooks/useSessionQueries";
 import { useRescheduleSession } from "@/features/scheduling/hooks/useSessionMutations";
 import { useTutorAvailabilitySlots } from "@/features/scheduling/hooks/useAvailabilitySlotQueries";
 import { useTutor } from "@/features/identity/hooks/useTutorQueries";
+import { useStudent } from "@/features/identity/hooks/useStudentQueries";
 import {
   rescheduleSessionSchema,
   type RescheduleSessionFormValues,
@@ -15,6 +16,7 @@ import { SessionTimeline } from "@/features/scheduling/components/SessionTimelin
 import { SessionSummaryCard } from "@/features/scheduling/components/SessionSummaryCard";
 import { BookingSectionCard } from "@/features/scheduling/components/BookingSectionCard";
 import { TutorSummaryCard } from "@/features/scheduling/components/TutorSummaryCard";
+import { StudentSummaryCard } from "@/features/scheduling/components/StudentSummaryCard";
 import { SessionDetailSkeleton } from "@/features/scheduling/components/SessionDetailSkeleton";
 import { IdLookupForm } from "@/shared/components/forms/IdLookupForm";
 import { Form } from "@/shared/components/forms/Form";
@@ -104,9 +106,14 @@ function RescheduleSessionForm({
   );
 }
 
-/** Reuses `useTutor` (identity) once per page load, the same hook already used by the Tutor Profile, Directory, and BookSessionPage — not a duplicate request. */
+/**
+ * Reuses `useTutor` (identity) and `useStudent` (identity) once per page
+ * load — the same hooks the Tutor Profile/Directory/BookSessionPage and
+ * StudentDetailPage already use — not a duplicate request.
+ */
 function SessionDetailContent({ session }: { session: SessionDto }) {
   const tutorQuery = useTutor(session.tutorId);
+  const studentQuery = useStudent(session.studentId);
 
   return (
     <Stack spacing={3}>
@@ -120,6 +127,15 @@ function SessionDetailContent({ session }: { session: SessionDto }) {
           error={tutorQuery.error}
           onRetry={() => void tutorQuery.refetch()}
           title="Tutor details could not be loaded"
+        />
+      ) : null}
+
+      {studentQuery.isSuccess ? <StudentSummaryCard student={studentQuery.data} /> : null}
+      {studentQuery.isError ? (
+        <ErrorState
+          error={studentQuery.error}
+          onRetry={() => void studentQuery.refetch()}
+          title="Student details could not be loaded"
         />
       ) : null}
 

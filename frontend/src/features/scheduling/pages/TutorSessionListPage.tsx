@@ -1,55 +1,115 @@
-import { useNavigate, useParams } from "react-router-dom";
-import type { MouseEvent } from "react";
-import { Box, Stack } from "@mui/material";
+import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
+import { Button, Stack, Typography } from "@mui/material";
+import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded";
 import { useTutorSchedule } from "@/features/scheduling/hooks/useSessionQueries";
-import { SessionActions } from "@/features/scheduling/components/SessionActions";
-import { SESSION_STATUS_LABEL, SESSION_STATUS_TONE } from "@/features/scheduling/utils/sessionStatus";
+import { TutorSessionCard } from "@/features/scheduling/components/TutorSessionCard";
+import { SessionCardSkeleton } from "@/features/scheduling/components/SessionCardSkeleton";
+import { BookingSectionCard } from "@/features/scheduling/components/BookingSectionCard";
+import { byScheduledTimeAscending, byScheduledTimeDescending } from "@/features/scheduling/utils/sessionSort";
 import { IdLookupForm } from "@/shared/components/forms/IdLookupForm";
-import { DataTable, type DataTableColumn } from "@/shared/components/table/DataTable";
 import { PageHeader } from "@/shared/components/PageHeader";
-import { StatusPill } from "@/shared/components/feedback/StatusPill";
-import { toTehranDisplay } from "@/shared/time/tehranTime";
+import { EmptyState } from "@/shared/components/feedback/EmptyState";
+import { ErrorState } from "@/shared/components/feedback/ErrorState";
+import { SessionStatus } from "@/services/api/dtos";
 import type { SessionDto } from "@/services/api/dtos";
 import { paths } from "@/routes/paths";
 
-const columns: DataTableColumn<SessionDto>[] = [
-  { key: "studentId", header: "Student id", render: (row) => row.studentId },
-  {
-    key: "scheduledTimeUtc",
-    header: "Scheduled (Tehran)",
-    render: (row) => toTehranDisplay(row.scheduledTimeUtc),
-  },
-  {
-    key: "status",
-    header: "Status",
-    render: (row) => (
-      <StatusPill
-        label={SESSION_STATUS_LABEL[row.status]}
-        tone={SESSION_STATUS_TONE[row.status]}
-      />
-    ),
-  },
-  {
-    key: "actions",
-    header: "",
-    align: "right",
-    render: (row) => (
-      <Box onClick={(event: MouseEvent) => event.stopPropagation()}>
-        <SessionActions session={row} />
-      </Box>
-    ),
-  },
-];
+interface TutorSessionsWorkspaceProps {
+  sessions: SessionDto[];
+  onOpen: (session: SessionDto) => void;
+}
 
-/** GET /tutors/{id}/schedule — every Session for the Tutor, unpaginated (matches the endpoint's own shape). */
+/**
+ * Groups the same `useTutorSchedule` result the page already fetched by
+ * `status` — Upcoming (Scheduled), Completed, and Cancelled (grouped with
+ * No-Show, the same "did not happen as scheduled" pairing the Student
+ * Workspace's `StudentSessionListPage` already uses) — no additional
+ * query, no fabricated grouping field.
+ */
+function TutorSessionsWorkspace({ sessions, onOpen }: TutorSessionsWorkspaceProps) {
+  if (sessions.length === 0) {
+    return (
+      <EmptyState
+        title="No sessions yet"
+        description="Sessions booked with you will appear here once you've declared availability."
+        action={
+          <Button
+            component={RouterLink}
+            to={paths.scheduling.declareAvailability}
+            variant="contained"
+            startIcon={<EventAvailableRoundedIcon />}
+          >
+            Declare availability
+          </Button>
+        }
+      />
+    );
+  }
+
+  const upcoming = sessions
+    .filter((session) => session.status === SessionStatus.Scheduled)
+    .sort(byScheduledTimeAscending);
+  const completed = sessions
+    .filter((session) => session.status === SessionStatus.Completed)
+    .sort(byScheduledTimeDescending);
+  const cancelledOrNoShow = sessions
+    .filter(
+      (session) => session.status === SessionStatus.Cancelled || session.status === SessionStatus.NoShow,
+    )
+    .sort(byScheduledTimeDescending);
+
+  return (
+    <Stack spacing={3}>
+      <BookingSectionCard title="Upcoming Sessions">
+        {upcoming.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            No upcoming sessions right now.
+          </Typography>
+        ) : (
+          <Stack spacing={2}>
+            {upcoming.map((session) => (
+              <TutorSessionCard key={session.sessionId} session={session} onOpen={onOpen} />
+            ))}
+          </Stack>
+        )}
+      </BookingSectionCard>
+
+      {completed.length > 0 ? (
+        <BookingSectionCard title="Completed">
+          <Stack spacing={2}>
+            {completed.map((session) => (
+              <TutorSessionCard key={session.sessionId} session={session} onOpen={onOpen} />
+            ))}
+          </Stack>
+        </BookingSectionCard>
+      ) : null}
+
+      {cancelledOrNoShow.length > 0 ? (
+        <BookingSectionCard title="Cancelled & No-Show">
+          <Stack spacing={2}>
+            {cancelledOrNoShow.map((session) => (
+              <TutorSessionCard key={session.sessionId} session={session} onOpen={onOpen} />
+            ))}
+          </Stack>
+        </BookingSectionCard>
+      ) : null}
+    </Stack>
+  );
+}
+
+/** GET /tutors/{id}/schedule — every Session for the Tutor, unpaginated (matches the endpoint's own shape). Same query, route, and data as before (Phase 3 Step 6 is presentation-only). */
 export function TutorSessionListPage() {
   const { tutorId } = useParams<{ tutorId: string }>();
   const navigate = useNavigate();
   const scheduleQuery = useTutorSchedule(tutorId);
 
+  function openSession(session: SessionDto) {
+    void navigate(paths.scheduling.sessionDetail(session.sessionId));
+  }
+
   return (
     <Stack spacing={3}>
-      <PageHeader title="Tutor sessions" />
+      <PageHeader title="My Sessions" />
 
       {!tutorId ? (
         <IdLookupForm
@@ -58,22 +118,16 @@ export function TutorSessionListPage() {
             void navigate(paths.scheduling.tutorSchedule(id));
           }}
         />
+      ) : scheduleQuery.isPending ? (
+        <Stack spacing={2}>
+          {Array.from({ length: 3 }, (_, index) => (
+            <SessionCardSkeleton key={index} />
+          ))}
+        </Stack>
+      ) : scheduleQuery.isError ? (
+        <ErrorState error={scheduleQuery.error} onRetry={() => void scheduleQuery.refetch()} />
       ) : (
-        <DataTable
-          columns={columns}
-          rows={scheduleQuery.data ?? []}
-          getRowKey={(row) => row.sessionId}
-          isLoading={scheduleQuery.isPending}
-          error={scheduleQuery.isError ? scheduleQuery.error : undefined}
-          onRetry={() => void scheduleQuery.refetch()}
-          emptyState={{
-            title: "No sessions yet",
-            description: "Sessions booked with this Tutor will appear here.",
-          }}
-          onRowClick={(row) => {
-            void navigate(paths.scheduling.sessionDetail(row.sessionId));
-          }}
-        />
+        <TutorSessionsWorkspace sessions={scheduleQuery.data} onOpen={openSession} />
       )}
     </Stack>
   );

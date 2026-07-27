@@ -1,59 +1,81 @@
 import { useNavigate } from "react-router-dom";
-import type { MouseEvent } from "react";
-import { Box, Stack, Typography } from "@mui/material";
+import { Stack, TablePagination, Typography } from "@mui/material";
 import { useAllSessions } from "@/features/oversight/hooks/useAllSessions";
-import { SessionActions } from "@/features/scheduling/components/SessionActions";
-import { SESSION_STATUS_LABEL, SESSION_STATUS_TONE } from "@/features/scheduling/utils/sessionStatus";
-import { DataTable, type DataTableColumn } from "@/shared/components/table/DataTable";
+import { AdminSessionCard } from "@/features/oversight/components/AdminSessionCard";
+import { AdminSessionCardSkeleton } from "@/features/oversight/components/AdminSessionCardSkeleton";
+import { BookingSectionCard } from "@/features/scheduling/components/BookingSectionCard";
 import { PageHeader } from "@/shared/components/PageHeader";
-import { StatusPill } from "@/shared/components/feedback/StatusPill";
+import { EmptyState } from "@/shared/components/feedback/EmptyState";
+import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { usePagination } from "@/shared/hooks/usePagination";
-import { toTehranDisplay } from "@/shared/time/tehranTime";
-import { paths } from "@/routes/paths";
+import { SessionStatus } from "@/services/api/dtos";
 import type { SessionDto } from "@/services/api/dtos";
+import { paths } from "@/routes/paths";
 
-const columns: DataTableColumn<SessionDto>[] = [
-  { key: "tutorId", header: "Tutor id", render: (row) => row.tutorId },
-  { key: "studentId", header: "Student id", render: (row) => row.studentId },
-  {
-    key: "scheduledTimeUtc",
-    header: "Scheduled (Tehran)",
-    render: (row) => toTehranDisplay(row.scheduledTimeUtc),
-  },
-  {
-    key: "status",
-    header: "Status",
-    render: (row) => (
-      <StatusPill
-        label={SESSION_STATUS_LABEL[row.status]}
-        tone={SESSION_STATUS_TONE[row.status]}
-      />
-    ),
-  },
-  {
-    key: "actions",
-    header: "",
-    align: "right",
-    // Stops the click from bubbling to the row's own onRowClick navigation
-    // — otherwise clicking Complete/No-Show/Cancel would also navigate away.
-    render: (row) => (
-      <Box onClick={(event: MouseEvent) => event.stopPropagation()}>
-        <SessionActions session={row} />
-      </Box>
-    ),
-  },
-];
+const SKELETON_COUNT = 4;
+
+interface SessionGroupsProps {
+  sessions: SessionDto[];
+  onOpen: (session: SessionDto) => void;
+}
+
+/** Groups the current page's Sessions by status — the same Upcoming/Completed/Cancelled & No-Show split the Student and Tutor Workspaces already use for their own schedules, scoped here to whichever page of the platform-wide list is currently loaded. */
+function SessionGroups({ sessions, onOpen }: SessionGroupsProps) {
+  const upcoming = sessions.filter((session) => session.status === SessionStatus.Scheduled);
+  const completed = sessions.filter((session) => session.status === SessionStatus.Completed);
+  const cancelledOrNoShow = sessions.filter(
+    (session) => session.status === SessionStatus.Cancelled || session.status === SessionStatus.NoShow,
+  );
+
+  return (
+    <Stack spacing={3}>
+      {upcoming.length > 0 ? (
+        <BookingSectionCard title="Upcoming">
+          <Stack spacing={2}>
+            {upcoming.map((session) => (
+              <AdminSessionCard key={session.sessionId} session={session} onOpen={onOpen} />
+            ))}
+          </Stack>
+        </BookingSectionCard>
+      ) : null}
+
+      {completed.length > 0 ? (
+        <BookingSectionCard title="Completed">
+          <Stack spacing={2}>
+            {completed.map((session) => (
+              <AdminSessionCard key={session.sessionId} session={session} onOpen={onOpen} />
+            ))}
+          </Stack>
+        </BookingSectionCard>
+      ) : null}
+
+      {cancelledOrNoShow.length > 0 ? (
+        <BookingSectionCard title="Cancelled & No-Show">
+          <Stack spacing={2}>
+            {cancelledOrNoShow.map((session) => (
+              <AdminSessionCard key={session.sessionId} session={session} onOpen={onOpen} />
+            ))}
+          </Stack>
+        </BookingSectionCard>
+      ) : null}
+    </Stack>
+  );
+}
 
 /**
  * GET /sessions — every Session across the platform, paginated (ADM-3:
- * "view all schedules"). The only capability the Marketplace Oversight
- * module owns; Session inspection reuses Scheduling & Booking's own
- * SessionDetailPage rather than a duplicate Admin-specific detail view.
+ * "view all schedules"). Same query, route, and pagination as before
+ * (Phase 3 Step 8 is presentation-only); grouping and cards are scoped to
+ * whichever page is currently loaded, not the whole platform at once.
  */
 export function GlobalSessionListPage() {
   const navigate = useNavigate();
   const { page, pageSize, setPage, setPageSize } = usePagination();
   const sessionsQuery = useAllSessions(page, pageSize);
+
+  function openSession(session: SessionDto) {
+    void navigate(paths.scheduling.sessionDetail(session.sessionId));
+  }
 
   return (
     <Stack spacing={3}>
@@ -61,33 +83,41 @@ export function GlobalSessionListPage() {
         title="All sessions"
         subtitle={
           <Typography variant="body1" color="text.secondary">
-            Every Session booked across the platform. Select a row to inspect it.
+            Every Session booked across the platform, grouped by status. Select one to inspect it.
           </Typography>
         }
       />
 
-      <DataTable
-        columns={columns}
-        rows={sessionsQuery.data?.items ?? []}
-        getRowKey={(row) => row.sessionId}
-        isLoading={sessionsQuery.isPending}
-        error={sessionsQuery.isError ? sessionsQuery.error : undefined}
-        onRetry={() => void sessionsQuery.refetch()}
-        emptyState={{
-          title: "No sessions have been booked yet",
-          description: "Sessions will appear here as they're booked across the platform.",
-        }}
-        pagination={{
-          page,
-          pageSize,
-          totalCount: sessionsQuery.data?.totalCount ?? 0,
-          onPageChange: setPage,
-          onPageSizeChange: setPageSize,
-        }}
-        onRowClick={(row) => {
-          void navigate(paths.scheduling.sessionDetail(row.sessionId));
-        }}
-      />
+      {sessionsQuery.isPending ? (
+        <Stack spacing={2}>
+          {Array.from({ length: SKELETON_COUNT }, (_, index) => (
+            <AdminSessionCardSkeleton key={index} />
+          ))}
+        </Stack>
+      ) : sessionsQuery.isError ? (
+        <ErrorState error={sessionsQuery.error} onRetry={() => void sessionsQuery.refetch()} />
+      ) : sessionsQuery.data.items.length === 0 ? (
+        <EmptyState
+          title="No sessions have been booked yet"
+          description="Sessions will appear here as they're booked across the platform."
+        />
+      ) : (
+        <>
+          <SessionGroups sessions={sessionsQuery.data.items} onOpen={openSession} />
+          <TablePagination
+            component="div"
+            count={sessionsQuery.data.totalCount}
+            page={page - 1}
+            rowsPerPage={pageSize}
+            rowsPerPageOptions={[10, 20, 50]}
+            onPageChange={(_event, newPage) => setPage(newPage + 1)}
+            onRowsPerPageChange={(event) => {
+              setPageSize(Number(event.target.value));
+              setPage(1);
+            }}
+          />
+        </>
+      )}
     </Stack>
   );
 }

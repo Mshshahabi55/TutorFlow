@@ -18,6 +18,28 @@ const PENDING_TUTOR = {
 };
 
 describe("AdminPendingTutorsPage", () => {
+  it("shows a skeleton layout while loading, not an abrupt spinner", () => {
+    vi.spyOn(identityService, "fetchPendingTutors").mockReturnValue(new Promise(() => {}));
+
+    renderWithProviders(<AdminPendingTutorsPage />);
+
+    expect(screen.getAllByTestId("pending-tutor-card-skeleton").length).toBeGreaterThan(0);
+  });
+
+  it("shows each pending Tutor's real subject and Pending approval status", async () => {
+    vi.spyOn(identityService, "fetchPendingTutors").mockResolvedValue({
+      items: [PENDING_TUTOR],
+      totalCount: 1,
+      page: 1,
+      pageSize: 20,
+    });
+
+    renderWithProviders(<AdminPendingTutorsPage />);
+
+    expect(await screen.findByText("Mathematics")).toBeInTheDocument();
+    expect(screen.getByText("Pending approval")).toBeInTheDocument();
+  });
+
   it("shows an empty state when there is nothing pending", async () => {
     vi.spyOn(identityService, "fetchPendingTutors").mockResolvedValue({
       items: [],

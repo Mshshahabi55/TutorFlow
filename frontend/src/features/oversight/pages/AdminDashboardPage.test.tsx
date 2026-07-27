@@ -4,9 +4,12 @@ import { AdminDashboardPage } from "@/features/oversight/pages/AdminDashboardPag
 import { renderWithProviders } from "@/test/renderWithProviders";
 import * as identityService from "@/features/identity/api/identityService";
 import * as oversightService from "@/features/oversight/api/oversightService";
+import * as healthService from "@/services/api/healthService";
+import { DeliveryMode, SessionStatus } from "@/services/api/dtos";
 
 describe("AdminDashboardPage", () => {
   it("shows the real counts from each existing capability", async () => {
+    vi.spyOn(healthService, "fetchHealthStatus").mockResolvedValue("Healthy");
     vi.spyOn(identityService, "fetchPendingTutors").mockResolvedValue({
       items: [],
       totalCount: 3,
@@ -49,6 +52,7 @@ describe("AdminDashboardPage", () => {
   });
 
   it("shows an error state for a widget whose query fails, independently of the others", async () => {
+    vi.spyOn(healthService, "fetchHealthStatus").mockResolvedValue("Healthy");
     vi.spyOn(identityService, "fetchPendingTutors").mockRejectedValue(new Error("Network Error"));
     vi.spyOn(oversightService, "fetchAllSessions").mockResolvedValue({
       items: [],
@@ -61,5 +65,93 @@ describe("AdminDashboardPage", () => {
     renderWithProviders(<AdminDashboardPage />);
 
     expect(await screen.findByText("Network Error")).toBeInTheDocument();
+  });
+
+  it("shows Quick actions without a self-referential link to the current page", () => {
+    vi.spyOn(healthService, "fetchHealthStatus").mockResolvedValue("Healthy");
+    vi.spyOn(identityService, "fetchPendingTutors").mockResolvedValue({
+      items: [],
+      totalCount: 0,
+      page: 1,
+      pageSize: 1,
+    });
+    vi.spyOn(oversightService, "fetchAllSessions").mockResolvedValue({
+      items: [],
+      totalCount: 0,
+      page: 1,
+      pageSize: 1,
+    });
+    vi.spyOn(identityService, "fetchTutorDirectory").mockResolvedValue([]);
+
+    renderWithProviders(<AdminDashboardPage />);
+
+    expect(screen.getByRole("link", { name: /Pending Tutor approvals/ })).toHaveAttribute(
+      "href",
+      "/identity/tutors/pending",
+    );
+    expect(screen.getByRole("link", { name: /All sessions/ })).toHaveAttribute(
+      "href",
+      "/oversight/sessions",
+    );
+    expect(screen.queryByRole("link", { name: /^Admin dashboard$/ })).not.toBeInTheDocument();
+  });
+
+  it("shows Platform Health reusing the existing GET /health capability", async () => {
+    vi.spyOn(healthService, "fetchHealthStatus").mockResolvedValue("Healthy");
+    vi.spyOn(identityService, "fetchPendingTutors").mockResolvedValue({
+      items: [],
+      totalCount: 0,
+      page: 1,
+      pageSize: 1,
+    });
+    vi.spyOn(oversightService, "fetchAllSessions").mockResolvedValue({
+      items: [],
+      totalCount: 0,
+      page: 1,
+      pageSize: 1,
+    });
+    vi.spyOn(identityService, "fetchTutorDirectory").mockResolvedValue([]);
+
+    renderWithProviders(<AdminDashboardPage />);
+
+    expect(await screen.findByRole("heading", { name: "Platform Health" })).toBeInTheDocument();
+    expect(await screen.findByText("Healthy")).toBeInTheDocument();
+    expect(screen.getByText("GET /health")).toBeInTheDocument();
+  });
+
+  it("shows a Recent Sessions preview with both Tutor and Student ids, sourced from the existing all-sessions capability", async () => {
+    vi.spyOn(healthService, "fetchHealthStatus").mockResolvedValue("Healthy");
+    vi.spyOn(identityService, "fetchPendingTutors").mockResolvedValue({
+      items: [],
+      totalCount: 0,
+      page: 1,
+      pageSize: 1,
+    });
+    vi.spyOn(oversightService, "fetchAllSessions").mockResolvedValue({
+      items: [
+        {
+          sessionId: "44444444-4444-4444-4444-444444444444",
+          tutorId: "t1",
+          studentId: "st1",
+          parentGuardianId: null,
+          availabilitySlotId: "a1",
+          scheduledTimeUtc: "2026-08-01T14:00:00Z",
+          endTimeUtc: "2026-08-01T15:00:00Z",
+          duration: "01:00:00",
+          deliveryMode: DeliveryMode.Online,
+          status: SessionStatus.Scheduled,
+        },
+      ],
+      totalCount: 1,
+      page: 1,
+      pageSize: 5,
+    });
+    vi.spyOn(identityService, "fetchTutorDirectory").mockResolvedValue([]);
+
+    renderWithProviders(<AdminDashboardPage />);
+
+    expect(await screen.findByRole("heading", { name: "Recent Sessions" })).toBeInTheDocument();
+    expect(await screen.findByText("Tutor: t1")).toBeInTheDocument();
+    expect(screen.getByText("Student: st1")).toBeInTheDocument();
   });
 });

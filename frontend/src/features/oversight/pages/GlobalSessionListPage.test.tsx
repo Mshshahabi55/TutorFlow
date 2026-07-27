@@ -64,7 +64,7 @@ describe("GlobalSessionListPage", () => {
       </QueryClientProvider>,
     );
 
-    const cell = await screen.findByText("t1");
+    const cell = await screen.findByText("Tutor: t1");
     await userEvent.click(cell);
 
     expect(await screen.findByText("Session detail route reached")).toBeInTheDocument();
@@ -101,5 +101,30 @@ describe("GlobalSessionListPage", () => {
 
     expect(screen.getByText("Cancel this session?")).toBeInTheDocument();
     expect(screen.queryByText("Session detail route reached")).not.toBeInTheDocument();
+  });
+
+  it("shows a skeleton layout while loading, not an abrupt spinner", () => {
+    vi.spyOn(oversightService, "fetchAllSessions").mockReturnValue(new Promise(() => {}));
+
+    renderWithProviders(<GlobalSessionListPage />);
+
+    expect(screen.getAllByTestId("admin-session-card-skeleton").length).toBeGreaterThan(0);
+  });
+
+  it("groups sessions by status, and shows both the Tutor and Student id on each card", async () => {
+    const completed = { ...SESSION, sessionId: "55555555-5555-5555-5555-555555555555", status: SessionStatus.Completed };
+    vi.spyOn(oversightService, "fetchAllSessions").mockResolvedValue({
+      items: [SESSION, completed],
+      totalCount: 2,
+      page: 1,
+      pageSize: 20,
+    });
+
+    renderWithProviders(<GlobalSessionListPage />);
+
+    expect(await screen.findByRole("heading", { name: "Upcoming" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Completed" })).toBeInTheDocument();
+    expect(screen.getAllByText("Tutor: t1")).toHaveLength(2);
+    expect(screen.getAllByText("Student: st1")).toHaveLength(2);
   });
 });

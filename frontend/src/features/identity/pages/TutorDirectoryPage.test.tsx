@@ -1,8 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { screen } from "@testing-library/react";
 import { TutorDirectoryPage } from "@/features/identity/pages/TutorDirectoryPage";
 import { renderWithProviders } from "@/test/renderWithProviders";
 import * as identityService from "@/features/identity/api/identityService";
@@ -16,7 +13,15 @@ describe("TutorDirectoryPage", () => {
     expect(await screen.findByText("No discoverable Tutors yet")).toBeInTheDocument();
   });
 
-  it("lists discoverable Tutors and navigates to the detail page on row click", async () => {
+  it("shows skeleton cards while loading, not an abrupt spinner", () => {
+    vi.spyOn(identityService, "fetchTutorDirectory").mockReturnValue(new Promise(() => {}));
+
+    renderWithProviders(<TutorDirectoryPage />);
+
+    expect(screen.getAllByTestId("tutor-card-skeleton").length).toBeGreaterThan(0);
+  });
+
+  it("lists discoverable Tutors as marketplace cards, linking to the detail page", async () => {
     vi.spyOn(identityService, "fetchTutorDirectory").mockResolvedValue([
       {
         tutorId: "11111111-1111-1111-1111-111111111111",
@@ -31,24 +36,24 @@ describe("TutorDirectoryPage", () => {
       },
     ]);
 
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={["/identity/tutors"]}>
-          <Routes>
-            <Route path="/identity/tutors" element={<TutorDirectoryPage />} />
-            <Route
-              path="/identity/tutors/:tutorId"
-              element={<div>Tutor detail route reached</div>}
-            />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
+    renderWithProviders(<TutorDirectoryPage />);
+
+    expect(await screen.findByRole("heading", { name: "Mathematics" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View profile" })).toHaveAttribute(
+      "href",
+      "/identity/tutors/11111111-1111-1111-1111-111111111111",
     );
+    expect(screen.getByRole("link", { name: "Book Lesson" })).toHaveAttribute(
+      "href",
+      "/scheduling/sessions/book?tutorId=11111111-1111-1111-1111-111111111111",
+    );
+  });
 
-    const row = await screen.findByText("Mathematics");
-    await userEvent.click(row);
+  it("shows a friendly error state with a retry action when the directory fails to load", async () => {
+    vi.spyOn(identityService, "fetchTutorDirectory").mockRejectedValue(new Error("Network error"));
 
-    expect(await screen.findByText("Tutor detail route reached")).toBeInTheDocument();
+    renderWithProviders(<TutorDirectoryPage />);
+
+    expect(await screen.findByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 });

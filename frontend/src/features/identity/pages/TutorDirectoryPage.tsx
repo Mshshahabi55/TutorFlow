@@ -1,38 +1,23 @@
-import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { Link as RouterLink } from "react-router-dom";
 import { Button, Stack, Typography } from "@mui/material";
 import { useTutorDirectory } from "@/features/identity/hooks/useTutorQueries";
-import { formatMinutesList } from "@/shared/utils/duration";
-import { formatToman } from "@/shared/money/rial";
-import { DataTable, type DataTableColumn } from "@/shared/components/table/DataTable";
+import { TutorCard } from "@/features/discovery/components/TutorCard";
+import { TutorCardSkeleton } from "@/features/discovery/components/TutorCardSkeleton";
+import { EmptyState } from "@/shared/components/feedback/EmptyState";
+import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { paths } from "@/routes/paths";
-import type { TutorDto } from "@/services/api/dtos";
 
-const columns: DataTableColumn<TutorDto>[] = [
-  { key: "subject", header: "Subject", render: (row) => row.subject ?? "—" },
-  { key: "language", header: "Language", render: (row) => row.language ?? "—" },
-  { key: "location", header: "Location", render: (row) => row.location ?? "—" },
-  {
-    key: "hourlyRate",
-    header: "Hourly rate (Toman)",
-    align: "right",
-    render: (row) => (row.hourlyRate !== null ? formatToman(row.hourlyRate) : "—"),
-  },
-  {
-    key: "offeredDurations",
-    header: "Durations (min)",
-    render: (row) =>
-      row.offeredDurations.length > 0 ? formatMinutesList(row.offeredDurations) : "—",
-  },
-];
+const SKELETON_COUNT = 6;
 
 /**
  * GET /tutors — every discoverable (approved and not suspended) Tutor, not
- * paginated (the endpoint itself returns a plain array), so DataTable is
- * used here without its pagination prop.
+ * paginated (the endpoint itself returns a plain array). RC3.3: reuses
+ * `TutorCard` verbatim (the same marketplace card `TutorSearchPage` and
+ * `RecommendedTutors` already render) instead of a raw DataTable — one
+ * card component for "here is a Tutor," not a duplicated presentation.
  */
 export function TutorDirectoryPage() {
-  const navigate = useNavigate();
   const directoryQuery = useTutorDirectory();
 
   return (
@@ -41,7 +26,7 @@ export function TutorDirectoryPage() {
         title="Tutor directory"
         subtitle={
           <Typography variant="body1" color="text.secondary">
-            Every currently discoverable Tutor. Select a row to view details.
+            Every currently discoverable Tutor.
           </Typography>
         }
         action={
@@ -51,21 +36,26 @@ export function TutorDirectoryPage() {
         }
       />
 
-      <DataTable
-        columns={columns}
-        rows={directoryQuery.data ?? []}
-        getRowKey={(row) => row.tutorId}
-        isLoading={directoryQuery.isPending}
-        error={directoryQuery.isError ? directoryQuery.error : undefined}
-        onRetry={() => void directoryQuery.refetch()}
-        emptyState={{
-          title: "No discoverable Tutors yet",
-          description: "Tutors appear here once an Admin has approved them.",
-        }}
-        onRowClick={(row) => {
-          void navigate(paths.identity.tutorDetail(row.tutorId));
-        }}
-      />
+      {directoryQuery.isPending ? (
+        <Stack direction="row" flexWrap="wrap" gap={2}>
+          {Array.from({ length: SKELETON_COUNT }, (_, index) => (
+            <TutorCardSkeleton key={index} />
+          ))}
+        </Stack>
+      ) : directoryQuery.isError ? (
+        <ErrorState error={directoryQuery.error} onRetry={() => void directoryQuery.refetch()} />
+      ) : directoryQuery.data.length === 0 ? (
+        <EmptyState
+          title="No discoverable Tutors yet"
+          description="Tutors appear here once an Admin has approved them."
+        />
+      ) : (
+        <Stack direction="row" flexWrap="wrap" gap={2}>
+          {directoryQuery.data.map((tutor) => (
+            <TutorCard key={tutor.tutorId} tutor={tutor} />
+          ))}
+        </Stack>
+      )}
     </Stack>
   );
 }

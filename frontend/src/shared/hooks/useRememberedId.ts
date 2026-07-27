@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 /**
  * RC2: there is still no "my own id" resolution from an authenticated
@@ -23,19 +23,22 @@ export function useRememberedId(kind: "tutor" | "student" | "parentGuardian") {
     return window.localStorage.getItem(storageKey) ?? undefined;
   });
 
-  function remember(newId: string) {
-    setIdState(newId);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(storageKey, newId);
-    }
-  }
+  const remember = useCallback(
+    (newId: string) => {
+      setIdState(newId);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(storageKey, newId);
+      }
+    },
+    [storageKey],
+  );
 
-  function forget() {
+  const forget = useCallback(() => {
     setIdState(undefined);
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(storageKey);
     }
-  }
+  }, [storageKey]);
 
   return { id, remember, forget };
 }

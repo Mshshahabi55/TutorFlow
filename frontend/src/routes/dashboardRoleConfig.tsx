@@ -31,31 +31,31 @@ export interface QuickAction {
  */
 export const ROLE_QUICK_ACTIONS: Record<ActorRole, QuickAction[]> = {
   Student: [
-    { label: "Search Tutors", to: paths.discovery.tutorSearch, icon: <SearchRoundedIcon /> },
-    { label: "Book a session", to: paths.scheduling.bookSession, icon: <EventRoundedIcon /> },
+    { label: "Find Tutors", to: paths.discovery.tutorSearch, icon: <SearchRoundedIcon /> },
+    { label: "Book Your Lesson", to: paths.scheduling.bookSession, icon: <EventRoundedIcon /> },
     {
-      label: "My sessions",
+      label: "My Lessons",
       to: paths.scheduling.studentScheduleBase,
       icon: <CalendarMonthRoundedIcon />,
     },
   ],
   Tutor: [
     {
-      label: "Declare availability",
+      label: "Manage Your Schedule",
       to: paths.scheduling.declareAvailability,
       icon: <EventAvailableRoundedIcon />,
     },
     {
-      label: "My sessions",
+      label: "My Lessons",
       to: paths.scheduling.tutorScheduleBase,
       icon: <CalendarMonthRoundedIcon />,
     },
   ],
   ParentGuardian: [
-    { label: "Relationships", to: paths.identity.relationships, icon: <LinkRoundedIcon /> },
-    { label: "Book a session", to: paths.scheduling.bookSession, icon: <EventRoundedIcon /> },
+    { label: "My Children", to: paths.identity.relationships, icon: <LinkRoundedIcon /> },
+    { label: "Book Your Lesson", to: paths.scheduling.bookSession, icon: <EventRoundedIcon /> },
     {
-      label: "Student sessions",
+      label: "My Lessons",
       to: paths.scheduling.studentScheduleBase,
       icon: <CalendarMonthRoundedIcon />,
     },

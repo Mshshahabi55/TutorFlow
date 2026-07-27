@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DeclareAvailabilityPage } from "@/features/scheduling/pages/DeclareAvailabilityPage";
@@ -10,6 +10,10 @@ const TUTOR_ID = "11111111-1111-1111-1111-111111111111";
 const SLOT_ID = "22222222-2222-2222-2222-222222222222";
 
 describe("DeclareAvailabilityPage", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
   it("declares availability, converting minutes to a TimeSpan and the mode to its numeric value", async () => {
     const declareAvailability = vi
       .spyOn(schedulingService, "declareAvailability")
@@ -102,5 +106,14 @@ describe("DeclareAvailabilityPage", () => {
     expect(screen.getByText("Open")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Availability History" })).toBeInTheDocument();
     expect(screen.getByText("Booked")).toBeInTheDocument();
+  });
+
+  it("prefills the Tutor id from a remembered id, so a returning Tutor doesn't retype it", () => {
+    window.localStorage.setItem("tutorflow.rememberedId.tutor", TUTOR_ID);
+    vi.spyOn(schedulingService, "fetchTutorAvailabilitySlots").mockResolvedValue([]);
+
+    renderWithProviders(<DeclareAvailabilityPage />);
+
+    expect(screen.getByLabelText("Tutor id")).toHaveValue(TUTOR_ID);
   });
 });

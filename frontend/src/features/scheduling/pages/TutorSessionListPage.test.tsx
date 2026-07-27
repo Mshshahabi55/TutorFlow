@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -27,10 +27,24 @@ const SESSION = {
 };
 
 describe("TutorSessionListPage", () => {
-  it("shows an id-lookup form when no id is in the route", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it("shows a friendly identity prompt, not a raw id field, when no id is known", () => {
     renderWithProviders(<TutorSessionListPage />);
 
+    expect(screen.getByRole("heading", { name: "Let's find your calendar" })).toBeInTheDocument();
     expect(screen.getByLabelText("Tutor id")).toBeInTheDocument();
+  });
+
+  it("redirects straight to the remembered Tutor's schedule without re-asking", () => {
+    window.localStorage.setItem("tutorflow.rememberedId.tutor", TUTOR_ID);
+    vi.spyOn(schedulingService, "fetchTutorSchedule").mockResolvedValue([]);
+
+    renderWithProviders(<TutorSessionListPage />);
+
+    expect(screen.queryByLabelText("Tutor id")).not.toBeInTheDocument();
   });
 
   it("shows a skeleton layout while loading, not an abrupt spinner", () => {

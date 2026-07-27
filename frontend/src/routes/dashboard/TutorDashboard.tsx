@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { Button, Stack, Typography } from "@mui/material";
 import { useTutorSchedule } from "@/features/scheduling/hooks/useSessionQueries";
@@ -11,7 +10,7 @@ import { AvailabilitySummaryCardSkeleton } from "@/features/scheduling/component
 import { SectionCard } from "@/shared/components/SectionCard";
 import { TeachingDayCard } from "@/routes/dashboard/TeachingDayCard";
 import { PageHeader } from "@/shared/components/PageHeader";
-import { IdLookupForm } from "@/shared/components/forms/IdLookupForm";
+import { IdentityGate } from "@/shared/components/IdentityGate";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { isTodayInTehran } from "@/shared/time/tehranTime";
 import { ROLE_QUICK_ACTIONS } from "@/routes/dashboardRoleConfig";
@@ -29,13 +28,10 @@ interface TeachingOverviewProps {
 
 /**
  * There is no "my own Tutor id" resolution from an authenticated Account
- * anywhere in this app (same structural gap the Student Dashboard
- * documented — ADR-011 remains frozen), so the overview below only
- * populates once a Tutor id is entered, reusing the exact `IdLookupForm`
- * pattern already used identically by `TutorSessionListPage`,
- * `SessionDetailPage`, `AvailabilitySlotDetailPage`, and
- * `DeclareAvailabilityPage` — not a new workflow, the same one applied to
- * one more page.
+ * anywhere in this app (ADR-011 remains frozen), so the overview below only
+ * populates once a Tutor id is known — via the shared `useRememberedId`/
+ * `IdentityGate` pattern, so it's asked for once per device rather than on
+ * every visit.
  */
 function TeachingOverview({ tutorId }: TeachingOverviewProps) {
   const navigate = useNavigate();
@@ -164,8 +160,6 @@ function TeachingOverview({ tutorId }: TeachingOverviewProps) {
  * and `DeclareAvailabilityPage` already use — once a Tutor id is provided.
  */
 export function TutorDashboard() {
-  const [tutorId, setTutorId] = useState<string | undefined>(undefined);
-
   return (
     <Stack spacing={3}>
       <PageHeader
@@ -193,19 +187,14 @@ export function TutorDashboard() {
         </Stack>
       </SectionCard>
 
-      {tutorId ? (
-        <TeachingOverview tutorId={tutorId} />
-      ) : (
-        <SectionCard title="Your teaching overview">
-          <Stack spacing={2} alignItems="flex-start">
-            <Typography variant="body2" color="text.secondary">
-              Enter your Tutor id to see today&rsquo;s sessions, upcoming sessions, recent activity,
-              and your availability at a glance.
-            </Typography>
-            <IdLookupForm label="Tutor id" onSubmit={setTutorId} />
-          </Stack>
-        </SectionCard>
-      )}
+      <IdentityGate
+        kind="tutor"
+        fieldLabel="Tutor id"
+        title="Let's set up your dashboard"
+        description="Enter your tutor id once — we'll remember it on this device so you'll see today's sessions, upcoming sessions, and your availability here every time."
+      >
+        {(tutorId) => <TeachingOverview tutorId={tutorId} />}
+      </IdentityGate>
     </Stack>
   );
 }

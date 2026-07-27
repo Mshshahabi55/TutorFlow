@@ -1,4 +1,5 @@
-import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
+import { useEffect, type ReactNode } from "react";
+import { Link as RouterLink, Navigate, useNavigate, useParams } from "react-router-dom";
 import { Button, Stack, Typography } from "@mui/material";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import { useStudentSchedule } from "@/features/scheduling/hooks/useSessionQueries";
@@ -6,7 +7,8 @@ import { NextSessionCard } from "@/features/scheduling/components/NextSessionCar
 import { SessionCard } from "@/features/scheduling/components/SessionCard";
 import { SessionCardSkeleton } from "@/features/scheduling/components/SessionCardSkeleton";
 import { SectionCard } from "@/shared/components/SectionCard";
-import { IdLookupForm } from "@/shared/components/forms/IdLookupForm";
+import { IdentityGate } from "@/shared/components/IdentityGate";
+import { useRememberedId } from "@/shared/hooks/useRememberedId";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
@@ -122,9 +124,55 @@ function SessionsWorkspace({ sessions, onOpen }: SessionsWorkspaceProps) {
   );
 }
 
-/** GET /students/{id}/schedule — every Session for the Student, unpaginated (matches the endpoint's own shape). Same query, route, and data as before (Phase 3 Step 5 is presentation-only). */
+/** GET /students/{id}/schedule — every Session for the Student, unpaginated (matches the endpoint's own shape). Same query and data as before; RC2 replaces the raw Student-id form with the shared `IdentityGate` (ask once, remember on this device) and renames the page to "My Lessons". */
 export function StudentSessionListPage() {
-  const { studentId } = useParams<{ studentId: string }>();
+  const { studentId: routeStudentId } = useParams<{ studentId: string }>();
+  const { id: rememberedStudentId, remember } = useRememberedId("student");
+
+  useEffect(() => {
+    if (routeStudentId) {
+      remember(routeStudentId);
+    }
+  }, [routeStudentId, remember]);
+
+  const studentId = routeStudentId ?? rememberedStudentId;
+
+  const header = (
+    <PageHeader
+      title="My Lessons"
+      subtitle={
+        <Typography variant="body1" color="text.secondary">
+          Everything you&rsquo;ve booked, grouped by what&rsquo;s next and what&rsquo;s already
+          happened.
+        </Typography>
+      }
+    />
+  );
+
+  if (!routeStudentId && rememberedStudentId) {
+    return <Navigate to={paths.scheduling.studentSchedule(rememberedStudentId)} replace />;
+  }
+
+  if (!studentId) {
+    return (
+      <Stack spacing={3}>
+        {header}
+        <IdentityGate
+          kind="student"
+          fieldLabel="Student id"
+          title="Let's find your lessons"
+          description="Enter your student id once — we'll remember it on this device so you won't need to again."
+        >
+          {(id) => <Navigate to={paths.scheduling.studentSchedule(id)} replace />}
+        </IdentityGate>
+      </Stack>
+    );
+  }
+
+  return <StudentSessionsContent studentId={studentId} header={header} />;
+}
+
+function StudentSessionsContent({ studentId, header }: { studentId: string; header: ReactNode }) {
   const navigate = useNavigate();
   const scheduleQuery = useStudentSchedule(studentId);
 
@@ -134,24 +182,9 @@ export function StudentSessionListPage() {
 
   return (
     <Stack spacing={3}>
-      <PageHeader
-        title="My Sessions"
-        subtitle={
-          <Typography variant="body1" color="text.secondary">
-            Everything you&rsquo;ve booked, grouped by what&rsquo;s next and what&rsquo;s already
-            happened.
-          </Typography>
-        }
-      />
+      {header}
 
-      {!studentId ? (
-        <IdLookupForm
-          label="Student id"
-          onSubmit={(id) => {
-            void navigate(paths.scheduling.studentSchedule(id));
-          }}
-        />
-      ) : scheduleQuery.isPending ? (
+      {scheduleQuery.isPending ? (
         <Stack spacing={2}>
           {Array.from({ length: 3 }, (_, index) => (
             <SessionCardSkeleton key={index} />

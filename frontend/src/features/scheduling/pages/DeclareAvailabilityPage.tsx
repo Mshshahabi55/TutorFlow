@@ -18,6 +18,7 @@ import { FormSelect } from "@/shared/components/forms/FormSelect";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { useNotification } from "@/shared/hooks/useNotification";
+import { useRememberedId } from "@/shared/hooks/useRememberedId";
 import { fromTehranInput, toTehranDisplay } from "@/shared/time/tehranTime";
 import { guidSchema } from "@/shared/validation/guid";
 import { paths } from "@/routes/paths";
@@ -96,10 +97,16 @@ function YourAvailability({ tutorId }: { tutorId: string }) {
 export function DeclareAvailabilityPage() {
   const declareAvailability = useDeclareAvailability();
   const { notify } = useNotification();
+  const { id: rememberedTutorId, remember } = useRememberedId("tutor");
 
   const form = useForm<DeclareAvailabilityFormValues>({
     resolver: zodResolver(declareAvailabilitySchema),
-    defaultValues: { tutorId: "", startTimeLocal: "", durationMinutes: "", deliveryMode: "" },
+    defaultValues: {
+      tutorId: rememberedTutorId ?? "",
+      startTimeLocal: "",
+      durationMinutes: "",
+      deliveryMode: "",
+    },
   });
 
   const tutorIdValue = form.watch("tutorId");
@@ -114,7 +121,10 @@ export function DeclareAvailabilityPage() {
         deliveryMode: Number(values.deliveryMode),
       },
       {
-        onSuccess: () => notify({ message: "Availability declared.", severity: "success" }),
+        onSuccess: () => {
+          remember(values.tutorId);
+          notify({ message: "Availability declared.", severity: "success" });
+        },
       },
     );
   }
@@ -122,7 +132,7 @@ export function DeclareAvailabilityPage() {
   return (
     <Stack spacing={3} maxWidth={720}>
       <PageHeader
-        title="Declare availability"
+        title="Manage Your Schedule"
         subtitle={
           <Typography variant="body1" color="text.secondary">
             Times are entered in Tehran local time and converted to UTC before being sent — the

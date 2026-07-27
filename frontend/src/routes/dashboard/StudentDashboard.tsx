@@ -46,7 +46,7 @@ export function StudentDashboard() {
                   size="small"
                   startIcon={<EventRoundedIcon />}
                 >
-                  Book a session
+                  Book Your Lesson
                 </Button>
               }
             />

@@ -94,11 +94,11 @@ describe("DashboardPage", () => {
 
     renderDashboard();
 
-    expect(screen.getByRole("link", { name: /Search Tutors/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Find Tutors/ })).toHaveAttribute(
       "href",
       "/discovery/tutors/search",
     );
-    expect(screen.queryByRole("link", { name: /Declare availability/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Manage Your Schedule/ })).not.toBeInTheDocument();
   });
 });
 
@@ -134,7 +134,7 @@ describe("DashboardPage — Student dashboard", () => {
     expect(await screen.findByText("No tutors available yet")).toBeInTheDocument();
   });
 
-  it("offers a Book a session action from the empty Upcoming Sessions section", () => {
+  it("offers a Book Your Lesson action from the empty Upcoming Sessions section", () => {
     vi.spyOn(discoveryService, "searchTutors").mockResolvedValue({
       items: [],
       totalCount: 0,
@@ -145,7 +145,7 @@ describe("DashboardPage — Student dashboard", () => {
     renderDashboard();
 
     const upcomingSessions = screen.getByRole("region", { name: "Upcoming Sessions" });
-    expect(within(upcomingSessions).getByRole("link", { name: /Book a session/ })).toHaveAttribute(
+    expect(within(upcomingSessions).getByRole("link", { name: /Book Your Lesson/ })).toHaveAttribute(
       "href",
       "/scheduling/sessions/book",
     );
@@ -196,11 +196,11 @@ describe("DashboardPage — Tutor dashboard", () => {
     renderDashboard();
 
     expect(screen.getByRole("heading", { name: "Welcome back" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Declare availability/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Manage Your Schedule/ })).toHaveAttribute(
       "href",
       "/scheduling/availability/declare",
     );
-    expect(screen.getByRole("link", { name: /My sessions/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /My Lessons/ })).toHaveAttribute(
       "href",
       "/scheduling/tutors",
     );
@@ -279,11 +279,11 @@ describe("DashboardPage — Parent dashboard", () => {
     renderDashboard();
 
     expect(screen.getByRole("heading", { name: "Welcome back" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Relationships/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /My Children/ })).toHaveAttribute(
       "href",
       "/identity/relationships",
     );
-    expect(screen.getByRole("link", { name: /Book a session/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Book Your Lesson/ })).toHaveAttribute(
       "href",
       "/scheduling/sessions/book",
     );

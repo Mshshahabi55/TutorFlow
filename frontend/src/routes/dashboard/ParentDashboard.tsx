@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { Button, Stack, Typography } from "@mui/material";
 import { useRelationshipsForAccount } from "@/features/identity/hooks/useRelationshipQueries";
@@ -10,7 +9,7 @@ import { SessionCardSkeleton } from "@/features/scheduling/components/SessionCar
 import { byScheduledTimeAscending, byScheduledTimeDescending } from "@/features/scheduling/utils/sessionSort";
 import { SectionCard } from "@/shared/components/SectionCard";
 import { PageHeader } from "@/shared/components/PageHeader";
-import { IdLookupForm } from "@/shared/components/forms/IdLookupForm";
+import { IdentityGate } from "@/shared/components/IdentityGate";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { ROLE_QUICK_ACTIONS } from "@/routes/dashboardRoleConfig";
@@ -74,10 +73,10 @@ function SingleChildSchedule({ studentId }: { studentId: string }) {
         {upcoming.length === 0 ? (
           <EmptyState
             title="No upcoming sessions yet"
-            description="Book a session with a tutor to see it here."
+            description="Book a lesson with a tutor to see it here."
             action={
               <Button component={RouterLink} to={paths.scheduling.bookSession} variant="contained">
-                Book a session
+                Book Your Lesson
               </Button>
             }
           />
@@ -183,13 +182,12 @@ function FamilyOverview({ accountId }: { accountId: string }) {
 /**
  * The Parent/Guardian's landing experience. Quick actions need no id and
  * always render; the family overview reuses `useRelationshipsForAccount`
- * once a Parent/Guardian id is provided — the same `IdLookupForm` pattern
- * already used identically across the app (there is still no "my own id"
- * resolution from an authenticated Account — ADR-011 remains frozen).
+ * once a Parent/Guardian id is known — via the shared `useRememberedId`/
+ * `IdentityGate` pattern (there is still no "my own id" resolution from an
+ * authenticated Account — ADR-011 remains frozen), so it's asked for once
+ * per device rather than on every visit.
  */
 export function ParentDashboard() {
-  const [accountId, setAccountId] = useState<string | undefined>(undefined);
-
   return (
     <Stack spacing={3}>
       <PageHeader
@@ -218,18 +216,14 @@ export function ParentDashboard() {
         </Stack>
       </SectionCard>
 
-      {accountId ? (
-        <FamilyOverview accountId={accountId} />
-      ) : (
-        <SectionCard title="Your family">
-          <Stack spacing={2} alignItems="flex-start">
-            <Typography variant="body2" color="text.secondary">
-              Enter your Parent/Guardian id to see your children and their upcoming sessions.
-            </Typography>
-            <IdLookupForm label="Parent/Guardian id" onSubmit={setAccountId} />
-          </Stack>
-        </SectionCard>
-      )}
+      <IdentityGate
+        kind="parentGuardian"
+        fieldLabel="Parent/Guardian id"
+        title="Let's set up your family view"
+        description="Enter your Parent/Guardian id once — we'll remember it on this device so you'll see your children and their sessions here every time."
+      >
+        {(accountId) => <FamilyOverview accountId={accountId} />}
+      </IdentityGate>
     </Stack>
   );
 }

@@ -1,43 +1,54 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { Breadcrumbs } from "@/layouts/Breadcrumbs";
+import { ActorProvider } from "@/shared/context/ActorProvider";
+import { AuthProvider } from "@/shared/context/AuthProvider";
 import { paths } from "@/routes/paths";
 
-function renderAt(pathname: string) {
+function renderAt(pathname: string, role?: string) {
+  if (role) {
+    window.localStorage.setItem("tutorflow.devActorRole", role);
+  }
   return render(
-    <MemoryRouter initialEntries={[pathname]}>
-      <Breadcrumbs />
-    </MemoryRouter>,
+    <AuthProvider>
+      <ActorProvider>
+        <MemoryRouter initialEntries={[pathname]}>
+          <Breadcrumbs />
+        </MemoryRouter>
+      </ActorProvider>
+    </AuthProvider>,
   );
 }
 
 describe("Breadcrumbs", () => {
-  it("shows just 'Dashboard', not a link, on the home route", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it("shows just the home label, not a link, on the home route, with no role selected", () => {
     renderAt(paths.home);
 
-    expect(screen.getByText("Dashboard")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Dashboard" })).not.toBeInTheDocument();
+    expect(screen.getByText("Home")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Home" })).not.toBeInTheDocument();
   });
 
-  it("shows Dashboard (link) > Section > Page for a known route", () => {
+  it("uses the role-appropriate home label (Dashboard for a Tutor, Home for a Student)", () => {
+    renderAt(paths.home, "Tutor");
+
+    expect(screen.getByText("Dashboard")).toBeInTheDocument();
+  });
+
+  it("shows a flat Home > Page trail for a known route, with no section title", () => {
     renderAt(paths.discovery.tutorSearch);
 
-    expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", paths.home);
-    expect(screen.getByText("Discovery")).toBeInTheDocument();
-    expect(screen.getByText("Search Tutors")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("href", paths.home);
+    expect(screen.getByText("Find Tutors")).toBeInTheDocument();
   });
 
-  it("also resolves a sub-route of a known entry", () => {
-    renderAt(`${paths.identity.studentDetailBase}/some-id`);
-
-    expect(screen.getByText("Identity & Relationship")).toBeInTheDocument();
-    expect(screen.getByText("Students")).toBeInTheDocument();
-  });
-
-  it("falls back to just Dashboard for a route SECTIONS doesn't name", () => {
+  it("falls back to just the home crumb for a route the nav doesn't name", () => {
     renderAt("/some/unknown/route");
 
-    expect(screen.getByRole("link", { name: "Dashboard" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Home" })).toBeInTheDocument();
   });
 });

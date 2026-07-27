@@ -37,26 +37,57 @@ function renderNavSidebar(props: {
   return { onClose, onToggleCollapse };
 }
 
+// RC2: the nav is now a short, flat, per-role list (Home/Find Tutors/My
+// Lessons/Messages/Profile for a Student, etc.) instead of a shared list
+// grouped under bounded-context section titles — a consumer marketplace's
+// IA, not an internal admin panel's.
 describe("NavSidebar", () => {
   beforeEach(() => {
     window.localStorage.clear();
   });
 
-  it("renders the Dashboard link and the Identity & Relationship section", () => {
+  it("shows the Student's flat 5-item nav — Home, Find Tutors, My Lessons, Messages, Profile", () => {
+    window.localStorage.setItem("tutorflow.devActorRole", "Student");
+
+    renderNavSidebar({ variant: "permanent" });
+
+    expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Find Tutors" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "My Lessons" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Messages" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Profile" })).toBeInTheDocument();
+    expect(screen.getAllByRole("link")).toHaveLength(5);
+  });
+
+  it("shows the Tutor's flat nav — Dashboard, My Students, Calendar, Availability, Profile", () => {
+    window.localStorage.setItem("tutorflow.devActorRole", "Tutor");
+
     renderNavSidebar({ variant: "permanent" });
 
     expect(screen.getByRole("link", { name: "Dashboard" })).toBeInTheDocument();
-    expect(screen.getByText("Identity & Relationship")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Tutor directory" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Relationships" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "My Students" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Calendar" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Availability" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Profile" })).toBeInTheDocument();
   });
 
-  it("shows every role-specific entry when no dev role is selected", () => {
+  it("shows Admin's own separate operations nav, not the marketplace nav", () => {
+    window.localStorage.setItem("tutorflow.devActorRole", "AdminStaff");
+
     renderNavSidebar({ variant: "permanent" });
 
-    expect(screen.getByRole("link", { name: "Register as Tutor" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Register as Student" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Pending Tutor approvals" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Operations" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Tutor Approvals" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "All Sessions" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Find Tutors" })).not.toBeInTheDocument();
+  });
+
+  it("shows a minimal nav with no role selected", () => {
+    renderNavSidebar({ variant: "permanent" });
+
+    expect(screen.getByRole("link", { name: "Home" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Find Tutors" })).toBeInTheDocument();
+    expect(screen.getAllByRole("link")).toHaveLength(2);
   });
 
   it("prefers the authenticated user role over the dev preview role for navigation", () => {
@@ -72,65 +103,14 @@ describe("NavSidebar", () => {
       },
     });
 
-    expect(screen.getByRole("link", { name: "Register as Tutor" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Register as Student" })).not.toBeInTheDocument();
-  });
-
-  it("hides role-specific entries that don't match the selected dev role (display convenience only)", () => {
-    window.localStorage.setItem("tutorflow.devActorRole", "Tutor");
-
-    renderNavSidebar({ variant: "permanent" });
-
-    expect(screen.getByRole("link", { name: "Register as Tutor" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Register as Student" })).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: "Pending Tutor approvals" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("renders the Discovery and Scheduling & Booking sections", () => {
-    renderNavSidebar({ variant: "permanent" });
-
-    expect(screen.getByText("Discovery")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Search Tutors" })).toBeInTheDocument();
-    expect(screen.getByText("Scheduling & Booking")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Availability Slot lookup" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Session lookup" })).toBeInTheDocument();
-  });
-
-  it("hides Scheduling entries that don't match the selected dev role", () => {
-    window.localStorage.setItem("tutorflow.devActorRole", "AdminStaff");
-
-    renderNavSidebar({ variant: "permanent" });
-
-    expect(screen.queryByRole("link", { name: "Declare availability" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Book a session" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Tutor sessions" })).not.toBeInTheDocument();
-  });
-
-  it("shows Marketplace Oversight entries only for the AdminStaff dev role", () => {
-    window.localStorage.setItem("tutorflow.devActorRole", "AdminStaff");
-
-    renderNavSidebar({ variant: "permanent" });
-
-    expect(screen.getByText("Marketplace Oversight")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Admin dashboard" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "All sessions" })).toBeInTheDocument();
-  });
-
-  it("hides Marketplace Oversight entries for a non-Admin dev role", () => {
-    window.localStorage.setItem("tutorflow.devActorRole", "Tutor");
-
-    renderNavSidebar({ variant: "permanent" });
-
-    expect(screen.queryByRole("link", { name: "Admin dashboard" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "All sessions" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "My Students" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Find Tutors" })).not.toBeInTheDocument();
   });
 
   it("closes the drawer after navigating when rendered as temporary (mobile/tablet)", async () => {
     const { onClose } = renderNavSidebar({ variant: "temporary" });
 
-    await userEvent.click(screen.getByRole("link", { name: "Dashboard" }));
+    await userEvent.click(screen.getByRole("link", { name: "Home" }));
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -138,7 +118,7 @@ describe("NavSidebar", () => {
   it("does not call onClose after navigating when rendered as permanent (desktop)", async () => {
     const { onClose } = renderNavSidebar({ variant: "permanent" });
 
-    await userEvent.click(screen.getByRole("link", { name: "Dashboard" }));
+    await userEvent.click(screen.getByRole("link", { name: "Home" }));
 
     expect(onClose).not.toHaveBeenCalled();
   });
@@ -147,43 +127,14 @@ describe("NavSidebar", () => {
   // indicator and this accessible signal, so a screen-reader user gets an
   // unambiguous "you are here" too, not just a sighted one.
   it("marks the active route with aria-current='page', and no other link", () => {
+    window.localStorage.setItem("tutorflow.devActorRole", "Student");
     renderNavSidebar({ variant: "permanent", initialEntry: "/discovery/tutors/search" });
 
-    expect(screen.getByRole("link", { name: "Search Tutors" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Find Tutors" })).toHaveAttribute(
       "aria-current",
       "page",
     );
-    expect(screen.getByRole("link", { name: "Dashboard" })).not.toHaveAttribute("aria-current");
-  });
-
-  // Phase 4.9 Task 4: Students/Parent-Guardians/Relationships previously had
-  // no `roles` restriction at all, so a Tutor saw them too — the literal "a
-  // Student sees Students, Parent/Guardians... everything" live-browser
-  // finding this phase's brief reported (read the other direction: every
-  // role saw every entry, Tutor included). A Tutor is never Owner or a
-  // confirmed-Relationship party to a Student or Parent/Guardian record
-  // (AUTHORIZATION_MATRIX.md Addendum Decision 3) and holds neither
-  // InviteRelationship nor ConfirmRelationship (RolePermissionCatalog).
-  it("hides Students, Parent/Guardians, and Relationships for a real signed-in Tutor", () => {
-    renderNavSidebar({
-      variant: "permanent",
-      authUser: { token: "t", accountId: "a1", role: "Tutor", expiresAtUtc: "2999-01-01T00:00:00Z" },
-    });
-
-    expect(screen.queryByRole("link", { name: "Students" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Parent/Guardians" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Relationships" })).not.toBeInTheDocument();
-  });
-
-  it("still shows Students, Parent/Guardians, and Relationships for a real signed-in Student", () => {
-    renderNavSidebar({
-      variant: "permanent",
-      authUser: { token: "t", accountId: "a1", role: "Student", expiresAtUtc: "2999-01-01T00:00:00Z" },
-    });
-
-    expect(screen.getByRole("link", { name: "Students" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Parent/Guardians" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Relationships" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Home" })).not.toHaveAttribute("aria-current");
   });
 
   // Phase D4: icon-rail collapse (permanent/desktop only).
@@ -207,7 +158,7 @@ describe("NavSidebar", () => {
       renderNavSidebar({ variant: "permanent", collapsed: true });
 
       expect(screen.queryByText("TutorFlow")).not.toBeInTheDocument();
-      expect(screen.queryByText("Dashboard")).not.toBeInTheDocument();
+      expect(screen.queryByText("Home")).not.toBeInTheDocument();
       expect(screen.getByLabelText("Expand navigation")).toBeInTheDocument();
       // Links remain in the DOM (icon-only), still reachable/labelled via Tooltip.
       expect(screen.getAllByRole("link").length).toBeGreaterThan(0);

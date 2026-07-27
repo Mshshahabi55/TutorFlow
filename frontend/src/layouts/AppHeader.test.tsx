@@ -50,7 +50,7 @@ describe("AppHeader", () => {
   it("shows the breadcrumb, search, notifications, and theme toggle", () => {
     renderHeader(true);
 
-    expect(screen.getByText("Dashboard")).toBeInTheDocument();
+    expect(screen.getByText("Home")).toBeInTheDocument();
     expect(screen.getByLabelText("Search")).toBeInTheDocument();
     expect(screen.getByLabelText("Notifications")).toBeInTheDocument();
     expect(screen.getByLabelText("Switch to dark mode")).toBeInTheDocument();

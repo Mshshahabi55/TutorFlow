@@ -1,6 +1,10 @@
 /** Centralized route paths — every Link/NavLink/navigate call imports from here rather than hardcoding a string. */
 export const paths = {
   home: "/",
+  /** RC2: a placeholder destination — no messaging capability exists in this API yet. */
+  messages: "/messages",
+  /** RC2: one "Profile" nav destination for every role — resolves to the role's existing detail page. */
+  profile: "/profile",
   auth: {
     login: "/auth/login",
     resetPassword: "/auth/reset-password",
@@ -39,6 +43,8 @@ export const paths = {
     tutorScheduleBase: "/scheduling/tutors",
     tutorSchedulePattern: "/scheduling/tutors/:tutorId/schedule",
     tutorSchedule: (tutorId: string) => `/scheduling/tutors/${tutorId}/schedule`,
+    /** RC2: "My Students" — derives the Tutor's unique Students from their own existing schedule, no new endpoint. */
+    tutorStudents: "/scheduling/tutors/students",
   },
   discovery: {
     tutorSearch: "/discovery/tutors/search",

@@ -12,6 +12,12 @@ const DashboardPage = lazy(() =>
 const NotFoundPage = lazy(() =>
   import("@/routes/NotFoundPage").then((module) => ({ default: module.NotFoundPage })),
 );
+const MessagesPage = lazy(() =>
+  import("@/routes/MessagesPage").then((module) => ({ default: module.MessagesPage })),
+);
+const ProfilePage = lazy(() =>
+  import("@/routes/ProfilePage").then((module) => ({ default: module.ProfilePage })),
+);
 
 const LoginPage = lazy(() =>
   import("@/features/auth/pages/LoginPage").then((module) => ({ default: module.LoginPage })),
@@ -162,6 +168,8 @@ export const router = createBrowserRouter([
     element: <AppLayout />,
     children: [
       { path: paths.home, element: withSuspense(<DashboardPage />) },
+      { path: paths.messages, element: withSuspense(<MessagesPage />) },
+      { path: paths.profile, element: withSuspense(<ProfilePage />) },
       { path: paths.auth.login, element: withSuspense(<LoginPage />) },
       {
         path: paths.auth.resetPassword,

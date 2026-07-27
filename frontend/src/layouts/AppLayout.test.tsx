@@ -85,7 +85,7 @@ describe("AppLayout", () => {
 
     await userEvent.click(hamburger);
 
-    expect(await screen.findByRole("link", { name: "Dashboard" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Home" })).toBeInTheDocument();
   });
 
   // Phase 4.9 Task 2: the dev-only RoleSwitcher must never appear once a

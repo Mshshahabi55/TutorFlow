@@ -1,48 +1,33 @@
-import { Box, Divider, Drawer, IconButton, List, ListSubheader, Toolbar, Typography } from "@mui/material";
-import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
+import { Box, Drawer, IconButton, List, Toolbar, Typography } from "@mui/material";
 import ChevronLeftRoundedIcon from "@mui/icons-material/ChevronLeftRounded";
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
-import { Fragment } from "react";
-import { paths } from "@/routes/paths";
 import { useEffectiveRole } from "@/shared/hooks/useEffectiveRole";
 import { NavigationItem } from "@/layouts/NavigationItem";
-import { SECTIONS, visibleEntries } from "@/layouts/navSections";
+import { navForRole } from "@/layouts/navSections";
 
 export const NAV_SIDEBAR_WIDTH = 260;
 export const NAV_SIDEBAR_WIDTH_COLLAPSED = 72;
 
+/**
+ * RC2: one short, flat list per role (`navForRole`) instead of a shared,
+ * section-grouped list filtered down — a real consumer marketplace's nav
+ * doesn't group by internal bounded context.
+ */
 function NavList({ onNavigate, collapsed }: { onNavigate?: () => void; collapsed?: boolean }) {
   const effectiveRole = useEffectiveRole();
 
   return (
     <List component="nav" aria-label="Primary">
-      <NavigationItem
-        to={paths.home}
-        label="Dashboard"
-        icon={<DashboardRoundedIcon />}
-        onNavigate={onNavigate}
-        exact
-        collapsed={collapsed}
-      />
-
-      {SECTIONS.map((section) => (
-        <Fragment key={section.title}>
-          {collapsed ? (
-            <Divider sx={{ my: 1 }} />
-          ) : (
-            <ListSubheader component="div">{section.title}</ListSubheader>
-          )}
-          {visibleEntries(section.entries, effectiveRole).map((entry) => (
-            <NavigationItem
-              key={entry.to}
-              to={entry.to}
-              label={entry.label}
-              icon={entry.icon}
-              onNavigate={onNavigate}
-              collapsed={collapsed}
-            />
-          ))}
-        </Fragment>
+      {navForRole(effectiveRole).map((entry) => (
+        <NavigationItem
+          key={entry.to}
+          to={entry.to}
+          label={entry.label}
+          icon={entry.icon}
+          onNavigate={onNavigate}
+          exact={entry.exact}
+          collapsed={collapsed}
+        />
       ))}
     </List>
   );

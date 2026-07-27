@@ -14,6 +14,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
+import { ThemeProvider } from "@mui/material/styles";
 import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,10 +25,12 @@ import {
   spacingUnitPx,
   typographyScale,
   theme,
+  darkTheme,
 } from "@/app/theme";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { CopyableId } from "@/shared/components/CopyableId";
 import { UnitText } from "@/shared/components/UnitText";
+import { ThemeToggle } from "@/shared/components/ThemeToggle";
 import { Form } from "@/shared/components/forms/Form";
 import { FormTextField } from "@/shared/components/forms/FormTextField";
 import { FormSelect } from "@/shared/components/forms/FormSelect";
@@ -38,6 +41,8 @@ import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { LoadingState } from "@/shared/components/feedback/LoadingState";
 import { StatusPill, type StatusTone } from "@/shared/components/feedback/StatusPill";
+import { ColorModeProvider } from "@/shared/context/ColorModeProvider";
+import { useColorMode } from "@/shared/hooks/useColorMode";
 import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
 import { useNotification } from "@/shared/hooks/useNotification";
 import { formatToman } from "@/shared/money/rial";
@@ -65,6 +70,104 @@ const TYPE_SCALE_ORDER: (keyof typeof typographyScale)[] = [
   "overline",
 ];
 const STATUS_TONES: StatusTone[] = ["neutral", "info", "success", "warning", "critical"];
+
+/**
+ * Phase D3: formalizes the named hierarchy the "Foundation UI & Design
+ * System" brief asks for (Display/Page Title/Section Title/Card Title/
+ * Subtitle/Body/Caption/Small Label) as a mapping onto the existing MUI
+ * variant names — documentation only, no call site changes. h1–h3 stay
+ * "reserved, unused today" (Phase D1); nothing here invents a parallel
+ * scale, matching D1's own reasoning for keeping one.
+ */
+const TYPE_ROLE_MAP: { role: string; variant: keyof typeof typographyScale; note?: string }[] = [
+  { role: "Display", variant: "h1", note: "reserved, unused today" },
+  { role: "Page Title", variant: "h4", note: "PageHeader title" },
+  { role: "Section Title", variant: "h5" },
+  { role: "Card Title", variant: "subtitle1" },
+  { role: "Subtitle", variant: "subtitle2" },
+  { role: "Body", variant: "body1" },
+  { role: "Caption", variant: "caption" },
+  { role: "Small Label", variant: "overline" },
+];
+
+/**
+ * Phase D3: the dark palette proven standalone, isolated in its own nested
+ * ThemeProvider + ColorModeProvider — deliberately not the app-wide
+ * ThemeProvider/ColorModeProvider (not composed into AppProviders.tsx yet;
+ * see docs/phases/PHASE-D3-REPORT.md). Toggling here only ever affects this
+ * boxed preview, never the rest of this style guide page.
+ */
+function DarkModePreviewPanel() {
+  return (
+    <ColorModeProvider>
+      <DarkModePreviewContent />
+    </ColorModeProvider>
+  );
+}
+
+function DarkModePreviewContent() {
+  const { resolvedMode } = useColorMode();
+  const previewTheme = resolvedMode === "dark" ? darkTheme : theme;
+
+  return (
+    <ThemeProvider theme={previewTheme}>
+      <Box
+        sx={{
+          bgcolor: "background.default",
+          color: "text.primary",
+          p: 3,
+          borderRadius: 2,
+          border: "1px solid",
+          borderColor: "divider",
+        }}
+      >
+        <Stack spacing={2.5}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Typography variant="subtitle1">Preview — {resolvedMode} mode</Typography>
+            <ThemeToggle />
+          </Stack>
+
+          <Stack direction="row" flexWrap="wrap" gap={2}>
+            <Swatch label="background.default" hex={previewTheme.palette.background.default} textColor={previewTheme.palette.text.primary} />
+            <Swatch label="background.paper" hex={previewTheme.palette.background.paper} textColor={previewTheme.palette.text.primary} />
+            <Swatch label="primary.main" hex={previewTheme.palette.primary.main} textColor={previewTheme.palette.primary.contrastText} />
+            {SEMANTIC_TONES.map(({ label, paletteKey }) => (
+              <Swatch
+                key={paletteKey}
+                label={label}
+                hex={previewTheme.palette[paletteKey].main}
+                textColor={previewTheme.palette[paletteKey].contrastText}
+              />
+            ))}
+          </Stack>
+
+          <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+            <Button variant="contained">Primary</Button>
+            <Button variant="outlined">Secondary</Button>
+            <Button variant="text">Text</Button>
+          </Stack>
+
+          <Stack direction="row" spacing={1.5} flexWrap="wrap">
+            {STATUS_TONES.map((tone) => (
+              <StatusPill key={tone} label={tone} tone={tone} />
+            ))}
+          </Stack>
+
+          <Card variant="outlined" sx={{ maxWidth: 420 }}>
+            <CardContent>
+              <Typography variant="subtitle1" gutterBottom>
+                Outlined card
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Same border-based depth language in both modes.
+              </Typography>
+            </CardContent>
+          </Card>
+        </Stack>
+      </Box>
+    </ThemeProvider>
+  );
+}
 
 function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
   return (
@@ -214,6 +317,31 @@ export function StyleGuidePage() {
                 {variant} · {typographyScale[variant].fontSize}
               </Typography>
               <Typography variant={variant}>The quick brown fox jumps over the lazy dog</Typography>
+            </Stack>
+          ))}
+        </Stack>
+      </Section>
+
+      <Divider />
+
+      <Section
+        title="Typography roles"
+        description="Phase D3: the named hierarchy the design-system brief asks for, mapped onto the scale above — naming only, no new variants."
+      >
+        <Stack spacing={1}>
+          {TYPE_ROLE_MAP.map(({ role, variant, note }) => (
+            <Stack key={role} direction="row" alignItems="baseline" spacing={2}>
+              <Typography variant="body2" sx={{ width: 120, flexShrink: 0 }}>
+                {role}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ width: 88, flexShrink: 0 }}>
+                {variant}
+              </Typography>
+              {note ? (
+                <Typography variant="caption" color="text.secondary">
+                  {note}
+                </Typography>
+              ) : null}
             </Stack>
           ))}
         </Stack>
@@ -435,6 +563,15 @@ export function StyleGuidePage() {
             Notification
           </Button>
         </Stack>
+      </Section>
+
+      <Divider />
+
+      <Section
+        title="Dark mode (Phase D3)"
+        description="The dark palette, proven here first — not yet wired into the live app (docs/phases/PHASE-D3-REPORT.md explains why). Toggle below to compare both against the same components."
+      >
+        <DarkModePreviewPanel />
       </Section>
     </Stack>
   );

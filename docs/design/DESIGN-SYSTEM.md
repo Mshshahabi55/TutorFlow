@@ -130,6 +130,26 @@ migrating it to something new.
 | overline | 12px | 600 | uppercase, `0.06em` tracking |
 | button | 14px | 600 | no text-transform (MUI default uppercase is disabled) |
 
+### Type role naming (Phase D3)
+
+The "Foundation UI & Design System" brief asks for a named hierarchy
+(Display, Page Title, Section Title, Card Title, Subtitle, Body, Caption,
+Small Label). Mapped onto the scale above rather than invented as a
+parallel one — same reasoning as the scale itself: every call site already
+writes a MUI variant name, so naming is documentation, not a second token
+system.
+
+| Role | Variant | Note |
+|---|---|---|
+| Display | `h1` | reserved, unused today (same as the scale table above) |
+| Page Title | `h4` | `PageHeader` title |
+| Section Title | `h5` | |
+| Card Title | `subtitle1` | |
+| Subtitle | `subtitle2` | |
+| Body | `body1` | |
+| Caption | `caption` | |
+| Small Label | `overline` | |
+
 ## 3. Spacing, shape, shadow
 
 - **Spacing**: MUI's own `theme.spacing(n)`, base unit **8px** — not a
@@ -215,3 +235,68 @@ components rather than page content, and both closing a real gap the
 audit found rather than restyling existing page content. `UnitText` in
 particular has zero callers today; the first page to adopt it is a D2+
 task.
+
+## 7. Dark mode (Phase D3)
+
+`frontend/src/app/theme.ts`'s single `createTheme(...)` call is now
+`createAppTheme(mode: PaletteMode)`, called twice: `theme` (light — every
+existing import keeps working unchanged) and `darkTheme` (new). The dark
+palette is **not an inverted copy** of the light one — a bright accent or
+semantic tone that reads well as text on a dark surface needs *dark*
+`contrastText`, not white (measured, not assumed: a light fill with white
+text fails AA). Surfaces step up in lightness from `background.default` →
+`paper` → an `elevated` tier (TableHead background, Tooltip fill) — dark-
+mode "elevation" is a lighter surface here, matching this app's existing
+border/spacing-first depth language rather than introducing shadow-based
+depth for the first time.
+
+| Token | Hex | Role |
+|---|---|---|
+| `background.default` | `#0F1319` | page background |
+| `background.paper` | `#1C232D` | Card/Paper/Dialog surface |
+| elevated surface | `#242C38` | TableHead background, Tooltip fill |
+| `divider` | `#333B47` | |
+| StatusPill outlined border | `#3E4753` | a touch more visible than `divider` |
+| `text.primary` | `#EDF0F3` | |
+| `text.secondary` | `#9AA5B1` | (same hex as light mode's `grey.400`) |
+| `text.disabled` | `#5C6470` | WCAG-exempt, same as light mode |
+| `primary.main` (accent) | `#6FA8C9` | |
+| `primary.contrastText` | `#0B0E12` | dark, not white — see above |
+| `success.main` | `#4CAF71` | contrastText `#0B0E12` |
+| `warning.main` | `#D3A038` | contrastText `#0B0E12` |
+| `error.main` | `#E08070` | contrastText `#0B0E12` |
+| `info.main` | `#5A9FD6` | contrastText `#0B0E12` |
+| `secondary.main` | `#8A94A3` | contrastText `#0B0E12` |
+
+**Measured contrast ratios**, same WCAG relative-luminance formula as §1 —
+now backed by a real test (`frontend/src/app/theme.test.ts`,
+`frontend/src/app/contrast.ts`) instead of a static, unrepeatable table:
+
+| Pair | Ratio |
+|---|---|
+| `text.primary` on `background.default` | 16.28:1 |
+| `text.primary` on `background.paper` | 13.83:1 |
+| `text.secondary` on `background.default` | 7.44:1 |
+| `primary.contrastText` on `primary.main` | 7.48:1 |
+| `success.contrastText` on `success.main` | 7.07:1 |
+| `warning.contrastText` on `warning.main` | 8.16:1 |
+| `error.contrastText` on `error.main` | 6.90:1 |
+| `info.contrastText` on `info.main` | 6.78:1 |
+| `secondary.contrastText` on `secondary.main` | 6.30:1 |
+
+Every pair clears WCAG AA (4.5:1), same bar as the light palette in §1.
+
+**Not yet wired into the live app.** `ColorModeProvider`
+(`frontend/src/shared/context/ColorModeProvider.tsx`, the same
+`localStorage`-backed pattern `ActorProvider` already uses) and
+`ThemeToggle` (`frontend/src/shared/components/ThemeToggle.tsx`) are built
+and unit-tested, and proven together in `StyleGuidePage`'s own "Dark mode"
+section — but `AppProviders.tsx` still only ever renders `theme` (light).
+Wiring the real app's `ThemeProvider` to `ColorModeProvider` before any
+`ThemeToggle` exists in the live header would silently dark-mode the app
+for every visitor whose OS/browser already prefers dark, with no control
+anywhere to switch back. The next design-system milestone (Header/Sidebar
+work) wires `ColorModeProvider` into `AppProviders.tsx` and places
+`ThemeToggle` in the real header at the same time, so auto dark-mode
+detection and a visible override arrive together. See
+`docs/phases/PHASE-D3-REPORT.md`.

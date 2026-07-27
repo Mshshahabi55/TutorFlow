@@ -371,6 +371,12 @@ describe("DashboardPage — Parent dashboard", () => {
   beforeEach(() => {
     window.localStorage.clear();
     window.localStorage.setItem("tutorflow.devActorRole", "ParentGuardian");
+    vi.spyOn(discoveryService, "searchTutors").mockResolvedValue({
+      items: [],
+      totalCount: 0,
+      page: 1,
+      pageSize: 4,
+    });
   });
 
   it("shows a Welcome heading and Quick actions with no Parent/Guardian id entered yet", () => {
@@ -396,14 +402,21 @@ describe("DashboardPage — Parent dashboard", () => {
     await userEvent.type(screen.getByLabelText("Parent/Guardian id"), ACCOUNT_ID);
     await userEvent.click(screen.getByRole("button", { name: "Look up" }));
 
-    expect(await screen.findByText("No children linked yet")).toBeInTheDocument();
+    expect(await screen.findByText("You haven't added a child yet")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Invite a Relationship/ })).toHaveAttribute(
       "href",
       "/identity/relationships",
     );
   });
 
-  it("shows each child as a Children Overview card, and the single confirmed child's Upcoming Sessions", async () => {
+  it("shows Learning Tips and Support placeholders", () => {
+    renderDashboard();
+
+    expect(screen.getByRole("heading", { name: "Learning Tips" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Support" })).toBeInTheDocument();
+  });
+
+  it("shows each child as a Children Overview card", async () => {
     vi.spyOn(identityService, "fetchRelationshipsForAccount").mockResolvedValue([
       {
         relationshipId: "r1",
@@ -434,10 +447,9 @@ describe("DashboardPage — Parent dashboard", () => {
     expect(screen.getByText("st2")).toBeInTheDocument();
     expect(screen.getByText("Confirmed")).toBeInTheDocument();
     expect(screen.getByText("Invited")).toBeInTheDocument();
-    expect(await screen.findByText("No upcoming sessions yet")).toBeInTheDocument();
   });
 
-  it("does not aggregate schedules across multiple confirmed children, to avoid an N+1 query pattern", async () => {
+  it("aggregates every confirmed child's own schedule into a family-wide Family Summary, Next Lesson, and Today's Lessons", async () => {
     vi.spyOn(identityService, "fetchRelationshipsForAccount").mockResolvedValue([
       {
         relationshipId: "r1",
@@ -452,16 +464,53 @@ describe("DashboardPage — Parent dashboard", () => {
         status: RelationshipStatus.Confirmed,
       },
     ]);
-    const fetchStudentSchedule = vi.spyOn(schedulingService, "fetchStudentSchedule");
+    const today = new Date();
+    vi.spyOn(schedulingService, "fetchStudentSchedule").mockImplementation((studentId: string) =>
+      Promise.resolve(
+        studentId === "st1"
+          ? [
+              {
+                sessionId: "s1",
+                tutorId: "t1",
+                studentId: "st1",
+                parentGuardianId: null,
+                availabilitySlotId: "a1",
+                scheduledTimeUtc: today.toISOString(),
+                endTimeUtc: today.toISOString(),
+                duration: "01:00:00",
+                deliveryMode: DeliveryMode.Online,
+                status: SessionStatus.Scheduled,
+              },
+            ]
+          : [],
+      ),
+    );
+    vi.spyOn(identityService, "fetchTutorById").mockResolvedValue({
+      tutorId: "t1",
+      isApproved: true,
+      isSuspended: false,
+      isDiscoverable: true,
+      hourlyRate: 500_000,
+      subject: "Mathematics",
+      language: "English",
+      location: "Remote",
+      offeredDurations: ["01:00:00"],
+    });
+    vi.spyOn(discoveryService, "searchTutors").mockResolvedValue({
+      items: [],
+      totalCount: 0,
+      page: 1,
+      pageSize: 4,
+    });
 
     renderDashboard();
 
     await userEvent.type(screen.getByLabelText("Parent/Guardian id"), ACCOUNT_ID);
     await userEvent.click(screen.getByRole("button", { name: "Look up" }));
 
-    expect(
-      await screen.findByText(/view each child.s sessions from their card above/i),
-    ).toBeInTheDocument();
-    expect(fetchStudentSchedule).not.toHaveBeenCalled();
+    expect(await screen.findByRole("heading", { name: "Family Summary" })).toBeInTheDocument();
+    expect(await screen.findByText(/Child: st1/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Today's Lessons" })).toBeInTheDocument();
+    expect(screen.getAllByText("Student: st1").length).toBeGreaterThan(0);
   });
 });

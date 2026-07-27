@@ -1,35 +1,11 @@
 import { Link as RouterLink } from "react-router-dom";
 import { Button, Card, CardContent, Chip, Stack, Tooltip, Typography } from "@mui/material";
 import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded";
+import { formatCountdown } from "@/features/scheduling/utils/countdown";
 import { toTehranDisplay } from "@/shared/time/tehranTime";
 import { timeSpanToMinutes } from "@/shared/utils/duration";
 import { paths } from "@/routes/paths";
 import type { SessionDto } from "@/services/api/dtos";
-
-/**
- * A plain elapsed-time countdown against the current instant — no Tehran
- * offset math involved (a duration is the same length regardless of
- * timezone), so this stays local to the component rather than living in
- * `shared/time/tehranTime.ts`, which owns only UTC<->Tehran conversions.
- */
-function formatCountdown(scheduledTimeUtc: string, now: number): string {
-  const diffMinutes = Math.round((Date.parse(scheduledTimeUtc) - now) / 60_000);
-
-  if (diffMinutes <= 0) {
-    return "Starting now";
-  }
-
-  const hours = Math.floor(diffMinutes / 60);
-  const minutes = diffMinutes % 60;
-
-  if (hours === 0) {
-    return `in ${minutes} min`;
-  }
-  if (minutes === 0) {
-    return `in ${hours}h`;
-  }
-  return `in ${hours}h ${minutes}min`;
-}
 
 export interface NextLessonHeroCardProps {
   session: SessionDto;

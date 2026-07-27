@@ -15,7 +15,7 @@ import {
   type BookSessionFormValues,
 } from "@/features/scheduling/validation/bookSessionSchema";
 import { BookingHeader } from "@/features/scheduling/components/BookingHeader";
-import { BookingSectionCard } from "@/features/scheduling/components/BookingSectionCard";
+import { SectionCard } from "@/shared/components/SectionCard";
 import { TutorSummaryCard } from "@/features/scheduling/components/TutorSummaryCard";
 import { AvailabilityCard } from "@/features/scheduling/components/AvailabilityCard";
 import { BookingSummaryCard } from "@/features/scheduling/components/BookingSummaryCard";
@@ -153,7 +153,7 @@ export function BookSessionPage() {
       {hasContext && tutorQuery.isSuccess ? <TutorSummaryCard tutor={tutorQuery.data} /> : null}
 
       {noAvailability ? (
-        <BookingSectionCard title="No availability right now">
+        <SectionCard title="No availability right now">
           <Stack spacing={2} alignItems="flex-start">
             <Typography variant="body1" color="text.secondary">
               This tutor has no open Availability Slots at the moment. Check back later, or find
@@ -174,11 +174,11 @@ export function BookSessionPage() {
               ) : null}
             </Stack>
           </Stack>
-        </BookingSectionCard>
+        </SectionCard>
       ) : (
         <>
           {selectedSlot ? (
-            <BookingSectionCard title="Selected Session">
+            <SectionCard title="Selected Session">
               <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                 <EventAvailableRoundedIcon color="primary" aria-hidden="true" />
                 <Typography variant="body1">
@@ -187,11 +187,11 @@ export function BookSessionPage() {
                   {selectedSlot.deliveryMode === DeliveryMode.Online ? "Online" : "In-Person"}
                 </Typography>
               </Stack>
-            </BookingSectionCard>
+            </SectionCard>
           ) : null}
 
           {hasContext && slotsQuery.isSuccess && openSlots.length > 0 ? (
-            <BookingSectionCard title="Availability">
+            <SectionCard title="Availability">
               <Stack direction="row" flexWrap="wrap" gap={2}>
                 {openSlots.map((slot) => (
                   <AvailabilityCard
@@ -202,7 +202,7 @@ export function BookSessionPage() {
                   />
                 ))}
               </Stack>
-            </BookingSectionCard>
+            </SectionCard>
           ) : null}
 
           {hasContext && slotsQuery.isError ? (
@@ -215,7 +215,7 @@ export function BookSessionPage() {
 
           <Form form={form} onSubmit={handleSubmit}>
             <Stack spacing={3}>
-              <BookingSectionCard title="Booking Form">
+              <SectionCard title="Booking Form">
                 <Stack spacing={2} alignItems="flex-start" width="100%">
                   {showManualSlotField ? (
                     <FormTextField
@@ -235,7 +235,7 @@ export function BookSessionPage() {
                     helperText="Leave blank when an adult Student books independently."
                   />
                 </Stack>
-              </BookingSectionCard>
+              </SectionCard>
 
               {bookSession.isError ? <BookingStatusBanner status="error" error={bookSession.error} /> : null}
 

@@ -8,7 +8,7 @@ import { TutorSessionCard } from "@/features/scheduling/components/TutorSessionC
 import { SessionCardSkeleton } from "@/features/scheduling/components/SessionCardSkeleton";
 import { AvailabilitySummaryCard } from "@/features/scheduling/components/AvailabilitySummaryCard";
 import { AvailabilitySummaryCardSkeleton } from "@/features/scheduling/components/AvailabilitySummaryCardSkeleton";
-import { DashboardSectionCard } from "@/routes/dashboard/DashboardSectionCard";
+import { SectionCard } from "@/shared/components/SectionCard";
 import { TeachingDayCard } from "@/routes/dashboard/TeachingDayCard";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { IdLookupForm } from "@/shared/components/forms/IdLookupForm";
@@ -80,7 +80,7 @@ function TeachingOverview({ tutorId }: TeachingOverviewProps) {
         <>
           <TeachingDayCard todaySessions={todaySessions} onOpen={openSession} />
 
-          <DashboardSectionCard
+          <SectionCard
             title="Upcoming Sessions"
             action={
               <Button component={RouterLink} to={paths.scheduling.tutorSchedule(tutorId)} size="small">
@@ -99,9 +99,9 @@ function TeachingOverview({ tutorId }: TeachingOverviewProps) {
                 ))}
               </Stack>
             )}
-          </DashboardSectionCard>
+          </SectionCard>
 
-          <DashboardSectionCard
+          <SectionCard
             title="Recent Activity"
             action={
               <Button component={RouterLink} to={paths.scheduling.tutorSchedule(tutorId)} size="small">
@@ -120,11 +120,11 @@ function TeachingOverview({ tutorId }: TeachingOverviewProps) {
                 ))}
               </Stack>
             )}
-          </DashboardSectionCard>
+          </SectionCard>
         </>
       )}
 
-      <DashboardSectionCard
+      <SectionCard
         title="Availability Summary"
         action={
           <Button component={RouterLink} to={paths.scheduling.declareAvailability} size="small">
@@ -151,7 +151,7 @@ function TeachingOverview({ tutorId }: TeachingOverviewProps) {
             ))}
           </Stack>
         )}
-      </DashboardSectionCard>
+      </SectionCard>
     </Stack>
   );
 }
@@ -177,7 +177,7 @@ export function TutorDashboard() {
         }
       />
 
-      <DashboardSectionCard title="Quick actions">
+      <SectionCard title="Quick actions">
         <Stack direction="row" flexWrap="wrap" gap={1.5}>
           {ROLE_QUICK_ACTIONS.Tutor.map((action) => (
             <Button
@@ -191,12 +191,12 @@ export function TutorDashboard() {
             </Button>
           ))}
         </Stack>
-      </DashboardSectionCard>
+      </SectionCard>
 
       {tutorId ? (
         <TeachingOverview tutorId={tutorId} />
       ) : (
-        <DashboardSectionCard title="Your teaching overview">
+        <SectionCard title="Your teaching overview">
           <Stack spacing={2} alignItems="flex-start">
             <Typography variant="body2" color="text.secondary">
               Enter your Tutor id to see today&rsquo;s sessions, upcoming sessions, recent activity,
@@ -204,7 +204,7 @@ export function TutorDashboard() {
             </Typography>
             <IdLookupForm label="Tutor id" onSubmit={setTutorId} />
           </Stack>
-        </DashboardSectionCard>
+        </SectionCard>
       )}
     </Stack>
   );

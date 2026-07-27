@@ -284,6 +284,26 @@ export function createAppTheme(mode: PaletteMode) {
     },
     shadows: buildShadows(mode),
     components: {
+      // --- RC1 hardening: respects `prefers-reduced-motion` everywhere in
+      // one place, rather than per component. Every MUI transition (Drawer
+      // slide, Collapse, hover/focus transitions, Skeleton's pulse
+      // animation) already goes through the CSS `transition`/`animation`
+      // properties this global rule collapses to near-zero, so this one
+      // block covers every animated surface in the app without touching any
+      // individual component's own styleOverrides.
+      MuiCssBaseline: {
+        styleOverrides: {
+          "@media (prefers-reduced-motion: reduce)": {
+            "*, *::before, *::after": {
+              animationDuration: "0.01ms !important",
+              animationIterationCount: "1 !important",
+              transitionDuration: "0.01ms !important",
+              scrollBehavior: "auto !important",
+            },
+          },
+        },
+      },
+
       // --- Button: primary=contained, secondary action=outlined, low-emphasis
       // =text, destructive=color="error" (outlined to propose, contained inside
       // the confirm dialog) — an existing convention (Task 1 audit), not new.

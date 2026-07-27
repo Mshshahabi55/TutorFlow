@@ -5,7 +5,7 @@ import { useStudentSchedule } from "@/features/scheduling/hooks/useSessionQuerie
 import { NextSessionCard } from "@/features/scheduling/components/NextSessionCard";
 import { SessionCard } from "@/features/scheduling/components/SessionCard";
 import { SessionCardSkeleton } from "@/features/scheduling/components/SessionCardSkeleton";
-import { BookingSectionCard } from "@/features/scheduling/components/BookingSectionCard";
+import { SectionCard } from "@/shared/components/SectionCard";
 import { IdLookupForm } from "@/shared/components/forms/IdLookupForm";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
@@ -73,23 +73,23 @@ function SessionsWorkspace({ sessions, onOpen }: SessionsWorkspaceProps) {
       {nextSession ? <NextSessionCard session={nextSession} onOpen={onOpen} /> : null}
 
       {restUpcoming.length > 0 ? (
-        <BookingSectionCard title="Upcoming Sessions">
+        <SectionCard title="Upcoming Sessions">
           <Stack spacing={2}>
             {restUpcoming.map((session) => (
               <SessionCard key={session.sessionId} session={session} onOpen={onOpen} />
             ))}
           </Stack>
-        </BookingSectionCard>
+        </SectionCard>
       ) : !nextSession ? (
-        <BookingSectionCard title="Upcoming Sessions">
+        <SectionCard title="Upcoming Sessions">
           <Typography variant="body2" color="text.secondary">
             No upcoming sessions right now.
           </Typography>
-        </BookingSectionCard>
+        </SectionCard>
       ) : null}
 
       {completed.length > 0 || cancelledOrNoShow.length > 0 ? (
-        <BookingSectionCard title="History">
+        <SectionCard title="History">
           <Stack spacing={3}>
             {completed.length > 0 ? (
               <Stack spacing={2}>
@@ -116,7 +116,7 @@ function SessionsWorkspace({ sessions, onOpen }: SessionsWorkspaceProps) {
               </Stack>
             ) : null}
           </Stack>
-        </BookingSectionCard>
+        </SectionCard>
       ) : null}
     </Stack>
   );

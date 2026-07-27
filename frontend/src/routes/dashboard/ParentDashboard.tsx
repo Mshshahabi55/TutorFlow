@@ -8,7 +8,7 @@ import { useStudentSchedule } from "@/features/scheduling/hooks/useSessionQuerie
 import { SessionCard } from "@/features/scheduling/components/SessionCard";
 import { SessionCardSkeleton } from "@/features/scheduling/components/SessionCardSkeleton";
 import { byScheduledTimeAscending, byScheduledTimeDescending } from "@/features/scheduling/utils/sessionSort";
-import { DashboardSectionCard } from "@/routes/dashboard/DashboardSectionCard";
+import { SectionCard } from "@/shared/components/SectionCard";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { IdLookupForm } from "@/shared/components/forms/IdLookupForm";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
@@ -39,12 +39,12 @@ function SingleChildSchedule({ studentId }: { studentId: string }) {
 
   if (scheduleQuery.isPending) {
     return (
-      <DashboardSectionCard title="Upcoming Sessions">
+      <SectionCard title="Upcoming Sessions">
         <Stack spacing={2}>
           <SessionCardSkeleton />
           <SessionCardSkeleton />
         </Stack>
-      </DashboardSectionCard>
+      </SectionCard>
     );
   }
 
@@ -63,7 +63,7 @@ function SingleChildSchedule({ studentId }: { studentId: string }) {
 
   return (
     <Stack spacing={3}>
-      <DashboardSectionCard
+      <SectionCard
         title="Upcoming Sessions"
         action={
           <Button component={RouterLink} to={paths.scheduling.studentSchedule(studentId)} size="small">
@@ -88,16 +88,16 @@ function SingleChildSchedule({ studentId }: { studentId: string }) {
             ))}
           </Stack>
         )}
-      </DashboardSectionCard>
+      </SectionCard>
 
       {recentActivity.length > 0 ? (
-        <DashboardSectionCard title="Recent Activity">
+        <SectionCard title="Recent Activity">
           <Stack spacing={2}>
             {recentActivity.map((session) => (
               <SessionCard key={session.sessionId} session={session} onOpen={openSession} />
             ))}
           </Stack>
-        </DashboardSectionCard>
+        </SectionCard>
       ) : null}
     </Stack>
   );
@@ -115,12 +115,12 @@ function FamilyOverview({ accountId }: { accountId: string }) {
 
   if (relationshipsQuery.isPending) {
     return (
-      <DashboardSectionCard title="Children Overview">
+      <SectionCard title="Children Overview">
         <Stack spacing={2}>
           <ChildSummaryCardSkeleton />
           <ChildSummaryCardSkeleton />
         </Stack>
-      </DashboardSectionCard>
+      </SectionCard>
     );
   }
 
@@ -132,7 +132,7 @@ function FamilyOverview({ accountId }: { accountId: string }) {
 
   if (relationships.length === 0) {
     return (
-      <DashboardSectionCard title="Children Overview">
+      <SectionCard title="Children Overview">
         <EmptyState
           title="No children linked yet"
           description="Invite a Relationship with a Student to start managing their tutoring."
@@ -142,7 +142,7 @@ function FamilyOverview({ accountId }: { accountId: string }) {
             </Button>
           }
         />
-      </DashboardSectionCard>
+      </SectionCard>
     );
   }
 
@@ -152,7 +152,7 @@ function FamilyOverview({ accountId }: { accountId: string }) {
 
   return (
     <Stack spacing={3}>
-      <DashboardSectionCard
+      <SectionCard
         title="Children Overview"
         action={
           <Button component={RouterLink} to={paths.identity.relationships} size="small">
@@ -165,16 +165,16 @@ function FamilyOverview({ accountId }: { accountId: string }) {
             <ChildSummaryCard key={relationship.relationshipId} relationship={relationship} />
           ))}
         </Stack>
-      </DashboardSectionCard>
+      </SectionCard>
 
       {confirmedChildren.length === 1 ? (
         <SingleChildSchedule studentId={confirmedChildren[0].studentId} />
       ) : confirmedChildren.length > 1 ? (
-        <DashboardSectionCard title="Upcoming Sessions">
+        <SectionCard title="Upcoming Sessions">
           <Typography variant="body2" color="text.secondary">
             You have more than one child — view each child&rsquo;s sessions from their card above.
           </Typography>
-        </DashboardSectionCard>
+        </SectionCard>
       ) : null}
     </Stack>
   );
@@ -202,7 +202,7 @@ export function ParentDashboard() {
         }
       />
 
-      <DashboardSectionCard title="Quick actions">
+      <SectionCard title="Quick actions">
         <Stack direction="row" flexWrap="wrap" gap={1.5}>
           {ROLE_QUICK_ACTIONS.ParentGuardian.map((action) => (
             <Button
@@ -216,19 +216,19 @@ export function ParentDashboard() {
             </Button>
           ))}
         </Stack>
-      </DashboardSectionCard>
+      </SectionCard>
 
       {accountId ? (
         <FamilyOverview accountId={accountId} />
       ) : (
-        <DashboardSectionCard title="Your family">
+        <SectionCard title="Your family">
           <Stack spacing={2} alignItems="flex-start">
             <Typography variant="body2" color="text.secondary">
               Enter your Parent/Guardian id to see your children and their upcoming sessions.
             </Typography>
             <IdLookupForm label="Parent/Guardian id" onSubmit={setAccountId} />
           </Stack>
-        </DashboardSectionCard>
+        </SectionCard>
       )}
     </Stack>
   );

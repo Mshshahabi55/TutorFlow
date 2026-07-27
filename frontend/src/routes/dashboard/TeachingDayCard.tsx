@@ -1,6 +1,6 @@
 import { Stack, Typography } from "@mui/material";
 import { TutorSessionCard } from "@/features/scheduling/components/TutorSessionCard";
-import { DashboardSectionCard } from "@/routes/dashboard/DashboardSectionCard";
+import { SectionCard } from "@/shared/components/SectionCard";
 import type { SessionDto } from "@/services/api/dtos";
 
 export interface TeachingDayCardProps {
@@ -12,7 +12,7 @@ export interface TeachingDayCardProps {
 /** The Tutor Dashboard's "what does today look like" highlight — derived from the same `useTutorSchedule` result the page already fetched, not a new query. */
 export function TeachingDayCard({ todaySessions, onOpen }: TeachingDayCardProps) {
   return (
-    <DashboardSectionCard title="Today's Sessions">
+    <SectionCard title="Today's Sessions">
       {todaySessions.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
           No sessions scheduled for today.
@@ -24,6 +24,6 @@ export function TeachingDayCard({ todaySessions, onOpen }: TeachingDayCardProps)
           ))}
         </Stack>
       )}
-    </DashboardSectionCard>
+    </SectionCard>
   );
 }

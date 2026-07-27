@@ -4,7 +4,7 @@ import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded
 import { useTutorSchedule } from "@/features/scheduling/hooks/useSessionQueries";
 import { TutorSessionCard } from "@/features/scheduling/components/TutorSessionCard";
 import { SessionCardSkeleton } from "@/features/scheduling/components/SessionCardSkeleton";
-import { BookingSectionCard } from "@/features/scheduling/components/BookingSectionCard";
+import { SectionCard } from "@/shared/components/SectionCard";
 import { byScheduledTimeAscending, byScheduledTimeDescending } from "@/features/scheduling/utils/sessionSort";
 import { IdLookupForm } from "@/shared/components/forms/IdLookupForm";
 import { PageHeader } from "@/shared/components/PageHeader";
@@ -60,7 +60,7 @@ function TutorSessionsWorkspace({ sessions, onOpen }: TutorSessionsWorkspaceProp
 
   return (
     <Stack spacing={3}>
-      <BookingSectionCard title="Upcoming Sessions">
+      <SectionCard title="Upcoming Sessions">
         {upcoming.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
             No upcoming sessions right now.
@@ -72,26 +72,26 @@ function TutorSessionsWorkspace({ sessions, onOpen }: TutorSessionsWorkspaceProp
             ))}
           </Stack>
         )}
-      </BookingSectionCard>
+      </SectionCard>
 
       {completed.length > 0 ? (
-        <BookingSectionCard title="Completed">
+        <SectionCard title="Completed">
           <Stack spacing={2}>
             {completed.map((session) => (
               <TutorSessionCard key={session.sessionId} session={session} onOpen={onOpen} />
             ))}
           </Stack>
-        </BookingSectionCard>
+        </SectionCard>
       ) : null}
 
       {cancelledOrNoShow.length > 0 ? (
-        <BookingSectionCard title="Cancelled & No-Show">
+        <SectionCard title="Cancelled & No-Show">
           <Stack spacing={2}>
             {cancelledOrNoShow.map((session) => (
               <TutorSessionCard key={session.sessionId} session={session} onOpen={onOpen} />
             ))}
           </Stack>
-        </BookingSectionCard>
+        </SectionCard>
       ) : null}
     </Stack>
   );

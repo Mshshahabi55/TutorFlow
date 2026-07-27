@@ -14,7 +14,7 @@ import {
 import { SessionActions } from "@/features/scheduling/components/SessionActions";
 import { SessionTimeline } from "@/features/scheduling/components/SessionTimeline";
 import { SessionSummaryCard } from "@/features/scheduling/components/SessionSummaryCard";
-import { BookingSectionCard } from "@/features/scheduling/components/BookingSectionCard";
+import { SectionCard } from "@/shared/components/SectionCard";
 import { TutorSummaryCard } from "@/features/scheduling/components/TutorSummaryCard";
 import { StudentSummaryCard } from "@/features/scheduling/components/StudentSummaryCard";
 import { SessionDetailSkeleton } from "@/features/scheduling/components/SessionDetailSkeleton";
@@ -117,9 +117,9 @@ function SessionDetailContent({ session }: { session: SessionDto }) {
 
   return (
     <Stack spacing={3}>
-      <BookingSectionCard title="Timeline">
+      <SectionCard title="Timeline">
         <SessionTimeline session={session} />
-      </BookingSectionCard>
+      </SectionCard>
 
       {tutorQuery.isSuccess ? <TutorSummaryCard tutor={tutorQuery.data} /> : null}
       {tutorQuery.isError ? (
@@ -141,7 +141,7 @@ function SessionDetailContent({ session }: { session: SessionDto }) {
 
       <SessionSummaryCard session={session} />
 
-      <BookingSectionCard title="Actions">
+      <SectionCard title="Actions">
         <Stack spacing={2} alignItems="flex-start">
           <SessionActions session={session} />
           {session.status === SessionStatus.Scheduled ? (
@@ -152,7 +152,7 @@ function SessionDetailContent({ session }: { session: SessionDto }) {
             />
           ) : null}
         </Stack>
-      </BookingSectionCard>
+      </SectionCard>
     </Stack>
   );
 }

@@ -7,7 +7,7 @@ import { useTutor } from "@/features/identity/hooks/useTutorQueries";
 import { TutorApprovalActions } from "@/features/identity/components/TutorApprovalActions";
 import { TutorProfileHero } from "@/features/identity/components/TutorProfileHero";
 import { TutorProfileSkeleton } from "@/features/identity/components/TutorProfileSkeleton";
-import { ProfileSectionCard } from "@/features/identity/components/ProfileSectionCard";
+import { SectionCard } from "@/shared/components/SectionCard";
 import { formatMinutesList } from "@/shared/utils/duration";
 import { formatToman } from "@/shared/money/rial";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
@@ -67,7 +67,7 @@ function ManageListingSection({ tutor }: { tutor: TutorDto }) {
   }
 
   return (
-    <ProfileSectionCard title="Manage this listing">
+    <SectionCard headingComponent="h2" title="Manage this listing">
       <Stack spacing={2}>
         <CopyableId id={tutor.tutorId} />
         <Stack direction="row" spacing={1} flexWrap="wrap">
@@ -86,7 +86,7 @@ function ManageListingSection({ tutor }: { tutor: TutorDto }) {
         </Stack>
         <TutorDetailActions tutor={tutor} />
       </Stack>
-    </ProfileSectionCard>
+    </SectionCard>
   );
 }
 
@@ -96,7 +96,7 @@ function SubjectsAndLanguagesSection({ tutor }: { tutor: TutorDto }) {
   }
 
   return (
-    <ProfileSectionCard title="Subjects & Languages">
+    <SectionCard headingComponent="h2" title="Subjects & Languages">
       <Stack spacing={2}>
         {tutor.subject ? (
           <Box>
@@ -119,13 +119,13 @@ function SubjectsAndLanguagesSection({ tutor }: { tutor: TutorDto }) {
           </Box>
         ) : null}
       </Stack>
-    </ProfileSectionCard>
+    </SectionCard>
   );
 }
 
 function TeachingInformationSection({ tutor }: { tutor: TutorDto }) {
   return (
-    <ProfileSectionCard title="Teaching Information">
+    <SectionCard headingComponent="h2" title="Teaching Information">
       <Stack spacing={2}>
         <Box>
           <Typography variant="caption" color="text.secondary">
@@ -146,14 +146,14 @@ function TeachingInformationSection({ tutor }: { tutor: TutorDto }) {
           </Typography>
         </Box>
       </Stack>
-    </ProfileSectionCard>
+    </SectionCard>
   );
 }
 
 /** No review capability exists in this API version — a professional placeholder, never a fabricated review. */
 function ReviewsSection() {
   return (
-    <ProfileSectionCard title="Reviews">
+    <SectionCard headingComponent="h2" title="Reviews">
       <Stack spacing={1} alignItems="flex-start">
         <ReviewsRoundedIcon color="disabled" fontSize="large" aria-hidden="true" />
         <Typography variant="body1" fontWeight={600}>
@@ -164,13 +164,13 @@ function ReviewsSection() {
           share your experience.
         </Typography>
       </Stack>
-    </ProfileSectionCard>
+    </SectionCard>
   );
 }
 
 function BookingCallToActionSection({ tutor }: { tutor: TutorDto }) {
   return (
-    <ProfileSectionCard title="Ready to get started?">
+    <SectionCard headingComponent="h2" title="Ready to get started?">
       <Stack spacing={2} alignItems="flex-start">
         <Typography variant="body2" color="text.secondary">
           Book a session directly with this tutor.
@@ -185,7 +185,7 @@ function BookingCallToActionSection({ tutor }: { tutor: TutorDto }) {
           Book Session
         </Button>
       </Stack>
-    </ProfileSectionCard>
+    </SectionCard>
   );
 }
 

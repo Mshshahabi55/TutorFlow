@@ -4,7 +4,7 @@ import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import EventRoundedIcon from "@mui/icons-material/EventRounded";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
-import { DashboardSectionCard } from "@/routes/dashboard/DashboardSectionCard";
+import { SectionCard } from "@/shared/components/SectionCard";
 import { RecommendedTutors } from "@/routes/dashboard/RecommendedTutors";
 import { ROLE_QUICK_ACTIONS } from "@/routes/dashboardRoleConfig";
 import { paths } from "@/routes/paths";
@@ -34,7 +34,7 @@ export function StudentDashboard() {
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={3} alignItems="stretch">
         <Box flex={1}>
-          <DashboardSectionCard title="Upcoming Sessions">
+          <SectionCard title="Upcoming Sessions">
             <EmptyState
               title="No upcoming sessions yet"
               description="Once you book a session with a tutor, it will appear here."
@@ -50,10 +50,10 @@ export function StudentDashboard() {
                 </Button>
               }
             />
-          </DashboardSectionCard>
+          </SectionCard>
         </Box>
         <Box flex={1}>
-          <DashboardSectionCard title="Continue Learning">
+          <SectionCard title="Continue Learning">
             <EmptyState
               title="Nothing in progress yet"
               description="After your first completed session, you'll be able to pick up right where you left off."
@@ -69,11 +69,11 @@ export function StudentDashboard() {
                 </Button>
               }
             />
-          </DashboardSectionCard>
+          </SectionCard>
         </Box>
       </Stack>
 
-      <DashboardSectionCard
+      <SectionCard
         title="Recommended Tutors"
         action={
           <Button component={RouterLink} to={paths.discovery.tutorSearch} size="small">
@@ -82,19 +82,19 @@ export function StudentDashboard() {
         }
       >
         <RecommendedTutors />
-      </DashboardSectionCard>
+      </SectionCard>
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={3} alignItems="stretch">
         <Box flex={1}>
-          <DashboardSectionCard title="Recent Activity">
+          <SectionCard title="Recent Activity">
             <EmptyState
               title="No recent activity yet"
               description="Your bookings, completed sessions, and updates will show up here."
             />
-          </DashboardSectionCard>
+          </SectionCard>
         </Box>
         <Box flex={1}>
-          <DashboardSectionCard title="Quick actions">
+          <SectionCard title="Quick actions">
             <Stack direction="row" flexWrap="wrap" gap={1.5}>
               {ROLE_QUICK_ACTIONS.Student.map((action) => (
                 <Button
@@ -108,7 +108,7 @@ export function StudentDashboard() {
                 </Button>
               ))}
             </Stack>
-          </DashboardSectionCard>
+          </SectionCard>
         </Box>
       </Stack>
     </Stack>

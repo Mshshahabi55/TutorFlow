@@ -10,7 +10,7 @@ import {
 } from "@/features/scheduling/validation/declareAvailabilitySchema";
 import { AvailabilitySummaryCard } from "@/features/scheduling/components/AvailabilitySummaryCard";
 import { AvailabilitySummaryCardSkeleton } from "@/features/scheduling/components/AvailabilitySummaryCardSkeleton";
-import { BookingSectionCard } from "@/features/scheduling/components/BookingSectionCard";
+import { SectionCard } from "@/shared/components/SectionCard";
 import { minutesToTimeSpan } from "@/shared/utils/duration";
 import { Form } from "@/shared/components/forms/Form";
 import { FormTextField } from "@/shared/components/forms/FormTextField";
@@ -42,12 +42,12 @@ function YourAvailability({ tutorId }: { tutorId: string }) {
   if (slotsQuery.isPending) {
     return (
       <Stack spacing={3}>
-        <BookingSectionCard title="Your Availability">
+        <SectionCard title="Your Availability">
           <Stack spacing={2}>
             <AvailabilitySummaryCardSkeleton />
             <AvailabilitySummaryCardSkeleton />
           </Stack>
-        </BookingSectionCard>
+        </SectionCard>
       </Stack>
     );
   }
@@ -65,7 +65,7 @@ function YourAvailability({ tutorId }: { tutorId: string }) {
 
   return (
     <Stack spacing={3}>
-      <BookingSectionCard title="Your Availability">
+      <SectionCard title="Your Availability">
         {openSlots.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
             No open Availability Slots yet — declare one above.
@@ -77,16 +77,16 @@ function YourAvailability({ tutorId }: { tutorId: string }) {
             ))}
           </Stack>
         )}
-      </BookingSectionCard>
+      </SectionCard>
 
       {bookedSlots.length > 0 ? (
-        <BookingSectionCard title="Availability History">
+        <SectionCard title="Availability History">
           <Stack spacing={2}>
             {bookedSlots.map((slot) => (
               <AvailabilitySummaryCard key={slot.availabilitySlotId} slot={slot} />
             ))}
           </Stack>
-        </BookingSectionCard>
+        </SectionCard>
       ) : null}
     </Stack>
   );

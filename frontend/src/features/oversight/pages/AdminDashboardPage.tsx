@@ -7,7 +7,7 @@ import { PendingTutorCard } from "@/features/identity/components/PendingTutorCar
 import { PendingTutorCardSkeleton } from "@/features/identity/components/PendingTutorCardSkeleton";
 import { AdminSessionCard } from "@/features/oversight/components/AdminSessionCard";
 import { AdminSessionCardSkeleton } from "@/features/oversight/components/AdminSessionCardSkeleton";
-import { DashboardSectionCard } from "@/routes/dashboard/DashboardSectionCard";
+import { SectionCard } from "@/shared/components/SectionCard";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { LoadingState } from "@/shared/components/feedback/LoadingState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
@@ -97,7 +97,7 @@ export function AdminDashboardPage() {
         }
       />
 
-      <DashboardSectionCard title="Quick actions">
+      <SectionCard title="Quick actions">
         <Stack direction="row" flexWrap="wrap" gap={1.5}>
           {quickActions.map((action) => (
             <Button
@@ -111,9 +111,9 @@ export function AdminDashboardPage() {
             </Button>
           ))}
         </Stack>
-      </DashboardSectionCard>
+      </SectionCard>
 
-      <DashboardSectionCard
+      <SectionCard
         title="Pending Tutor Approvals"
         action={
           <Button component={RouterLink} to={paths.identity.tutorPending} size="small">
@@ -148,9 +148,9 @@ export function AdminDashboardPage() {
             ) : null}
           </Stack>
         )}
-      </DashboardSectionCard>
+      </SectionCard>
 
-      <DashboardSectionCard
+      <SectionCard
         title="Recent Sessions"
         action={
           <Button component={RouterLink} to={paths.oversight.globalSessions} size="small">
@@ -177,9 +177,9 @@ export function AdminDashboardPage() {
             ))}
           </Stack>
         )}
-      </DashboardSectionCard>
+      </SectionCard>
 
-      <DashboardSectionCard title="Marketplace Overview">
+      <SectionCard title="Marketplace Overview">
         <Stack direction={{ xs: "column", sm: "row" }} spacing={3}>
           <MarketplaceStat
             title="Total sessions"
@@ -194,9 +194,9 @@ export function AdminDashboardPage() {
             linkLabel="View directory"
           />
         </Stack>
-      </DashboardSectionCard>
+      </SectionCard>
 
-      <DashboardSectionCard title="Platform Health">
+      <SectionCard title="Platform Health">
         {healthQuery.isPending ? <LoadingState label="Checking backend health…" /> : null}
         {healthQuery.isError ? (
           <ErrorState error={healthQuery.error} onRetry={() => void healthQuery.refetch()} />
@@ -212,7 +212,7 @@ export function AdminDashboardPage() {
             </Typography>
           </Stack>
         ) : null}
-      </DashboardSectionCard>
+      </SectionCard>
     </Stack>
   );
 }

@@ -3,7 +3,7 @@ import { Stack, TablePagination, Typography } from "@mui/material";
 import { useAllSessions } from "@/features/oversight/hooks/useAllSessions";
 import { AdminSessionCard } from "@/features/oversight/components/AdminSessionCard";
 import { AdminSessionCardSkeleton } from "@/features/oversight/components/AdminSessionCardSkeleton";
-import { BookingSectionCard } from "@/features/scheduling/components/BookingSectionCard";
+import { SectionCard } from "@/shared/components/SectionCard";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
@@ -30,33 +30,33 @@ function SessionGroups({ sessions, onOpen }: SessionGroupsProps) {
   return (
     <Stack spacing={3}>
       {upcoming.length > 0 ? (
-        <BookingSectionCard title="Upcoming">
+        <SectionCard title="Upcoming">
           <Stack spacing={2}>
             {upcoming.map((session) => (
               <AdminSessionCard key={session.sessionId} session={session} onOpen={onOpen} />
             ))}
           </Stack>
-        </BookingSectionCard>
+        </SectionCard>
       ) : null}
 
       {completed.length > 0 ? (
-        <BookingSectionCard title="Completed">
+        <SectionCard title="Completed">
           <Stack spacing={2}>
             {completed.map((session) => (
               <AdminSessionCard key={session.sessionId} session={session} onOpen={onOpen} />
             ))}
           </Stack>
-        </BookingSectionCard>
+        </SectionCard>
       ) : null}
 
       {cancelledOrNoShow.length > 0 ? (
-        <BookingSectionCard title="Cancelled & No-Show">
+        <SectionCard title="Cancelled & No-Show">
           <Stack spacing={2}>
             {cancelledOrNoShow.map((session) => (
               <AdminSessionCard key={session.sessionId} session={session} onOpen={onOpen} />
             ))}
           </Stack>
-        </BookingSectionCard>
+        </SectionCard>
       ) : null}
     </Stack>
   );

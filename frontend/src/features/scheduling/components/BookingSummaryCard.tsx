@@ -4,7 +4,7 @@ import { timeSpanToMinutes } from "@/shared/utils/duration";
 import { formatToman } from "@/shared/money/rial";
 import { DeliveryMode } from "@/services/api/dtos";
 import type { AvailabilitySlotDto, TutorDto } from "@/services/api/dtos";
-import { BookingSectionCard } from "@/features/scheduling/components/BookingSectionCard";
+import { SectionCard } from "@/shared/components/SectionCard";
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
@@ -28,7 +28,7 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
  */
 export function BookingSummaryCard({ tutor, slot }: { tutor: TutorDto; slot: AvailabilitySlotDto }) {
   return (
-    <BookingSectionCard title="Booking Summary">
+    <SectionCard title="Booking Summary">
       <Stack spacing={2}>
         <SummaryRow label="Tutor" value={tutor.subject ?? "Tutor"} />
         {tutor.subject ? <SummaryRow label="Subject" value={tutor.subject} /> : null}
@@ -47,6 +47,6 @@ export function BookingSummaryCard({ tutor, slot }: { tutor: TutorDto; slot: Ava
           value={slot.deliveryMode === DeliveryMode.Online ? "Online" : "In-Person"}
         />
       </Stack>
-    </BookingSectionCard>
+    </SectionCard>
   );
 }

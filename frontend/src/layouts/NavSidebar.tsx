@@ -1,226 +1,47 @@
-import {
-  Drawer,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  ListSubheader,
-  Toolbar,
-} from "@mui/material";
+import { Box, Divider, Drawer, IconButton, List, ListSubheader, Toolbar, Typography } from "@mui/material";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
-import PersonAddRoundedIcon from "@mui/icons-material/PersonAddRounded";
-import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
-import SchoolRoundedIcon from "@mui/icons-material/SchoolRounded";
-import FamilyRestroomRoundedIcon from "@mui/icons-material/FamilyRestroomRounded";
-import LinkRoundedIcon from "@mui/icons-material/LinkRounded";
-import FactCheckRoundedIcon from "@mui/icons-material/FactCheckRounded";
-import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded";
-import EventNoteRoundedIcon from "@mui/icons-material/EventNoteRounded";
-import EventRoundedIcon from "@mui/icons-material/EventRounded";
-import CalendarMonthRoundedIcon from "@mui/icons-material/CalendarMonthRounded";
-import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
-import AdminPanelSettingsRoundedIcon from "@mui/icons-material/AdminPanelSettingsRounded";
-import ListAltRoundedIcon from "@mui/icons-material/ListAltRounded";
-import LockResetRoundedIcon from "@mui/icons-material/LockResetRounded";
-import { NavLink, useLocation } from "react-router-dom";
-import { Fragment, type ReactNode } from "react";
+import ChevronLeftRoundedIcon from "@mui/icons-material/ChevronLeftRounded";
+import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
+import { Fragment } from "react";
 import { paths } from "@/routes/paths";
 import { useEffectiveRole } from "@/shared/hooks/useEffectiveRole";
-import type { ActorRole } from "@/shared/context/ActorContext";
+import { NavigationItem } from "@/layouts/NavigationItem";
+import { SECTIONS, visibleEntries } from "@/layouts/navSections";
 
 export const NAV_SIDEBAR_WIDTH = 260;
+export const NAV_SIDEBAR_WIDTH_COLLAPSED = 72;
 
-interface NavEntry {
-  to: string;
-  label: string;
-  icon: ReactNode;
-  /** Shown for these dev roles, or always when omitted — display convenience only, never access control (ADR-011). */
-  roles?: ActorRole[];
-}
-
-interface NavSection {
-  title: string;
-  entries: NavEntry[];
-}
-
-const SECTIONS: NavSection[] = [
-  {
-    title: "Identity & Relationship",
-    entries: [
-      { to: paths.identity.tutorDirectory, label: "Tutor directory", icon: <GroupsRoundedIcon /> },
-      {
-        to: paths.identity.tutorRegister,
-        label: "Register as Tutor",
-        icon: <PersonAddRoundedIcon />,
-        roles: ["Tutor"],
-      },
-      {
-        to: paths.identity.studentRegister,
-        label: "Register as Student",
-        icon: <PersonAddRoundedIcon />,
-        roles: ["Student"],
-      },
-      {
-        to: paths.identity.parentGuardianRegister,
-        label: "Register as Parent/Guardian",
-        icon: <PersonAddRoundedIcon />,
-        roles: ["ParentGuardian"],
-      },
-      {
-        to: paths.identity.studentDetailBase,
-        label: "Students",
-        icon: <SchoolRoundedIcon />,
-        // Fine-grained rule behind /students/{id} (AUTHORIZATION_MATRIX.md
-        // Addendum Decision 3): Owner + confirmed-Relationship counterpart +
-        // Admin only — a Tutor is never a legitimate party to a Student
-        // record (Phase 4.9 Task 4; previously unrestricted, a real gap).
-        roles: ["Student", "ParentGuardian", "AdminStaff"],
-      },
-      {
-        to: paths.identity.parentGuardianDetailBase,
-        label: "Parent/Guardians",
-        icon: <FamilyRestroomRoundedIcon />,
-        // Same rule, same Source, mirrored for /parent-guardians/{id}.
-        roles: ["Student", "ParentGuardian", "AdminStaff"],
-      },
-      {
-        to: paths.identity.relationships,
-        label: "Relationships",
-        icon: <LinkRoundedIcon />,
-        // InviteRelationship/ConfirmRelationship (RolePermissionCatalog) are
-        // granted to Student/ParentGuardian only; the page's own account-
-        // lookup half is Owner + Admin (Third Addendum Decision 10) — a
-        // Tutor has no permission or party status on any of it.
-        roles: ["Student", "ParentGuardian", "AdminStaff"],
-      },
-      {
-        to: paths.identity.tutorPending,
-        label: "Pending Tutor approvals",
-        icon: <FactCheckRoundedIcon />,
-        roles: ["AdminStaff"],
-      },
-    ],
-  },
-  {
-    title: "Discovery",
-    entries: [
-      { to: paths.discovery.tutorSearch, label: "Search Tutors", icon: <SearchRoundedIcon /> },
-    ],
-  },
-  {
-    title: "Scheduling & Booking",
-    entries: [
-      {
-        to: paths.scheduling.declareAvailability,
-        label: "Declare availability",
-        icon: <EventAvailableRoundedIcon />,
-        roles: ["Tutor"],
-      },
-      {
-        to: paths.scheduling.availabilitySlotDetailBase,
-        label: "Availability Slot lookup",
-        icon: <EventNoteRoundedIcon />,
-      },
-      {
-        to: paths.scheduling.bookSession,
-        label: "Book a session",
-        icon: <EventRoundedIcon />,
-        roles: ["Student", "ParentGuardian"],
-      },
-      {
-        to: paths.scheduling.sessionDetailBase,
-        label: "Session lookup",
-        icon: <EventNoteRoundedIcon />,
-      },
-      {
-        to: paths.scheduling.studentScheduleBase,
-        label: "Student sessions",
-        icon: <CalendarMonthRoundedIcon />,
-        roles: ["Student", "ParentGuardian"],
-      },
-      {
-        to: paths.scheduling.tutorScheduleBase,
-        label: "Tutor sessions",
-        icon: <CalendarMonthRoundedIcon />,
-        roles: ["Tutor"],
-      },
-    ],
-  },
-  {
-    title: "Marketplace Oversight",
-    entries: [
-      {
-        to: paths.oversight.adminDashboard,
-        label: "Admin dashboard",
-        icon: <AdminPanelSettingsRoundedIcon />,
-        roles: ["AdminStaff"],
-      },
-      {
-        to: paths.oversight.globalSessions,
-        label: "All sessions",
-        icon: <ListAltRoundedIcon />,
-        roles: ["AdminStaff"],
-      },
-      {
-        to: paths.auth.resetPassword,
-        label: "Reset account password",
-        icon: <LockResetRoundedIcon />,
-        roles: ["AdminStaff"],
-      },
-    ],
-  },
-];
-
-function visibleEntries(entries: NavEntry[], role: ActorRole | null): NavEntry[] {
-  return entries.filter((entry) => !entry.roles || role === null || entry.roles.includes(role));
-}
-
-function NavList({ onNavigate }: { onNavigate?: () => void }) {
+function NavList({ onNavigate, collapsed }: { onNavigate?: () => void; collapsed?: boolean }) {
   const effectiveRole = useEffectiveRole();
-  const { pathname } = useLocation();
-
-  const dashboardSelected = pathname === paths.home;
 
   return (
     <List component="nav" aria-label="Primary">
-      <ListItemButton
-        component={NavLink}
+      <NavigationItem
         to={paths.home}
-        onClick={onNavigate}
-        selected={dashboardSelected}
-        aria-current={dashboardSelected ? "page" : undefined}
-      >
-        <ListItemIcon>
-          <DashboardRoundedIcon />
-        </ListItemIcon>
-        <ListItemText primary="Dashboard" />
-      </ListItemButton>
+        label="Dashboard"
+        icon={<DashboardRoundedIcon />}
+        onNavigate={onNavigate}
+        exact
+        collapsed={collapsed}
+      />
 
       {SECTIONS.map((section) => (
         <Fragment key={section.title}>
-          <ListSubheader component="div">{section.title}</ListSubheader>
-          {visibleEntries(section.entries, effectiveRole).map((entry) => {
-            // The same boolean drives both the visual indicator (D1's
-            // .Mui-selected accent bar) and the accessible "current page"
-            // signal — a screen reader user gets exactly the same answer
-            // to "where am I" as a sighted one, never a state where the
-            // two could disagree (Task 3: "a person always knows where
-            // they are").
-            const isSelected = pathname === entry.to || pathname.startsWith(`${entry.to}/`);
-            return (
-              <ListItemButton
-                key={entry.to}
-                component={NavLink}
-                to={entry.to}
-                onClick={onNavigate}
-                selected={isSelected}
-                aria-current={isSelected ? "page" : undefined}
-              >
-                <ListItemIcon>{entry.icon}</ListItemIcon>
-                <ListItemText primary={entry.label} />
-              </ListItemButton>
-            );
-          })}
+          {collapsed ? (
+            <Divider sx={{ my: 1 }} />
+          ) : (
+            <ListSubheader component="div">{section.title}</ListSubheader>
+          )}
+          {visibleEntries(section.entries, effectiveRole).map((entry) => (
+            <NavigationItem
+              key={entry.to}
+              to={entry.to}
+              label={entry.label}
+              icon={entry.icon}
+              onNavigate={onNavigate}
+              collapsed={collapsed}
+            />
+          ))}
         </Fragment>
       ))}
     </List>
@@ -231,6 +52,9 @@ export interface NavSidebarProps {
   variant: "permanent" | "temporary";
   open: boolean;
   onClose: () => void;
+  /** Icon-rail mode (Phase D4) — meaningful only when `variant === "permanent"`; the mobile overlay drawer is never collapsed. */
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 /**
@@ -245,9 +69,17 @@ export interface NavSidebarProps {
  * `frontend/src/routes/router.tsx`), which is what actually blocks their
  * content for a role reaching them by direct URL — this component only
  * decides what to show a link to.
+ *
+ * Phase D4: gained its own brand/collapse header row (the "TutorFlow"
+ * wordmark moved here from AppHeader — the reference apps this design
+ * system targets keep brand with the sidebar, not the top bar) and an
+ * icon-rail collapsed mode (permanent variant only), animated over the
+ * same 150–250ms band the design system's motion guidance sets.
  */
-export function NavSidebar({ variant, open, onClose }: NavSidebarProps) {
+export function NavSidebar({ variant, open, onClose, collapsed = false, onToggleCollapse }: NavSidebarProps) {
   const isTemporary = variant === "temporary";
+  const isCollapsedRail = !isTemporary && collapsed;
+  const width = isCollapsedRail ? NAV_SIDEBAR_WIDTH_COLLAPSED : NAV_SIDEBAR_WIDTH;
 
   return (
     <Drawer
@@ -256,13 +88,43 @@ export function NavSidebar({ variant, open, onClose }: NavSidebarProps) {
       onClose={onClose}
       ModalProps={isTemporary ? { keepMounted: true } : undefined}
       sx={{
-        width: NAV_SIDEBAR_WIDTH,
+        width,
         flexShrink: 0,
-        [`& .MuiDrawer-paper`]: { width: NAV_SIDEBAR_WIDTH, boxSizing: "border-box" },
+        transition: (t) => t.transitions.create("width", { duration: 200 }),
+        [`& .MuiDrawer-paper`]: {
+          width,
+          boxSizing: "border-box",
+          transition: (t) => t.transitions.create("width", { duration: 200 }),
+          overflowX: "hidden",
+        },
       }}
     >
-      <Toolbar />
-      <NavList onNavigate={isTemporary ? onClose : undefined} />
+      <Toolbar
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: isCollapsedRail ? "center" : "space-between",
+          px: isCollapsedRail ? 1 : 2,
+        }}
+      >
+        {isCollapsedRail ? null : (
+          <Typography variant="h6" fontWeight={700} noWrap>
+            TutorFlow
+          </Typography>
+        )}
+        {isTemporary ? null : (
+          <IconButton
+            aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
+            onClick={onToggleCollapse}
+            size="small"
+          >
+            {collapsed ? <ChevronRightRoundedIcon /> : <ChevronLeftRoundedIcon />}
+          </IconButton>
+        )}
+      </Toolbar>
+      <Box sx={{ overflowY: "auto", overflowX: "hidden" }}>
+        <NavList onNavigate={isTemporary ? onClose : undefined} collapsed={isCollapsedRail} />
+      </Box>
     </Drawer>
   );
 }

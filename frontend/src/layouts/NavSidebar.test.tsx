@@ -13,19 +13,28 @@ function renderNavSidebar(props: {
   onClose?: () => void;
   authUser?: AuthenticatedUser | null;
   initialEntry?: string;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }) {
   const onClose = props.onClose ?? vi.fn();
+  const onToggleCollapse = props.onToggleCollapse ?? vi.fn();
   render(
     <AuthProvider>
       <ActorProvider>
         <MemoryRouter initialEntries={[props.initialEntry ?? "/"]}>
           {props.authUser ? <AuthHarness user={props.authUser} /> : null}
-          <NavSidebar variant={props.variant} open onClose={onClose} />
+          <NavSidebar
+            variant={props.variant}
+            open
+            onClose={onClose}
+            collapsed={props.collapsed}
+            onToggleCollapse={onToggleCollapse}
+          />
         </MemoryRouter>
       </ActorProvider>
     </AuthProvider>,
   );
-  return { onClose };
+  return { onClose, onToggleCollapse };
 }
 
 describe("NavSidebar", () => {
@@ -175,5 +184,40 @@ describe("NavSidebar", () => {
     expect(screen.getByRole("link", { name: "Students" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Parent/Guardians" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Relationships" })).toBeInTheDocument();
+  });
+
+  // Phase D4: icon-rail collapse (permanent/desktop only).
+  describe("collapse (Phase D4)", () => {
+    it("shows the brand and a Collapse navigation button when expanded, permanent", () => {
+      renderNavSidebar({ variant: "permanent", collapsed: false });
+
+      expect(screen.getByText("TutorFlow")).toBeInTheDocument();
+      expect(screen.getByLabelText("Collapse navigation")).toBeInTheDocument();
+    });
+
+    it("calls onToggleCollapse when the collapse button is clicked", async () => {
+      const { onToggleCollapse } = renderNavSidebar({ variant: "permanent", collapsed: false });
+
+      await userEvent.click(screen.getByLabelText("Collapse navigation"));
+
+      expect(onToggleCollapse).toHaveBeenCalledTimes(1);
+    });
+
+    it("hides labels and the brand, keeps links reachable, when collapsed", () => {
+      renderNavSidebar({ variant: "permanent", collapsed: true });
+
+      expect(screen.queryByText("TutorFlow")).not.toBeInTheDocument();
+      expect(screen.queryByText("Dashboard")).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Expand navigation")).toBeInTheDocument();
+      // Links remain in the DOM (icon-only), still reachable/labelled via Tooltip.
+      expect(screen.getAllByRole("link").length).toBeGreaterThan(0);
+    });
+
+    it("never shows a collapse toggle for the temporary (mobile) drawer", () => {
+      renderNavSidebar({ variant: "temporary", collapsed: false });
+
+      expect(screen.queryByLabelText("Collapse navigation")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Expand navigation")).not.toBeInTheDocument();
+    });
   });
 });

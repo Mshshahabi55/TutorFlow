@@ -8,6 +8,7 @@ import { theme } from "@/app/theme";
 import { AppLayout } from "@/layouts/AppLayout";
 import { ActorProvider } from "@/shared/context/ActorProvider";
 import { AuthProvider } from "@/shared/context/AuthProvider";
+import { ColorModeProvider } from "@/shared/context/ColorModeProvider";
 import { NotificationProvider } from "@/shared/context/NotificationProvider";
 import { ConfirmDialogProvider } from "@/shared/context/ConfirmDialogProvider";
 import { AuthHarness } from "@/test/AuthHarness";
@@ -32,26 +33,28 @@ function renderShell(authUser?: AuthenticatedUser) {
   });
 
   return render(
-    <ThemeProvider theme={theme}>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <ActorProvider>
-            <NotificationProvider>
-              <ConfirmDialogProvider>
-                <MemoryRouter initialEntries={["/"]}>
-                  {authUser ? <AuthHarness user={authUser} /> : null}
-                  <Routes>
-                    <Route element={<AppLayout />}>
-                      <Route path="/" element={<div>Page content</div>} />
-                    </Route>
-                  </Routes>
-                </MemoryRouter>
-              </ConfirmDialogProvider>
-            </NotificationProvider>
-          </ActorProvider>
-        </AuthProvider>
-      </QueryClientProvider>
-    </ThemeProvider>,
+    <ColorModeProvider>
+      <ThemeProvider theme={theme}>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <ActorProvider>
+              <NotificationProvider>
+                <ConfirmDialogProvider>
+                  <MemoryRouter initialEntries={["/"]}>
+                    {authUser ? <AuthHarness user={authUser} /> : null}
+                    <Routes>
+                      <Route element={<AppLayout />}>
+                        <Route path="/" element={<div>Page content</div>} />
+                      </Route>
+                    </Routes>
+                  </MemoryRouter>
+                </ConfirmDialogProvider>
+              </NotificationProvider>
+            </ActorProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </ThemeProvider>
+    </ColorModeProvider>,
   );
 }
 

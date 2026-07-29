@@ -6,7 +6,6 @@ import { useLogout } from "@/features/auth/hooks/useLogout";
 import { useNotification } from "@/shared/hooks/useNotification";
 import { normalizeActorRole } from "@/shared/hooks/useEffectiveRole";
 import { ACTOR_ROLE_LABEL } from "@/shared/constants/actorRoleLabels";
-import { monoFontFamily } from "@/app/theme";
 import type { ActorRole } from "@/shared/context/ActorContext";
 
 const ROLE_INITIALS: Record<ActorRole, string> = {
@@ -25,12 +24,14 @@ const ROLE_AVATAR_PALETTE_KEY: Record<ActorRole, "primary" | "success" | "info" 
 
 /**
  * Phase D4: retires `AuthStatus`'s signed-in branch into a proper Avatar +
- * dropdown menu. `LoginResultDto`/`AuthenticatedUser` carries no name or
- * email (ADR-017 leaves personal-data fields beyond login email as its
- * own open question, Phase 4.9's own finding) — the avatar's initials are
- * derived from the already-known role, not a fabricated name or photo.
- * `AppHeader` renders this only when authenticated; the signed-out "Sign
- * in" button stays inline there (too small to warrant its own file).
+ * dropdown menu. `LoginResultDto` itself carries no name or email (ADR-017
+ * leaves personal-data fields beyond login email as its own open question)
+ * — the avatar's initials are derived from the already-known role, not a
+ * fabricated name or photo. RC4.3: the dropdown shows the email the user
+ * typed at login (`AuthenticatedUser.email`, captured client-side, never
+ * the raw Account id — a normal user should never see a GUID). `AppHeader`
+ * renders this only when authenticated; the signed-out "Sign in" button
+ * stays inline there (too small to warrant its own file).
  */
 export function UserMenu() {
   const { user } = useAuth();
@@ -78,10 +79,10 @@ export function UserMenu() {
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleClose}>
         <MenuItem disabled divider sx={{ opacity: "1 !important", flexDirection: "column", alignItems: "flex-start" }}>
           <Typography variant="body2" fontWeight={600}>
-            {roleLabel}
+            {user.email}
           </Typography>
-          <Typography variant="caption" color="text.secondary" fontFamily={monoFontFamily}>
-            {user.accountId}
+          <Typography variant="caption" color="text.secondary">
+            {roleLabel}
           </Typography>
         </MenuItem>
         <MenuItem onClick={handleLogout} disabled={logout.isPending}>

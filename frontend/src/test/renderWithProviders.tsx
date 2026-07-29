@@ -6,12 +6,22 @@ import { NotificationProvider } from "@/shared/context/NotificationProvider";
 import { ConfirmDialogProvider } from "@/shared/context/ConfirmDialogProvider";
 import { AuthProvider } from "@/shared/context/AuthProvider";
 import { ActorProvider } from "@/shared/context/ActorProvider";
+import { AuthHarness } from "@/test/AuthHarness";
+import type { AuthenticatedUser } from "@/shared/context/AuthContext";
 
 export interface RenderWithProvidersOptions {
   /** Defaults to ["/"]. Set to a path matching `routePath` (e.g. "/identity/tutors/abc") to exercise useParams. */
   initialEntries?: string[];
   /** When the page under test reads a route param (useParams), pass its route pattern (e.g. "/identity/tutors/:tutorId"). */
   routePath?: string;
+  /**
+   * RC4.4: pass a real authenticated user to simulate a genuine signed-in
+   * session (isAuthenticated: true) rather than just a dev-preview role —
+   * needed by any query gated with `enabled: isAuthenticated` (e.g.
+   * useMyConversations/useMyNotifications). Omit for tests that don't need
+   * one; those queries simply won't fire, same as an anonymous visitor.
+   */
+  authUser?: AuthenticatedUser;
 }
 
 /**
@@ -41,6 +51,7 @@ export function renderWithProviders(ui: ReactElement, options: RenderWithProvide
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={options.initialEntries ?? ["/"]}>
           <AuthProvider>
+            {options.authUser ? <AuthHarness user={options.authUser} /> : null}
             <ActorProvider>
               <NotificationProvider>
                 <ConfirmDialogProvider>{children}</ConfirmDialogProvider>

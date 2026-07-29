@@ -16,7 +16,7 @@ function describeError(error: unknown): string {
     return error.message;
   }
 
-  return "Something went wrong. Please try again.";
+  return "We couldn't load this right now. Please try again.";
 }
 
 /**
@@ -25,11 +25,13 @@ function describeError(error: unknown): string {
  * from an Infrastructure Failure only by the message the backend already
  * produced — this component invents no new classification of its own.
  */
-export function ErrorState({ error, onRetry, title = "Something went wrong" }: ErrorStateProps) {
+export function ErrorState({ error, onRetry, title = "We couldn't load this page" }: ErrorStateProps) {
   return (
     <Box py={2}>
       <Alert
         severity="error"
+        variant="outlined"
+        sx={{ borderRadius: 3, alignItems: "center" }}
         action={
           onRetry ? (
             <Button color="inherit" size="small" onClick={onRetry}>

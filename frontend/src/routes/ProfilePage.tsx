@@ -2,7 +2,7 @@ import { Navigate } from "react-router-dom";
 import { Stack } from "@mui/material";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { IdentityGate } from "@/shared/components/IdentityGate";
-import { useRememberedId } from "@/shared/hooks/useRememberedId";
+import { useOwnId } from "@/shared/hooks/useOwnId";
 import { useEffectiveRole } from "@/shared/hooks/useEffectiveRole";
 import { paths } from "@/routes/paths";
 
@@ -26,18 +26,27 @@ const FIELD_LABEL: Record<IdentityKind, string> = {
 
 /**
  * RC2: one "Profile" nav destination for every role, instead of each
- * workspace needing its own id-aware profile link. Resolves the same
- * remembered id (`useRememberedId`) the rest of the app now shares — if
- * it's already known, this redirects straight to the existing detail
- * page (`TutorDetailPage`/`StudentDetailPage`/`ParentGuardianDetailPage`,
- * none of which changed); if not, `IdentityGate` asks once and remembers
- * it for every other screen too.
+ * workspace needing its own id-aware profile link. RC4.3: a real Tutor/
+ * Student/Parent-Guardian's own id resolves automatically (`useOwnId`) —
+ * this redirects straight to the existing detail page
+ * (`TutorDetailPage`/`StudentDetailPage`/`ParentGuardianDetailPage`, none of
+ * which changed) without ever asking. Admin/Staff has no detail page of its
+ * own (no such profile view exists in this API) — sent to the Admin
+ * dashboard instead of silently mismapping onto the Student detail page, a
+ * pre-existing gap this phase also closes.
  */
 export function ProfilePage() {
   const role = useEffectiveRole();
+  // A stable, always-called hook regardless of role — Admin/Staff's `kind`
+  // value is never actually used (handled by its own early return below),
+  // but the hook itself must run unconditionally (Rules of Hooks).
   const kind: IdentityKind =
     role === "Tutor" ? "tutor" : role === "ParentGuardian" ? "parentGuardian" : "student";
-  const { id } = useRememberedId(kind);
+  const { id } = useOwnId(kind);
+
+  if (role === "AdminStaff") {
+    return <Navigate to={paths.oversight.adminDashboard} replace />;
+  }
 
   if (id) {
     return <Navigate to={detailPathFor(kind, id)} replace />;

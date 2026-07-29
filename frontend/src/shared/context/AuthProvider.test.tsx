@@ -10,6 +10,7 @@ const VALID_USER = {
   accountId: "11111111-1111-1111-1111-111111111111",
   role: "Student",
   expiresAtUtc: "2999-01-01T00:00:00Z",
+  email: "student@example.com",
 };
 
 function Probe() {
@@ -64,6 +65,24 @@ describe("AuthProvider session persistence (Phase 4.9)", () => {
 
     expect(screen.getByText("isAuthenticated: false")).toBeInTheDocument();
     expect(window.sessionStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
+  });
+
+  it("discards a stored session missing the email field (pre-RC4.3 shape) rather than restoring it half-formed", () => {
+    const legacyShape = {
+      token: VALID_USER.token,
+      accountId: VALID_USER.accountId,
+      role: VALID_USER.role,
+      expiresAtUtc: VALID_USER.expiresAtUtc,
+    };
+    window.sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(legacyShape));
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    );
+
+    expect(screen.getByText("isAuthenticated: false")).toBeInTheDocument();
   });
 
   it("discards a malformed stored session rather than throwing", () => {

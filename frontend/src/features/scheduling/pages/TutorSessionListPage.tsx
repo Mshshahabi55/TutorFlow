@@ -1,17 +1,17 @@
 import { useEffect, type ReactNode } from "react";
 import { Link as RouterLink, Navigate, useNavigate, useParams } from "react-router-dom";
-import { Button, Stack, Typography } from "@mui/material";
+import { Button, Card, CardContent, Stack, Typography } from "@mui/material";
 import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded";
 import { useTutorSchedule } from "@/features/scheduling/hooks/useSessionQueries";
 import { TutorSessionCard } from "@/features/scheduling/components/TutorSessionCard";
 import { SessionCardSkeleton } from "@/features/scheduling/components/SessionCardSkeleton";
 import { SectionCard } from "@/shared/components/SectionCard";
 import { byScheduledTimeAscending, byScheduledTimeDescending } from "@/features/scheduling/utils/sessionSort";
-import { IdentityGate } from "@/shared/components/IdentityGate";
-import { useRememberedId } from "@/shared/hooks/useRememberedId";
+import { IdLookupForm } from "@/shared/components/forms/IdLookupForm";
+import { useOwnId } from "@/shared/hooks/useOwnId";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
-import { ErrorState } from "@/shared/components/feedback/ErrorState";
+import { IdentityLookupErrorState } from "@/shared/components/feedback/IdentityLookupErrorState";
 import { SessionStatus } from "@/services/api/dtos";
 import type { SessionDto } from "@/services/api/dtos";
 import { paths } from "@/routes/paths";
@@ -99,10 +99,19 @@ function TutorSessionsWorkspace({ sessions, onOpen }: TutorSessionsWorkspaceProp
   );
 }
 
-/** GET /tutors/{id}/schedule — every Session for the Tutor, unpaginated (matches the endpoint's own shape). Same query and data as before; RC2 replaces the raw Tutor-id form with the shared `IdentityGate` (ask once, remember on this device). */
+/**
+ * GET /tutors/{id}/schedule — every Session for the Tutor, unpaginated
+ * (matches the endpoint's own shape). RC4.3: a real signed-in Tutor's own
+ * id resolves automatically (`useOwnId`) — the id-entry form below is
+ * reachable only by an Admin/Staff viewer looking up another Tutor's
+ * schedule by id (a legitimate lookup, not a "my own id" prompt; the
+ * route itself allows `Tutor | AdminStaff`) or the dev-only "Acting as"
+ * preview, since a real Tutor session never reaches it.
+ */
 export function TutorSessionListPage() {
   const { tutorId: routeTutorId } = useParams<{ tutorId: string }>();
-  const { id: rememberedTutorId, remember } = useRememberedId("tutor");
+  const navigate = useNavigate();
+  const { id: ownTutorId, remember, forget } = useOwnId("tutor");
 
   useEffect(() => {
     if (routeTutorId) {
@@ -110,33 +119,59 @@ export function TutorSessionListPage() {
     }
   }, [routeTutorId, remember]);
 
-  const tutorId = routeTutorId ?? rememberedTutorId;
+  const tutorId = routeTutorId ?? ownTutorId;
   const header = <PageHeader title="My Lessons" />;
 
-  if (!routeTutorId && rememberedTutorId) {
-    return <Navigate to={paths.scheduling.tutorSchedule(rememberedTutorId)} replace />;
+  if (!routeTutorId && ownTutorId) {
+    return <Navigate to={paths.scheduling.tutorSchedule(ownTutorId)} replace />;
   }
 
   if (!tutorId) {
     return (
       <Stack spacing={3}>
         {header}
-        <IdentityGate
-          kind="tutor"
-          fieldLabel="Tutor id"
-          title="Let's find your lessons"
-          description="Enter your tutor id once — we'll remember it on this device so you won't need to again."
-        >
-          {(id) => <Navigate to={paths.scheduling.tutorSchedule(id)} replace />}
-        </IdentityGate>
+        <Card variant="outlined">
+          <CardContent>
+            <Stack spacing={2} alignItems="flex-start">
+              <Typography variant="h5" component="h2" fontWeight={600}>
+                Let&rsquo;s find your lessons
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                Enter a Tutor id to look up their lessons.
+              </Typography>
+              <IdLookupForm
+                label="Tutor id"
+                onSubmit={(id) => {
+                  remember(id);
+                  void navigate(paths.scheduling.tutorSchedule(id));
+                }}
+              />
+            </Stack>
+          </CardContent>
+        </Card>
       </Stack>
     );
   }
 
-  return <TutorSessionsContent tutorId={tutorId} header={header} />;
+  function chooseTutorAgain() {
+    forget();
+    void navigate(paths.scheduling.tutorScheduleBase, { replace: true });
+  }
+
+  return (
+    <TutorSessionsContent tutorId={tutorId} header={header} onChooseAgain={chooseTutorAgain} />
+  );
 }
 
-function TutorSessionsContent({ tutorId, header }: { tutorId: string; header: ReactNode }) {
+function TutorSessionsContent({
+  tutorId,
+  header,
+  onChooseAgain,
+}: {
+  tutorId: string;
+  header: ReactNode;
+  onChooseAgain: () => void;
+}) {
   const navigate = useNavigate();
   const scheduleQuery = useTutorSchedule(tutorId);
 
@@ -155,7 +190,11 @@ function TutorSessionsContent({ tutorId, header }: { tutorId: string; header: Re
           ))}
         </Stack>
       ) : scheduleQuery.isError ? (
-        <ErrorState error={scheduleQuery.error} onRetry={() => void scheduleQuery.refetch()} />
+        <IdentityLookupErrorState
+          error={scheduleQuery.error}
+          onRetry={() => void scheduleQuery.refetch()}
+          onChooseAgain={onChooseAgain}
+        />
       ) : (
         <TutorSessionsWorkspace sessions={scheduleQuery.data} onOpen={openSession} />
       )}

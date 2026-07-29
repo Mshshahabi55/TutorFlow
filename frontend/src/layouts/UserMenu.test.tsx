@@ -14,7 +14,7 @@ function renderUserMenu(authUser?: AuthenticatedUser) {
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
 
-  return render(
+  const result = render(
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <NotificationProvider>
@@ -24,6 +24,8 @@ function renderUserMenu(authUser?: AuthenticatedUser) {
       </AuthProvider>
     </QueryClientProvider>,
   );
+
+  return { queryClient, ...result };
 }
 
 const STUDENT: AuthenticatedUser = {
@@ -31,6 +33,7 @@ const STUDENT: AuthenticatedUser = {
   accountId: "11111111-1111-1111-1111-111111111111",
   role: "ParentGuardian",
   expiresAtUtc: "2999-01-01T00:00:00Z",
+  email: "parent@example.com",
 };
 
 describe("UserMenu", () => {
@@ -46,13 +49,14 @@ describe("UserMenu", () => {
     expect(await screen.findByRole("button", { name: "Account menu (Parent/Guardian)" })).toBeInTheDocument();
   });
 
-  it("opening the menu shows the role label, account id, and a sign out action", async () => {
+  it("opening the menu shows the email, role label, and a sign out action — never the raw account id", async () => {
     renderUserMenu(STUDENT);
 
     await userEvent.click(await screen.findByRole("button", { name: "Account menu (Parent/Guardian)" }));
 
     expect(screen.getByText("Parent/Guardian")).toBeInTheDocument();
-    expect(screen.getByText(STUDENT.accountId)).toBeInTheDocument();
+    expect(screen.getByText(STUDENT.email)).toBeInTheDocument();
+    expect(screen.queryByText(STUDENT.accountId)).not.toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Sign out" })).toBeInTheDocument();
   });
 
@@ -64,5 +68,24 @@ describe("UserMenu", () => {
     await userEvent.click(screen.getByRole("menuitem", { name: "Sign out" }));
 
     expect(await screen.findByText("Signed out.")).toBeInTheDocument();
+  });
+
+  // RC4.4: symmetric with useLogin's own fix — signing out must not leave a
+  // previously-authenticated result behind for whoever/whatever uses this
+  // browser tab next (a different account signing in, or dev-preview
+  // browsing), since the QueryClient itself outlives the session.
+  it("signing out clears the QueryClient cache", async () => {
+    vi.spyOn(authService, "logout").mockResolvedValue(undefined);
+    const { queryClient } = renderUserMenu(STUDENT);
+
+    const key = ["communication", "conversations", "mine"];
+    queryClient.setQueryData(key, [{ conversationId: "c1" }]);
+    expect(queryClient.getQueryData(key)).toBeDefined();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Account menu (Parent/Guardian)" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Sign out" }));
+
+    await screen.findByText("Signed out.");
+    expect(queryClient.getQueryState(key)).toBeUndefined();
   });
 });

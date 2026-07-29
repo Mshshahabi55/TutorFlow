@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { TutorSessionListPage } from "@/features/scheduling/pages/TutorSessionListPage";
 import { renderWithProviders } from "@/test/renderWithProviders";
+import { AuthProvider } from "@/shared/context/AuthProvider";
 import { NotificationProvider } from "@/shared/context/NotificationProvider";
 import { ConfirmDialogProvider } from "@/shared/context/ConfirmDialogProvider";
 import * as schedulingService from "@/features/scheduling/api/schedulingService";
@@ -34,7 +35,7 @@ describe("TutorSessionListPage", () => {
   it("shows a friendly identity prompt, not a raw id field, when no id is known", () => {
     renderWithProviders(<TutorSessionListPage />);
 
-    expect(screen.getByRole("heading", { name: "Let's find your lessons" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Let’s find your lessons" })).toBeInTheDocument();
     expect(screen.getByLabelText("Tutor id")).toBeInTheDocument();
   });
 
@@ -96,22 +97,24 @@ describe("TutorSessionListPage", () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={queryClient}>
-        <NotificationProvider>
-          <ConfirmDialogProvider>
-            <MemoryRouter initialEntries={[`/scheduling/tutors/${TUTOR_ID}/schedule`]}>
-              <Routes>
-                <Route
-                  path="/scheduling/tutors/:tutorId/schedule"
-                  element={<TutorSessionListPage />}
-                />
-                <Route
-                  path="/scheduling/sessions/:sessionId"
-                  element={<div>Session detail route reached</div>}
-                />
-              </Routes>
-            </MemoryRouter>
-          </ConfirmDialogProvider>
-        </NotificationProvider>
+        <AuthProvider>
+          <NotificationProvider>
+            <ConfirmDialogProvider>
+              <MemoryRouter initialEntries={[`/scheduling/tutors/${TUTOR_ID}/schedule`]}>
+                <Routes>
+                  <Route
+                    path="/scheduling/tutors/:tutorId/schedule"
+                    element={<TutorSessionListPage />}
+                  />
+                  <Route
+                    path="/scheduling/sessions/:sessionId"
+                    element={<div>Session detail route reached</div>}
+                  />
+                </Routes>
+              </MemoryRouter>
+            </ConfirmDialogProvider>
+          </NotificationProvider>
+        </AuthProvider>
       </QueryClientProvider>,
     );
 

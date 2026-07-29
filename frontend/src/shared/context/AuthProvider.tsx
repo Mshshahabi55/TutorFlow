@@ -11,7 +11,8 @@ function isAuthenticatedUser(value: unknown): value is AuthenticatedUser {
     typeof (value as AuthenticatedUser).token === "string" &&
     typeof (value as AuthenticatedUser).accountId === "string" &&
     typeof (value as AuthenticatedUser).role === "string" &&
-    typeof (value as AuthenticatedUser).expiresAtUtc === "string"
+    typeof (value as AuthenticatedUser).expiresAtUtc === "string" &&
+    typeof (value as AuthenticatedUser).email === "string"
   );
 }
 

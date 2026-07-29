@@ -30,6 +30,7 @@ describe("RequireRole (Phase 4.9 Task 4)", () => {
       accountId: "a1",
       role: "AdminStaff",
       expiresAtUtc: "2999-01-01T00:00:00Z",
+      email: "admin@example.com",
     });
 
     expect(screen.getByText("Privileged content")).toBeInTheDocument();
@@ -41,6 +42,7 @@ describe("RequireRole (Phase 4.9 Task 4)", () => {
       accountId: "a1",
       role: "Student",
       expiresAtUtc: "2999-01-01T00:00:00Z",
+      email: "student@example.com",
     });
 
     expect(screen.queryByText("Privileged content")).not.toBeInTheDocument();

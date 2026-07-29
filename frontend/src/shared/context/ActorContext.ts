@@ -13,9 +13,9 @@ export interface CurrentActor {
   /** The locally-selected "acting as" role, or null if none is selected. */
   role: ActorRole | null;
   /**
-   * Always false. No authentication mechanism exists (ADR-011 remains
-   * frozen) — this mirrors the backend's own honest NullCurrentUserProvider
-   * placeholder rather than fabricating a signed-in session.
+   * Always false. This is a dev-only role-preview mechanism, not a session —
+   * a real authentication mechanism exists (`docs/adr/ADR-017-authentication-mechanism-decision.md`;
+   * see `useAuth`/`AuthContext`), and this value must never be confused with it.
    */
   isAuthenticated: false;
 }

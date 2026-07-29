@@ -10,11 +10,14 @@ export interface CopyableIdProps {
 
 /**
  * Displays a record's id with a copy-to-clipboard action. Used on every
- * registration/creation success screen across every feature module: since
- * no authentication exists (ADR-011), the returned id is often the only way
- * the user can find this record again, so it must be easy to copy rather
- * than only readable. Promoted here from features/identity once
- * features/scheduling needed the same pattern (Sprint 7).
+ * registration/creation success screen across every feature module: the
+ * returned id is often still the only way to reference this specific record
+ * elsewhere (sharing a Student id for a Relationship invite, an Admin
+ * lookup), so it must be easy to copy rather than only readable — a real
+ * signed-in user's own id no longer needs this (`useOwnId`), but every id
+ * belonging to *someone else* still does. Promoted here from
+ * features/identity once features/scheduling needed the same pattern
+ * (Sprint 7).
  */
 export function CopyableId({ id }: CopyableIdProps) {
   const [copied, setCopied] = useState(false);

@@ -6,7 +6,7 @@ import { SessionCardSkeleton } from "@/features/scheduling/components/SessionCar
 import { IdentityGate } from "@/shared/components/IdentityGate";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
-import { ErrorState } from "@/shared/components/feedback/ErrorState";
+import { IdentityLookupErrorState } from "@/shared/components/feedback/IdentityLookupErrorState";
 
 /**
  * Reuses `useTutorSchedule` (the same hook `TutorSessionListPage` and the
@@ -16,7 +16,7 @@ import { ErrorState } from "@/shared/components/feedback/ErrorState";
  * version of one: exactly the Students that show up in the Tutor's own
  * schedule, with session counts, nothing fabricated.
  */
-function MyStudentsRoster({ tutorId }: { tutorId: string }) {
+function MyStudentsRoster({ tutorId, onChooseAgain }: { tutorId: string; onChooseAgain: () => void }) {
   const scheduleQuery = useTutorSchedule(tutorId);
 
   if (scheduleQuery.isPending) {
@@ -29,7 +29,13 @@ function MyStudentsRoster({ tutorId }: { tutorId: string }) {
   }
 
   if (scheduleQuery.isError) {
-    return <ErrorState error={scheduleQuery.error} onRetry={() => void scheduleQuery.refetch()} />;
+    return (
+      <IdentityLookupErrorState
+        error={scheduleQuery.error}
+        onRetry={() => void scheduleQuery.refetch()}
+        onChooseAgain={onChooseAgain}
+      />
+    );
   }
 
   const roster = deriveStudentRoster(scheduleQuery.data).sort(
@@ -73,7 +79,7 @@ export function TutorStudentsPage() {
         title="Let's find your students"
         description="Enter your tutor id once — we'll remember it on this device so you won't need to again."
       >
-        {(tutorId) => <MyStudentsRoster tutorId={tutorId} />}
+        {(tutorId, forget) => <MyStudentsRoster tutorId={tutorId} onChooseAgain={forget} />}
       </IdentityGate>
     </Stack>
   );

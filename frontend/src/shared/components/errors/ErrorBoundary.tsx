@@ -44,14 +44,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
     return (
       <Container maxWidth="sm">
-        <Box display="flex" flexDirection="column" alignItems="center" gap={2} py={8} textAlign="center">
-          <Typography variant="h5" fontWeight={700}>
-            Something went wrong
+        <Box display="flex" flexDirection="column" alignItems="center" gap={2} py={10} textAlign="center">
+          <Typography variant="h5">We couldn't load this page</Typography>
+          <Typography variant="body1" color="text.secondary">
+            Something went wrong on our end. You can try reloading this section.
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            The page ran into an unexpected error. You can try reloading this section.
-          </Typography>
-          <Button variant="contained" onClick={this.reset}>
+          <Button variant="contained" size="large" onClick={this.reset}>
             Try again
           </Button>
         </Box>

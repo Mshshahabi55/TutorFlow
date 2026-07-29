@@ -22,26 +22,35 @@ import { ChildSummaryCard } from "@/features/identity/components/ChildSummaryCar
 import { ChildSummaryCardSkeleton } from "@/features/identity/components/ChildSummaryCardSkeleton";
 import { IdentityGate } from "@/shared/components/IdentityGate";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
-import { ErrorState } from "@/shared/components/feedback/ErrorState";
+import { IdentityLookupErrorState } from "@/shared/components/feedback/IdentityLookupErrorState";
 import { useNotification } from "@/shared/hooks/useNotification";
-import { useRememberedId } from "@/shared/hooks/useRememberedId";
+import { useOwnId } from "@/shared/hooks/useOwnId";
 import { useEffectiveRole } from "@/shared/hooks/useEffectiveRole";
 import { RelationshipStatus } from "@/services/api/dtos";
 import type { RelationshipDto } from "@/services/api/dtos";
 
+/**
+ * Reached by a Student or Admin/Staff viewer (`RelationshipsPage` sends a
+ * Parent/Guardian to `ParentChildrenView`/`AddChildCard` instead). A real
+ * signed-in Student's own id is never re-entered (`useOwnId`) — only the
+ * Parent/Guardian's id remains manual, since no directory exists to look
+ * one up by anything else. An Admin/Staff viewer (or the dev-only "Acting
+ * as" preview) sees both fields, the same generic tool as before.
+ */
 function InviteRelationshipCard() {
   const { notify } = useNotification();
+  const { id: ownStudentId, isFromSession } = useOwnId("student");
   const inviteRelationship = useInviteRelationship();
   const form = useForm<RelationshipInviteFormValues>({
     resolver: zodResolver(relationshipInviteSchema),
-    defaultValues: { parentGuardianId: "", studentId: "" },
+    defaultValues: { parentGuardianId: "", studentId: ownStudentId ?? "" },
   });
 
   function handleSubmit(values: RelationshipInviteFormValues) {
     inviteRelationship.mutate(values, {
       onSuccess: () => {
         notify({ message: "Relationship invitation sent.", severity: "success" });
-        form.reset();
+        form.reset({ parentGuardianId: "", studentId: ownStudentId ?? "" });
       },
     });
   }
@@ -65,7 +74,9 @@ function InviteRelationshipCard() {
           <Form form={form} onSubmit={handleSubmit}>
             <Stack spacing={2} mt={1} alignItems="flex-start">
               <FormTextField name="parentGuardianId" label="Parent/Guardian id" fullWidth />
-              <FormTextField name="studentId" label="Student id" fullWidth />
+              {isFromSession ? null : (
+                <FormTextField name="studentId" label="Student id" fullWidth />
+              )}
               <Button type="submit" variant="contained" disabled={inviteRelationship.isPending}>
                 {inviteRelationship.isPending ? "Inviting…" : "Send invitation"}
               </Button>
@@ -164,16 +175,16 @@ function RelationshipsForAccountCard() {
  * A friendlier, card-based add-a-child form for the Parent's own "My
  * Children" view — same `useInviteRelationship` mutation and
  * `relationshipInviteSchema` as `InviteRelationshipCard`, but the Parent's
- * own id is prefilled from `useRememberedId` (never re-typed) rather than
- * asked for again, so only the Student's id needs entering.
+ * own id resolves automatically from the real session (`useOwnId`) rather
+ * than asked for again, so only the Student's id needs entering.
  */
 function AddChildCard() {
   const { notify } = useNotification();
-  const { id: rememberedParentGuardianId } = useRememberedId("parentGuardian");
+  const { id: ownParentGuardianId } = useOwnId("parentGuardian");
   const inviteRelationship = useInviteRelationship();
   const form = useForm<RelationshipInviteFormValues>({
     resolver: zodResolver(relationshipInviteSchema),
-    defaultValues: { parentGuardianId: rememberedParentGuardianId ?? "", studentId: "" },
+    defaultValues: { parentGuardianId: ownParentGuardianId ?? "", studentId: "" },
   });
 
   function handleSubmit(values: RelationshipInviteFormValues) {
@@ -209,7 +220,7 @@ function AddChildCard() {
 }
 
 /** Card-based "My Children" — reuses the same `useRelationshipsForAccount` query the generic Relationships view uses, presented as ChildSummaryCards instead of a raw table row per child. */
-function MyChildrenView({ accountId }: { accountId: string }) {
+function MyChildrenView({ accountId, onChooseAgain }: { accountId: string; onChooseAgain: () => void }) {
   const relationshipsQuery = useRelationshipsForAccount(accountId);
 
   if (relationshipsQuery.isPending) {
@@ -222,7 +233,13 @@ function MyChildrenView({ accountId }: { accountId: string }) {
   }
 
   if (relationshipsQuery.isError) {
-    return <ErrorState error={relationshipsQuery.error} onRetry={() => void relationshipsQuery.refetch()} />;
+    return (
+      <IdentityLookupErrorState
+        error={relationshipsQuery.error}
+        onRetry={() => void relationshipsQuery.refetch()}
+        onChooseAgain={onChooseAgain}
+      />
+    );
   }
 
   const relationships = relationshipsQuery.data;
@@ -274,7 +291,7 @@ function ParentChildrenView() {
         title="Let's find your children"
         description="Enter your Parent/Guardian id once — we'll remember it on this device so you won't need to again."
       >
-        {(accountId) => <MyChildrenView accountId={accountId} />}
+        {(accountId, forget) => <MyChildrenView accountId={accountId} onChooseAgain={forget} />}
       </IdentityGate>
 
       <AddChildCard />

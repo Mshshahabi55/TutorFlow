@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { Link as RouterLink, Navigate, useNavigate, useParams } from "react-router-dom";
-import { Button, Stack, Typography } from "@mui/material";
+import { Button, Card, CardContent, Stack, Typography } from "@mui/material";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import EventRoundedIcon from "@mui/icons-material/EventRounded";
 import { useStudentSchedule } from "@/features/scheduling/hooks/useSessionQueries";
@@ -8,11 +8,11 @@ import { NextSessionCard } from "@/features/scheduling/components/NextSessionCar
 import { SessionCard } from "@/features/scheduling/components/SessionCard";
 import { SessionCardSkeleton } from "@/features/scheduling/components/SessionCardSkeleton";
 import { SectionCard } from "@/shared/components/SectionCard";
-import { IdentityGate } from "@/shared/components/IdentityGate";
-import { useRememberedId } from "@/shared/hooks/useRememberedId";
+import { IdLookupForm } from "@/shared/components/forms/IdLookupForm";
+import { useOwnId } from "@/shared/hooks/useOwnId";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
-import { ErrorState } from "@/shared/components/feedback/ErrorState";
+import { IdentityLookupErrorState } from "@/shared/components/feedback/IdentityLookupErrorState";
 import { SessionStatus } from "@/services/api/dtos";
 import type { SessionDto } from "@/services/api/dtos";
 import { paths } from "@/routes/paths";
@@ -136,10 +136,19 @@ function SessionsWorkspace({ sessions, onOpen }: SessionsWorkspaceProps) {
   );
 }
 
-/** GET /students/{id}/schedule — every Session for the Student, unpaginated (matches the endpoint's own shape). Same query and data as before; RC2 replaces the raw Student-id form with the shared `IdentityGate` (ask once, remember on this device) and renames the page to "My Lessons". */
+/**
+ * GET /students/{id}/schedule — every Session for the Student, unpaginated
+ * (matches the endpoint's own shape). RC4.3: a real signed-in Student's own
+ * id resolves automatically (`useOwnId`) — the id-entry form below is
+ * reachable only by a Parent/Guardian or Admin/Staff viewer looking up a
+ * specific Student's schedule by id (a legitimate lookup; the route allows
+ * `Student | ParentGuardian | AdminStaff`) or the dev-only "Acting as"
+ * preview, since a real Student session never reaches it.
+ */
 export function StudentSessionListPage() {
   const { studentId: routeStudentId } = useParams<{ studentId: string }>();
-  const { id: rememberedStudentId, remember } = useRememberedId("student");
+  const navigate = useNavigate();
+  const { id: ownStudentId, remember, forget } = useOwnId("student");
 
   useEffect(() => {
     if (routeStudentId) {
@@ -147,7 +156,7 @@ export function StudentSessionListPage() {
     }
   }, [routeStudentId, remember]);
 
-  const studentId = routeStudentId ?? rememberedStudentId;
+  const studentId = routeStudentId ?? ownStudentId;
 
   const header = (
     <PageHeader
@@ -161,30 +170,56 @@ export function StudentSessionListPage() {
     />
   );
 
-  if (!routeStudentId && rememberedStudentId) {
-    return <Navigate to={paths.scheduling.studentSchedule(rememberedStudentId)} replace />;
+  if (!routeStudentId && ownStudentId) {
+    return <Navigate to={paths.scheduling.studentSchedule(ownStudentId)} replace />;
   }
 
   if (!studentId) {
     return (
       <Stack spacing={3}>
         {header}
-        <IdentityGate
-          kind="student"
-          fieldLabel="Student id"
-          title="Let's find your lessons"
-          description="Enter your student id once — we'll remember it on this device so you won't need to again."
-        >
-          {(id) => <Navigate to={paths.scheduling.studentSchedule(id)} replace />}
-        </IdentityGate>
+        <Card variant="outlined">
+          <CardContent>
+            <Stack spacing={2} alignItems="flex-start">
+              <Typography variant="h5" component="h2" fontWeight={600}>
+                Let&rsquo;s find your lessons
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                Enter a Student id to look up their lessons.
+              </Typography>
+              <IdLookupForm
+                label="Student id"
+                onSubmit={(id) => {
+                  remember(id);
+                  void navigate(paths.scheduling.studentSchedule(id));
+                }}
+              />
+            </Stack>
+          </CardContent>
+        </Card>
       </Stack>
     );
   }
 
-  return <StudentSessionsContent studentId={studentId} header={header} />;
+  function chooseStudentAgain() {
+    forget();
+    void navigate(paths.scheduling.studentScheduleBase, { replace: true });
+  }
+
+  return (
+    <StudentSessionsContent studentId={studentId} header={header} onChooseAgain={chooseStudentAgain} />
+  );
 }
 
-function StudentSessionsContent({ studentId, header }: { studentId: string; header: ReactNode }) {
+function StudentSessionsContent({
+  studentId,
+  header,
+  onChooseAgain,
+}: {
+  studentId: string;
+  header: ReactNode;
+  onChooseAgain: () => void;
+}) {
   const navigate = useNavigate();
   const scheduleQuery = useStudentSchedule(studentId);
 
@@ -203,7 +238,11 @@ function StudentSessionsContent({ studentId, header }: { studentId: string; head
           ))}
         </Stack>
       ) : scheduleQuery.isError ? (
-        <ErrorState error={scheduleQuery.error} onRetry={() => void scheduleQuery.refetch()} />
+        <IdentityLookupErrorState
+          error={scheduleQuery.error}
+          onRetry={() => void scheduleQuery.refetch()}
+          onChooseAgain={onChooseAgain}
+        />
       ) : (
         <SessionsWorkspace sessions={scheduleQuery.data} onOpen={openSession} />
       )}

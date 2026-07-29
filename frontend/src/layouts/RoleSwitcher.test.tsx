@@ -81,6 +81,7 @@ describe("RoleSwitcher", () => {
       accountId: "a1",
       role: "Student",
       expiresAtUtc: "2999-01-01T00:00:00Z",
+      email: "student@example.com",
     });
 
     expect(screen.queryByLabelText("Acting as (dev only)")).not.toBeInTheDocument();

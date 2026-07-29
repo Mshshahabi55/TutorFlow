@@ -20,7 +20,7 @@ describe("ErrorState", () => {
   it("falls back to a generic message for a non-Error value", () => {
     render(<ErrorState error="not an error instance" />);
 
-    expect(screen.getByText("Something went wrong. Please try again.")).toBeInTheDocument();
+    expect(screen.getByText("We couldn't load this right now. Please try again.")).toBeInTheDocument();
   });
 
   it("invokes onRetry when the retry button is clicked", async () => {

@@ -25,7 +25,9 @@ import { FormTextField } from "@/shared/components/forms/FormTextField";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { LoadingState } from "@/shared/components/feedback/LoadingState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
+import { UnavailableState } from "@/shared/components/feedback/UnavailableState";
 import { useNotification } from "@/shared/hooks/useNotification";
+import { paths } from "@/routes/paths";
 import type { TutorDto } from "@/services/api/dtos";
 
 function toFormValues(tutor: TutorDto): TutorOfferingFormValues {
@@ -151,7 +153,15 @@ export function TutorOfferingPage() {
         <CardContent>
           {tutorQuery.isPending ? <LoadingState label="Loading Tutor…" /> : null}
           {tutorQuery.isError ? (
-            <ErrorState error={tutorQuery.error} onRetry={() => void tutorQuery.refetch()} />
+            <UnavailableState
+              title="Tutor unavailable"
+              description="This listing could not be loaded. It may have been removed, or the link might be broken."
+              actions={[
+                { label: "Try again", onClick: () => void tutorQuery.refetch() },
+                { label: "Back to Dashboard", to: paths.home, variant: "contained" },
+              ]}
+              headingComponent="h2"
+            />
           ) : null}
           {tutorQuery.isSuccess ? (
             <TutorOfferingForm tutorId={tutorId as string} tutor={tutorQuery.data} />

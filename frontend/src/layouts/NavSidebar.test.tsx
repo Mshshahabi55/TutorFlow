@@ -100,6 +100,7 @@ describe("NavSidebar", () => {
         accountId: "account-1",
         role: "Tutor",
         expiresAtUtc: "2026-07-21T00:00:00Z",
+        email: "tutor@example.com",
       },
     });
 

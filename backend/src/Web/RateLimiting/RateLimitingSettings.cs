@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+
 namespace TutorFlow.Web.RateLimiting;
 
 // Pure Web-layer/transport concern — HTTP request throttling is not a Domain
@@ -30,4 +32,39 @@ public sealed class RateLimitPolicySettings
 {
     public int PermitLimit { get; init; }
     public int WindowSeconds { get; init; }
+}
+
+// Registered via .ValidateOnStart() (RateLimitingRegistration) — a
+// misconfigured PermitLimit/WindowSeconds (zero, negative, or simply
+// absent because the "RateLimiting" section was typo'd) would otherwise
+// only surface as an unhandled ArgumentOutOfRangeException deep inside
+// System.Threading.RateLimiting on the *first real request* the host ever
+// receives, in whatever environment that happens to be. Failing at startup
+// instead follows the same "fail fast" principle Program.cs already
+// applies to a placeholder connection string.
+public sealed class RateLimitingSettingsValidator : IValidateOptions<RateLimitingSettings>
+{
+    public ValidateOptionsResult Validate(string? name, RateLimitingSettings options)
+    {
+        var failures = new List<string>();
+        ValidatePolicy(options.General, nameof(RateLimitingSettings.General), failures);
+        ValidatePolicy(options.Auth, nameof(RateLimitingSettings.Auth), failures);
+
+        return failures.Count == 0
+            ? ValidateOptionsResult.Success
+            : ValidateOptionsResult.Fail(failures);
+    }
+
+    private static void ValidatePolicy(RateLimitPolicySettings policy, string policyName, List<string> failures)
+    {
+        if (policy.PermitLimit <= 0)
+        {
+            failures.Add($"RateLimiting:{policyName}:PermitLimit must be a positive integer (was {policy.PermitLimit}).");
+        }
+
+        if (policy.WindowSeconds <= 0)
+        {
+            failures.Add($"RateLimiting:{policyName}:WindowSeconds must be a positive integer (was {policy.WindowSeconds}).");
+        }
+    }
 }

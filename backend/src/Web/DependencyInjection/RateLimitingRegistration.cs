@@ -26,7 +26,10 @@ public static class RateLimitingRegistration
         // captured whatever was resolvable at that specific point in the
         // minimal-hosting-model startup sequence, which is not guaranteed to
         // already include every config source a test host layers in.
-        services.AddOptions<RateLimitingSettings>().BindConfiguration(RateLimitingSettings.SectionName);
+        services.AddSingleton<IValidateOptions<RateLimitingSettings>, RateLimitingSettingsValidator>();
+        services.AddOptions<RateLimitingSettings>()
+            .BindConfiguration(RateLimitingSettings.SectionName)
+            .ValidateOnStart();
 
         services.AddRateLimiter(options =>
         {

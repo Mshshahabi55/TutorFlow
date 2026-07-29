@@ -143,6 +143,16 @@ the same `ApiResponse` envelope every other error uses. Both limits are
 config-driven (`appsettings.json`) so they can be retuned per environment
 without a code change.
 
+### Startup configuration validation
+
+Rate-limiting and Meeting-provider settings are validated when the host
+starts (`ValidateOnStart`), not lazily on first use — a zero/negative
+`PermitLimit`/`WindowSeconds`, or a `Meeting:DefaultProvider` value that
+isn't a recognized provider name, fails the host immediately with a clear
+message instead of surfacing as an unhandled exception on whatever request
+happens to touch it first. Same "fail fast" principle already applied to
+a placeholder database connection string.
+
 ## Running the frontend
 
 ```bash

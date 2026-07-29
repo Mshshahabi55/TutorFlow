@@ -95,7 +95,14 @@ public static class DependencyInjection
 
         // docs/adr/ADR-023-online-lesson-meeting-provider-architecture.md —
         // one configuration section, no hardcoded credentials (CLAUDE.md).
-        services.AddOptions<MeetingProviderSettings>().BindConfiguration(MeetingProviderSettings.SectionName);
+        // ValidateOnStart forces the binder (including DefaultProvider's
+        // enum parse) to run during host startup rather than lazily on the
+        // first "Start Lesson" request — a typo'd provider name fails fast,
+        // the same principle Program.cs already applies to a placeholder
+        // connection string.
+        services.AddOptions<MeetingProviderSettings>()
+            .BindConfiguration(MeetingProviderSettings.SectionName)
+            .ValidateOnStart();
         services.AddScoped<IMeetingProviderSettingsCatalog, MeetingProviderSettingsCatalog>();
         services.AddScoped<IMeetingProviderResolver, MeetingProviderResolver>();
 

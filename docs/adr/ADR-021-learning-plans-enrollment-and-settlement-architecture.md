@@ -6,7 +6,9 @@
 
 ## Status
 
-**Proposed — 2026-07-27.** No section of this ADR is Accepted. It is written entirely at the owner's own direction, in response to a request ("RC4.1") to replace pay-per-session with a Learning Plan/Enrollment commerce model, after the owner was shown that request conflicts with standing scope documents and chose, from four offered paths, to have this design produced first, with no code, for review and explicit acceptance before any implementation begins.
+**Proposed — 2026-07-27; Question 1 answered No — 2026-07-29.** No section of this ADR is Accepted. It is written entirely at the owner's own direction, in response to a request ("RC4.1") to replace pay-per-session with a Learning Plan/Enrollment commerce model, after the owner was shown that request conflicts with standing scope documents and chose, from four offered paths, to have this design produced first, with no code, for review and explicit acceptance before any implementation begins.
+
+On 2026-07-29 the owner answered Question 1 (Questions Requiring Approval, below): payments remain out of scope for RC1. Since Question 1 is the gate every other question in this ADR sits behind (Recommendation / Next Steps: "no implementation phase should begin until Questions 1–3 are resolved"), this closes the ADR's go/no-go decision as "no, not for RC1" without needing Questions 2–13 answered — they remain moot until payments scope is reopened for a future release. Nothing in this ADR is authorized for implementation. Learning Plans, Enrollment, and settlement remain entirely out of scope for RC1, alongside the existing pay-per-session `BookSessionCommandHandler` path continuing unchanged (Question 11 is itself moot: there is no new path to retire it in favor of).
 
 ## Governance Note (read first)
 
@@ -192,7 +194,7 @@ Does not implement any code. Does not add any package or gateway SDK. Does not d
 
 ## Questions Requiring Approval
 
-1. **Scope — payments.** Does the owner widen v1 scope to include payments (restated from `ADR-020`/`PHASE-05A-REPORT.md` Section 6 Item 1, still unresolved)?
+1. ~~**Scope — payments.** Does the owner widen v1 scope to include payments (restated from `ADR-020`/`PHASE-05A-REPORT.md` Section 6 Item 1, still unresolved)?~~ **Resolved 2026-07-29: No.** Payments remain out of scope for RC1. Questions 2–13 below are moot for RC1 as a result and remain unanswered until this gate reopens for a future release.
 2. **Scope — recurring bookings.** Does the "resolve a weekly-schedule pattern against pre-declared individual slots" design (Cross-Context Integration, above) satisfy `PRODUCT_REQUIREMENTS.md` SCH-4's intent, or does SCH-4 itself need to be revisited/amended given the functional outcome is many Sessions from one purchase?
 3. **New bounded context.** Is "Enrollment & Billing" ratified as a fifth bounded context, and is the new Enrollment & Billing → Scheduling & Booking write-invoking edge accepted as an extension to `ADR-002`'s dependency graph?
 4. **LearningPlan scope.** Is a Learning Plan a platform-wide catalog entry (matched to any Tutor sharing its Subject), or must it be scoped to specific Tutors?
@@ -212,4 +214,4 @@ Mirrors `ADR-020`'s own procedural posture: no implementation phase should begin
 
 ---
 
-*Status: Proposed — 2026-07-27. No section of this ADR is Accepted until the owner resolves the Questions Requiring Approval above. Supersedes `ADR-020` (Proposed) in full.*
+*Status: Proposed — 2026-07-27; Question 1 answered No (payments out of scope for RC1) — 2026-07-29. No section of this ADR is Accepted. Supersedes `ADR-020` (Proposed) in full.*

@@ -6,7 +6,7 @@
 
 ## Status
 
-**Proposed — 2026-07-29.** No section of this ADR is Accepted. It exists so the owner can evaluate and either accept, amend, or reject each proposal below before any implementation phase touching these concepts begins — the same posture `ADR-021`/`ADR-024` already established for their own Governance Notes.
+**Partially Accepted — 2026-07-29.** Questions 7, 8, and 9 (minimum booking notice, maximum booking horizon, and reschedule enforcement) are **Accepted** — see the Addendum below for the owner's actual decision and the implementation it authorizes. Every other proposal in this ADR (recurring availability, blocked dates, "working hours," buffer time — Questions 1–6) remains **Proposed**; the owner can still evaluate and either accept, amend, or reject each of those independently before any implementation phase touching them begins, exactly as this ADR's own Recommendation/Next Steps section anticipated ("the owner may accept... the notice/horizon proposal... without yet deciding on recurring availability at all").
 
 ## Governance Note (read first)
 
@@ -17,7 +17,7 @@ This ADR surfaces the same recurring-availability tension `ADR-021` already flag
 3. **Buffer time between lessons is not mentioned anywhere**, not even as an Open Question — the same pure-silence status as (2).
 4. **Minimum/maximum booking notice is an explicitly unresolved Open Question**, not silence: `DOMAIN_MODEL.md` Open Question 8 / `PRODUCT_REQUIREMENTS.md` Section 10.2 Item 8, confirmed still open as of the most recent phase reports (`docs/phases/PHASE-046-REPORT.md`, `PHASE-047-REPORT.md`). `AvailabilitySlot.Book()`, `AvailabilitySlot.Reopen()`, and `Session.Reschedule()` each carry an explicit in-code comment stating they deliberately do not guard against a past or too-near start time, precisely because no such rule exists yet.
 
-**Before any implementation phase referenced in this ADR may begin, the owner must resolve the Questions Requiring Approval below.** None may be silently decided by implementation.
+**Before any implementation phase referenced in this ADR may begin, the owner must resolve the Questions Requiring Approval below.** None may be silently decided by implementation. Questions 7–9 (booking notice/horizon) were resolved this way — see the Addendum — and their implementation is authorized. Questions 1–6 remain unresolved and remain off-limits to implementation.
 
 ## Context
 
@@ -86,7 +86,7 @@ Mirrors the three-layer discipline every prior ADR-then-implemented phase in thi
 
 **Becomes harder / newly constrained:** every slot-generation path must now also honor buffer time and (once numbers exist) the notice/horizon window, not just the overlap guard; a new delete/withdraw capability on `AvailabilitySlot` needs its own careful guard (never allow withdrawing a consumed slot) that doesn't exist anywhere in this codebase today.
 
-**Now forbidden (restated, not new):** no implementation code under cover of this ADR; no invented default numbers for buffer time or notice/horizon; no new recurring-*booking* capability exposed to a Student (Option A's entire point is that the Student-facing contract is unchanged).
+**Now forbidden (restated, not new):** no implementation code under cover of this ADR for Questions 1–6 (recurring availability, blocked dates, working hours, buffer time — no invented default numbers for buffer time, since Question 6 remains open); no new recurring-*booking* capability exposed to a Student (Option A's entire point is that the Student-facing contract is unchanged). Booking notice/horizon (Questions 7–9) are no longer in this forbidden set — see the Addendum for the owner-supplied numbers this ADR itself declined to invent.
 
 ## Supersedes / Relates To
 
@@ -107,14 +107,30 @@ Does not implement any code. Does not choose actual buffer-time, minimum-notice,
 4. **Blocked dates.** Skip-a-single-occurrence, block-a-whole-date, or both?
 5. **"Working hours" framing.** Confirm: no new Domain concept, purely a UI label over Option A's generation step — or does the owner want an actual, independently-stored template distinct from concrete slots (contrary to this ADR's recommendation)?
 6. **Buffer time default.** Per-Tutor optional value as recommended (vs. per-slot); what is the platform default (zero/opt-in, or some non-zero value) if the Tutor never sets one?
-7. **Minimum booking notice.** Is there a floor at all, and if so, what is it (e.g. "at least 2 hours before the slot's start")?
-8. **Maximum booking horizon.** Is there a ceiling at all, and if so, what is it (e.g. "at most 60 days ahead")? Platform-wide (Admin-configured) as recommended, or per-Tutor?
-9. **Notice/horizon enforcement scope.** Once set, should the same check apply to `RescheduleSessionCommand`'s new time (recommended, to prevent bypass via reschedule), or only to initial booking?
+7. ~~**Minimum booking notice.** Is there a floor at all, and if so, what is it?~~ **Resolved 2026-07-29:** yes — 24 hours before the slot's own start time. See Addendum.
+8. ~~**Maximum booking horizon.** Is there a ceiling at all, and if so, what is it? Platform-wide or per-Tutor?~~ **Resolved 2026-07-29:** yes — 90 days ahead, platform-wide (not per-Tutor, as recommended). See Addendum.
+9. ~~**Notice/horizon enforcement scope.** Should the same check apply to `RescheduleSessionCommand`'s new time, or only to initial booking?~~ **Resolved 2026-07-29:** yes, applies identically to both — see Addendum.
 
 ## Recommendation / Next Steps
 
 No implementation phase should begin until Questions 1–2 are resolved (they determine whether anything else here can be built at all, and in what shape). Questions 3–5 gate the overrides/working-hours surface specifically. Questions 6–9 gate buffer time and notice/horizon independently of the recurring-availability questions — the owner may accept, say, the notice/horizon proposal (closing a long-open Domain Model question) without yet deciding on recurring availability at all, since the two are independent proposals bundled into one ADR only because they came from the same phase request.
 
+**2026-07-29 update:** this is exactly what happened. Questions 7–9 (notice/horizon, not buffer time — Question 6 remains open) were accepted independently of Questions 1–5; see the Addendum below for the resulting implementation.
+
+## Addendum — Booking Notice & Horizon, 2026-07-29
+
+The owner accepted this ADR's own recommended mechanism and shape (Questions 7–9) and supplied the two numbers this ADR deliberately declined to invent:
+
+- **Minimum booking notice: 24 hours.** A Session may not be booked (or rescheduled into) an Availability Slot whose `StartTimeUtc` is less than 24 hours from the current instant.
+- **Maximum booking horizon: 90 days, platform-wide.** A Session may not be booked (or rescheduled into) an Availability Slot whose `StartTimeUtc` is more than 90 days from the current instant. Platform-wide, not per-Tutor, as this ADR recommended — no per-Tutor override exists.
+- **Applies identically to reschedule.** `RescheduleSessionCommand`'s check against the *new* slot's `StartTimeUtc` uses the same two constants, closing the bypass-via-reschedule gap this ADR flagged.
+
+**Enforcement point (per this ADR's own recommended shape, Proposal — Minimum/Maximum Booking Notice, above):** `BookSessionCommandHandler` and `RescheduleSessionCommandHandler`, at the moment of booking/rescheduling — never inside `AvailabilitySlot.Declare`/`AvailabilitySlot.Book`/`Session.Reschedule` themselves, since a notice/horizon window is a booking-time policy check against the current instant, not a fact knowable from the slot's own data alone. Both constants are configuration-driven (`SchedulingConstraints:MinimumBookingNoticeHours`, `SchedulingConstraints:MaximumBookingHorizonDays`), not hardcoded literals, so a future Admin-configuration UI (out of scope for this pass) can change them without a code change — the same "config over hardcoding" convention `RateLimitingSettings`/`MeetingProviderSettings` already established.
+
+**Still forbidden:** Questions 1–6 (recurring availability, blocked dates, working hours, buffer time) remain Proposed, not Accepted — no implementation code exists for any of them, and this Addendum authorizes none.
+
+**Resolves:** `DOMAIN_MODEL.md` Open Question 8 and `PRODUCT_REQUIREMENTS.md` Section 10.2 Item 8 — both updated to reflect this decision.
+
 ---
 
-*Status: Proposed — 2026-07-29. No section of this ADR is Accepted until the owner resolves the Questions Requiring Approval above.*
+*Status: Partially Accepted — 2026-07-29. Questions 7–9 (booking notice/horizon) are Accepted — see Addendum. Questions 1–6 (recurring availability, blocked dates, working hours, buffer time) remain Proposed until the owner resolves them.*

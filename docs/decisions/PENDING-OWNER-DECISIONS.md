@@ -17,11 +17,11 @@ Answer inline (fill in the `→` blank) or reference a separate written decision
 | 4 | Blocked dates: skip-a-single-occurrence, block-a-whole-date, or both? | → |
 | 5 | "Working hours" — confirm: no new Domain concept, purely a UI label over Option A's generation step [recommended], or an actual independently-stored template? | → |
 | 6 | Buffer time: per-Tutor optional value [recommended]; what platform default if unset — zero (opt-in only) or some non-zero value? | → |
-| 7 | **Minimum booking notice** (`DOMAIN_MODEL.md` Open Question 8): is there a floor? If so, how many hours/minutes before a slot's start? | → |
-| 8 | **Maximum booking horizon**: is there a ceiling? If so, how many days ahead? Platform-wide (Admin-configured) [recommended] or per-Tutor? | → |
-| 9 | Once Q7/Q8 are set, does the same check apply to `RescheduleSessionCommand`'s new time [recommended, to prevent bypass via reschedule]? | → |
+| 7 | **Minimum booking notice** (`DOMAIN_MODEL.md` Open Question 8): is there a floor? If so, how many hours/minutes before a slot's start? | → **Resolved 2026-07-29:** yes — 24 hours. |
+| 8 | **Maximum booking horizon**: is there a ceiling? If so, how many days ahead? Platform-wide (Admin-configured) [recommended] or per-Tutor? | → **Resolved 2026-07-29:** yes — 90 days, platform-wide. |
+| 9 | Once Q7/Q8 are set, does the same check apply to `RescheduleSessionCommand`'s new time [recommended, to prevent bypass via reschedule]? | → **Resolved 2026-07-29:** yes. |
 
-**Highest-impact single question:** Q7 (minimum booking notice) — currently a Student can book a session starting one minute from now. Answering just Q7/Q8 is independent of Q1–Q6 and can ship alone.
+**Highest-impact single question:** Q7 (minimum booking notice) — currently a Student can book a session starting one minute from now. Answering just Q7/Q8 is independent of Q1–Q6 and can ship alone. **Q7–Q9 resolved 2026-07-29 — see `docs/adr/ADR-025-...` Addendum. Q1–Q6 remain open.**
 
 **Already prepared, unblocked by this decision:** Phase 8a's same-Tutor overlap guard (`AvailabilitySlot.Declare`) and the month-calendar UX (`MonthCalendarGrid`) are shipped and require no revision — the ADR extends both, never replaces them.
 
@@ -32,7 +32,7 @@ Answer inline (fill in the `→` blank) or reference a separate written decision
 
 | # | Question | → Decision |
 |---|---|---|
-| 1 | **Gate.** Does the owner widen v1 scope to include payments at all? *(Everything below is moot if "no.")* | → |
+| 1 | **Gate.** Does the owner widen v1 scope to include payments at all? *(Everything below is moot if "no.")* | → **Resolved 2026-07-29: No.** Learning Plans and Payments remain out of scope for RC1. Questions 2–13 remain moot for RC1. |
 | 2 | Does an Enrollment-driven multi-session purchase satisfy `PRODUCT_REQUIREMENTS.md` SCH-4 ("no recurring bookings"), or does SCH-4 need amending? | → |
 | 3 | Ratify "Enrollment & Billing" as a fifth bounded context (extends `ADR-002`)? | → |
 | 4 | Is a Learning Plan a platform-wide catalog entry (any Tutor sharing its Subject), or scoped to specific Tutors? | → |
@@ -55,7 +55,7 @@ Answer inline (fill in the `→` blank) or reference a separate written decision
 
 | # | Question | → Decision |
 |---|---|---|
-| 1 | **Gate.** Reopen Decision C.12 and bring reviews/ratings into v1 scope at all? | → |
+| 1 | **Gate.** Reopen Decision C.12 and bring reviews/ratings into v1 scope at all? | → **Resolved 2026-07-29: No.** Reviews/Ratings remain out of scope for RC1. Questions 2–5 remain moot for RC1. |
 | 2 | If yes: who may leave a review — any Student/Parent-Guardian with a `Completed` Session against that Tutor only, or anyone? | → |
 | 3 | Can a Tutor respond to a review? Can Admin/Staff remove one (and under what standard — abuse only, or any reason)? | → |
 | 4 | Does a Tutor's aggregate rating factor into Discovery search ranking (a new, currently-nonexistent ranking concept — `DOMAIN_MODEL.md` Open Question 11 territory)? | → |
@@ -70,7 +70,7 @@ Answer inline (fill in the `→` blank) or reference a separate written decision
 
 | # | Question | → Decision |
 |---|---|---|
-| 1 | **Gate.** Bring any form of dispute/report/moderation capability into v1 scope? | → |
+| 1 | **Gate.** Bring any form of dispute/report/moderation capability into v1 scope? | → **Resolved 2026-07-29: No.** Disputes remain out of scope for RC1. Questions 2–4 remain moot for RC1. |
 | 2 | Scope: (a) a Student/Tutor reporting the *other party* (abuse/no-show dispute), (b) an Admin unilaterally cancelling/reassigning a Session ("resolve booking conflict," the already-named-but-unimplemented permission), or both? | → |
 | 3 | What actions can an Admin actually take on a disputed Session — cancel only, forced reschedule, refund (blocked on Section 2's payment decision), suspend a party? | → |
 | 4 | Does a report/dispute need its own Domain aggregate + audit trail (new bounded context, same category of decision `ADR-002`/`ADR-022`/`ADR-023` each required), or is it an extension of the existing Session/Oversight surface? | → |
@@ -86,9 +86,9 @@ Answer inline (fill in the `→` blank) or reference a separate written decision
 
 | # | Question | → Decision |
 |---|---|---|
-| 1 | **Gate.** Is containerization needed at all before a real hosting provider is chosen (`ADR-018` point 6, itself still a separate future decision)? | → |
-| 2 | If yes: is a documented **dev/CI-only** Docker setup acceptable (never used for the real Iran-hosted production deployment, so the reachability concern doesn't apply to it), or must even that be Iran-reachable? | → |
-| 3 | If production containerization is wanted: is there a known Iran-reachable mirror/registry for `.NET`/`node`/`nginx`/`postgres` base images, or does this require self-built base images from source — a materially larger undertaking? | → |
+| 1 | **Gate.** Is containerization needed at all before a real hosting provider is chosen (`ADR-018` point 6, itself still a separate future decision)? | → **Resolved 2026-07-29:** Yes, for development/CI only. Production containerization is deferred until a hosting provider is chosen. |
+| 2 | If yes: is a documented **dev/CI-only** Docker setup acceptable (never used for the real Iran-hosted production deployment, so the reachability concern doesn't apply to it), or must even that be Iran-reachable? | → **Resolved 2026-07-29:** Yes — dev/CI-only Docker is acceptable; the Iran-reachability constraint applies only to the real production deployment, not to `.devcontainer`/CI tooling. |
+| 3 | If production containerization is wanted: is there a known Iran-reachable mirror/registry for `.NET`/`node`/`nginx`/`postgres` base images, or does this require self-built base images from source — a materially larger undertaking? | → Still open — moot until production containerization is taken up alongside the hosting-provider decision. |
 
 **Architecture prepared without deciding the above:** none — there is no safe partial Docker setup to build ahead of Q1, the same reasoning `.devcontainer`'s own existing comment already gives.
 

@@ -3,9 +3,11 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BookSessionPage } from "@/features/scheduling/pages/BookSessionPage";
 import { renderWithProviders } from "@/test/renderWithProviders";
+import { AuthHarness } from "@/test/AuthHarness";
 import * as schedulingService from "@/features/scheduling/api/schedulingService";
 import * as identityService from "@/features/identity/api/identityService";
-import { DeliveryMode, SessionStatus } from "@/services/api/dtos";
+import { DeliveryMode, RelationshipStatus, SessionStatus } from "@/services/api/dtos";
+import type { AuthenticatedUser } from "@/shared/context/AuthContext";
 
 const TUTOR_ID = "11111111-1111-1111-1111-111111111111";
 const SLOT_ID = "22222222-2222-2222-2222-222222222222";
@@ -88,11 +90,56 @@ describe("BookSessionPage", () => {
       expect(screen.getByText("Verified")).toBeInTheDocument();
       expect(screen.getByText("Speaks English")).toBeInTheDocument();
       expect(screen.getByText("50,000 Toman/hr")).toBeInTheDocument();
-      expect(screen.getByText("Choose Tutor")).toBeInTheDocument();
+      // "Choose Tutor" (the current step) renders twice — once in the
+      // desktop Stepper, once in the mobile-only progress heading; CSS
+      // controls which is visible per viewport, jsdom renders both.
+      expect(screen.getAllByText("Choose Tutor")).toHaveLength(2);
       expect(screen.getByText("Choose Date")).toBeInTheDocument();
       expect(screen.getByText("Choose Time")).toBeInTheDocument();
       expect(screen.getByText("Review")).toBeInTheDocument();
       expect(screen.getByText("Confirm")).toBeInTheDocument();
+    });
+
+    it("shows a mobile progress bar reflecting the current step, and moves focus to each new step for screen-reader users", async () => {
+      mockTutorAndSlots();
+
+      renderWithProviders(<BookSessionPage />, {
+        initialEntries: [`/scheduling/sessions/book?tutorId=${TUTOR_ID}`],
+      });
+
+      await screen.findByText("Mathematics");
+      expect(screen.getByLabelText("Step 1 of 5: Choose Tutor")).toHaveAttribute(
+        "aria-valuenow",
+        "20",
+      );
+      expect(screen.getByRole("group", { name: "Choose Tutor" })).toHaveFocus();
+
+      await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+      expect(await screen.findByRole("group", { name: "Choose Date" })).toHaveFocus();
+      expect(screen.getByLabelText("Step 2 of 5: Choose Date")).toHaveAttribute(
+        "aria-valuenow",
+        "40",
+      );
+    });
+
+    it("keeps the Tutor summary (identity + price) visible across every step, never repeated inside the Booking Summary", async () => {
+      mockTutorAndSlots();
+
+      renderWithProviders(<BookSessionPage />, {
+        initialEntries: [`/scheduling/sessions/book?tutorId=${TUTOR_ID}`],
+      });
+
+      await advanceToReview();
+
+      // The Tutor summary card is still visible at Review…
+      expect(screen.getByText("Mathematics")).toBeInTheDocument();
+      expect(screen.getByText("50,000 Toman/hr")).toBeInTheDocument();
+      // …exactly once each — the Booking Summary itself no longer repeats them.
+      expect(screen.getAllByText("Mathematics")).toHaveLength(1);
+      expect(screen.getAllByText("50,000 Toman/hr")).toHaveLength(1);
+      expect(screen.queryByText("Tutor")).not.toBeInTheDocument();
+      expect(screen.queryByText("Price")).not.toBeInTheDocument();
     });
 
     it("groups open Availability Slots by date, excluding consumed ones, and only shows a date's own slots as time choices", async () => {
@@ -161,7 +208,11 @@ describe("BookSessionPage", () => {
         studentId: STUDENT_ID,
         parentGuardianId: null,
       });
-      expect(await screen.findByText("Session booked")).toBeInTheDocument();
+      expect(await screen.findByText("Your lesson is booked!")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "My Lessons" })).toHaveAttribute(
+        "href",
+        "/scheduling/students",
+      );
       expect(window.localStorage.getItem("tutorflow.rememberedId.student")).toBe(STUDENT_ID);
     });
 
@@ -234,13 +285,119 @@ describe("BookSessionPage", () => {
       });
 
       expect(
-        await screen.findByRole("heading", { name: "We couldn’t load this tutor" }),
+        await screen.findByRole("heading", { name: "Tutor unavailable" }),
       ).toBeInTheDocument();
       expect(screen.queryByText("500 Internal Server Error")).not.toBeInTheDocument();
-      expect(screen.getByRole("link", { name: /Find Tutors/ })).toHaveAttribute(
+      expect(screen.getByRole("link", { name: /Find another tutor/ })).toHaveAttribute(
         "href",
         "/discovery/tutors/search",
       );
+    });
+  });
+
+  describe("RC4.3: identity resolves from a real signed-in session, never a typed id", () => {
+    function mockTutorAndSlots(slots = [OPEN_SLOT]) {
+      vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
+      vi.spyOn(schedulingService, "fetchTutorAvailabilitySlots").mockResolvedValue(slots);
+    }
+
+    const STUDENT_USER: AuthenticatedUser = {
+      token: "t",
+      accountId: STUDENT_ID,
+      role: "Student",
+      expiresAtUtc: "2999-01-01T00:00:00Z",
+      email: "student@example.com",
+    };
+
+    const PARENT_ID = "55555555-5555-5555-5555-555555555555";
+    const PARENT_USER: AuthenticatedUser = {
+      token: "t",
+      accountId: PARENT_ID,
+      role: "ParentGuardian",
+      expiresAtUtc: "2999-01-01T00:00:00Z",
+      email: "parent@example.com",
+    };
+
+    it("a signed-in Student never sees a Student id field — it books for themselves automatically", async () => {
+      mockTutorAndSlots();
+
+      renderWithProviders(
+        <>
+          <AuthHarness user={STUDENT_USER} />
+          <BookSessionPage />
+        </>,
+        { initialEntries: [`/scheduling/sessions/book?tutorId=${TUTOR_ID}`] },
+      );
+
+      await advanceToReview();
+
+      expect(screen.getByText("Booking for yourself.")).toBeInTheDocument();
+      expect(screen.queryByLabelText("Student id")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/Parent\/Guardian id/)).not.toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+      const bookSession = vi.spyOn(schedulingService, "bookSession").mockResolvedValue({
+        sessionId: SESSION_ID,
+        tutorId: TUTOR_ID,
+        studentId: STUDENT_ID,
+        parentGuardianId: null,
+        availabilitySlotId: SLOT_ID,
+        scheduledTimeUtc: OPEN_SLOT.startTimeUtc,
+        endTimeUtc: OPEN_SLOT.endTimeUtc,
+        duration: OPEN_SLOT.duration,
+        deliveryMode: DeliveryMode.Online,
+        status: SessionStatus.Scheduled,
+      });
+      await userEvent.click(await screen.findByRole("button", { name: "Confirm Your Lesson" }));
+
+      expect(bookSession).toHaveBeenCalledWith({
+        availabilitySlotId: SLOT_ID,
+        studentId: STUDENT_ID,
+        parentGuardianId: null,
+      });
+    });
+
+    it("a signed-in Parent/Guardian chooses a confirmed child from a list — never types a Student id", async () => {
+      mockTutorAndSlots();
+      vi.spyOn(identityService, "fetchRelationshipsForAccount").mockResolvedValue([
+        {
+          relationshipId: "r1",
+          parentGuardianId: PARENT_ID,
+          studentId: STUDENT_ID,
+          status: RelationshipStatus.Confirmed,
+        },
+      ]);
+
+      renderWithProviders(
+        <>
+          <AuthHarness user={PARENT_USER} />
+          <BookSessionPage />
+        </>,
+        { initialEntries: [`/scheduling/sessions/book?tutorId=${TUTOR_ID}`] },
+      );
+
+      await advanceToReview();
+
+      expect(await screen.findByLabelText("Choose your child")).toBeInTheDocument();
+      expect(screen.queryByLabelText("Student id")).not.toBeInTheDocument();
+    });
+
+    it("a signed-in Parent/Guardian with no confirmed child sees an 'Add a child' prompt, and Continue is disabled", async () => {
+      mockTutorAndSlots();
+      vi.spyOn(identityService, "fetchRelationshipsForAccount").mockResolvedValue([]);
+
+      renderWithProviders(
+        <>
+          <AuthHarness user={PARENT_USER} />
+          <BookSessionPage />
+        </>,
+        { initialEntries: [`/scheduling/sessions/book?tutorId=${TUTOR_ID}`] },
+      );
+
+      await advanceToReview();
+
+      expect(await screen.findByRole("heading", { name: "Add a child first" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
     });
   });
 });

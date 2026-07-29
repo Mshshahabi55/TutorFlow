@@ -46,14 +46,20 @@ export function AvailabilitySlotDetailPage() {
             {slotQuery.isError ? (
               <Stack spacing={2} alignItems="flex-start">
                 <Typography variant="subtitle1" fontWeight={600}>
-                  We couldn&rsquo;t find that Availability Slot
+                  Availability unavailable
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  It may have already been booked, or the link might be broken.
+                  This teaching time is no longer available. It may have already been booked, or the
+                  link might be broken.
                 </Typography>
-                <Button variant="outlined" onClick={() => void slotQuery.refetch()}>
-                  Try again
-                </Button>
+                <Stack direction="row" spacing={1.5} flexWrap="wrap">
+                  <Button variant="outlined" onClick={() => void slotQuery.refetch()}>
+                    Try again
+                  </Button>
+                  <Button component={RouterLink} to={paths.discovery.tutorSearch} variant="contained">
+                    Find a tutor
+                  </Button>
+                </Stack>
               </Stack>
             ) : null}
             {slotQuery.isSuccess ? (

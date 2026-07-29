@@ -30,17 +30,24 @@ export function AvailabilityCard({ slot, selected, onSelect }: AvailabilityCardP
         display: "block",
         textAlign: "left",
         borderRadius: 1,
-        border: "1px solid",
+        border: "2px solid",
         borderColor: selected ? "primary.main" : "divider",
         bgcolor: selected ? "action.selected" : "background.paper",
-        p: 2,
+        boxShadow: selected ? 2 : 0,
+        p: 2.5,
+        minHeight: 44,
         flex: "1 1 220px",
         minWidth: 220,
         maxWidth: 280,
-        transition: (t) => t.transitions.create(["border-color", "background-color"], { duration: 150 }),
+        transition: (t) =>
+          t.transitions.create(["border-color", "background-color", "box-shadow"], { duration: 150 }),
         "&:hover": {
           borderColor: selected ? "primary.main" : "primary.light",
           bgcolor: selected ? "action.selected" : "action.hover",
+          boxShadow: 2,
+        },
+        "@media (prefers-reduced-motion: reduce)": {
+          transition: "none",
         },
       }}
     >

@@ -65,7 +65,7 @@ describe("AvailabilitySlotDetailPage", () => {
     });
 
     expect(
-      await screen.findByText("We couldn’t find that Availability Slot"),
+      await screen.findByText("Availability unavailable"),
     ).toBeInTheDocument();
     expect(screen.queryByText("404 Not Found")).not.toBeInTheDocument();
   });

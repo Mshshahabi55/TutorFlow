@@ -5,14 +5,14 @@ import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded";
 import { useTutorSchedule } from "@/features/scheduling/hooks/useSessionQueries";
 import { useTutorAvailabilitySlots } from "@/features/scheduling/hooks/useAvailabilitySlotQueries";
-import { WeeklyAvailabilityCalendar } from "@/features/scheduling/components/WeeklyAvailabilityCalendar";
+import { TutorAvailabilityCalendar } from "@/features/scheduling/components/TutorAvailabilityCalendar";
 import { AddTeachingTimeDialog } from "@/features/scheduling/components/AddTeachingTimeDialog";
 import { AvailabilitySummaryCard } from "@/features/scheduling/components/AvailabilitySummaryCard";
 import { SectionCard } from "@/shared/components/SectionCard";
 import { IdentityGate } from "@/shared/components/IdentityGate";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
-import { ErrorState } from "@/shared/components/feedback/ErrorState";
+import { IdentityLookupErrorState } from "@/shared/components/feedback/IdentityLookupErrorState";
 import { paths } from "@/routes/paths";
 import type { SessionDto } from "@/services/api/dtos";
 
@@ -26,19 +26,36 @@ import type { SessionDto } from "@/services/api/dtos";
  * section below. Same `POST /availability-slots` mutation and
  * `GET /tutors/{id}/availability-slots` query as before.
  */
-function TeachingSchedule({ tutorId }: { tutorId: string }) {
+function TeachingSchedule({ tutorId, onChooseAgain }: { tutorId: string; onChooseAgain: () => void }) {
   const navigate = useNavigate();
   const slotsQuery = useTutorAvailabilitySlots(tutorId);
   const scheduleQuery = useTutorSchedule(tutorId);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogDateKey, setDialogDateKey] = useState<string | undefined>(undefined);
   const [showHistory, setShowHistory] = useState(false);
 
   function openSession(session: SessionDto) {
     void navigate(paths.scheduling.sessionDetail(session.sessionId));
   }
 
+  function openDialogForDate(dateKey: string) {
+    setDialogDateKey(dateKey);
+    setDialogOpen(true);
+  }
+
+  function openDialogWithNoPrefill() {
+    setDialogDateKey(undefined);
+    setDialogOpen(true);
+  }
+
   if (slotsQuery.isError) {
-    return <ErrorState error={slotsQuery.error} onRetry={() => void slotsQuery.refetch()} />;
+    return (
+      <IdentityLookupErrorState
+        error={slotsQuery.error}
+        onRetry={() => void slotsQuery.refetch()}
+        onChooseAgain={onChooseAgain}
+      />
+    );
   }
 
   const slots = slotsQuery.data ?? [];
@@ -55,7 +72,7 @@ function TeachingSchedule({ tutorId }: { tutorId: string }) {
         <Button
           variant="contained"
           startIcon={<AddRoundedIcon />}
-          onClick={() => setDialogOpen(true)}
+          onClick={openDialogWithNoPrefill}
         >
           Add Teaching Time
         </Button>
@@ -75,7 +92,7 @@ function TeachingSchedule({ tutorId }: { tutorId: string }) {
             <Button
               variant="contained"
               startIcon={<EventAvailableRoundedIcon />}
-              onClick={() => setDialogOpen(true)}
+              onClick={openDialogWithNoPrefill}
             >
               Add Availability
             </Button>
@@ -83,15 +100,21 @@ function TeachingSchedule({ tutorId }: { tutorId: string }) {
         />
       ) : (
         <SectionCard title="Teaching Schedule">
-          <WeeklyAvailabilityCalendar
+          <TutorAvailabilityCalendar
             slots={slots}
             sessions={scheduleQuery.data ?? []}
             onOpenSession={openSession}
+            onAddTeachingTime={openDialogForDate}
           />
         </SectionCard>
       )}
 
-      <AddTeachingTimeDialog tutorId={tutorId} open={dialogOpen} onClose={() => setDialogOpen(false)} />
+      <AddTeachingTimeDialog
+        tutorId={tutorId}
+        open={dialogOpen}
+        initialDateKey={dialogDateKey}
+        onClose={() => setDialogOpen(false)}
+      />
 
       {bookedSlots.length > 0 ? (
         <SectionCard
@@ -138,7 +161,7 @@ export function DeclareAvailabilityPage() {
         title="Let's set up your schedule"
         description="Enter your tutor id once — we'll remember it on this device so you won't need to again."
       >
-        {(tutorId) => <TeachingSchedule tutorId={tutorId} />}
+        {(tutorId, forget) => <TeachingSchedule tutorId={tutorId} onChooseAgain={forget} />}
       </IdentityGate>
     </Stack>
   );

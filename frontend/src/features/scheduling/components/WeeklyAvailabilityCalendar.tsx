@@ -1,18 +1,10 @@
-import { Box, Chip, Stack, Typography } from "@mui/material";
-import { tehranDateKey, tehranDateLabel, toTehranDisplay } from "@/shared/time/tehranTime";
-import { timeSpanToMinutes } from "@/shared/utils/duration";
+import { Box, Stack, Typography } from "@mui/material";
+import { tehranDateKey, tehranDateLabel } from "@/shared/time/tehranTime";
+import { AvailabilitySlotChip } from "@/features/scheduling/components/AvailabilitySlotChip";
+import { AvailabilityLegend } from "@/features/scheduling/components/AvailabilityLegend";
 import type { AvailabilitySlotDto, SessionDto } from "@/services/api/dtos";
 
 const DAYS_SHOWN = 7;
-
-type SlotState = "booked" | "available" | "past";
-
-function classifySlot(slot: AvailabilitySlotDto, now: number): SlotState {
-  if (slot.isConsumed) {
-    return "booked";
-  }
-  return Date.parse(slot.startTimeUtc) < now ? "past" : "available";
-}
 
 /** The next `DAYS_SHOWN` Tehran-local calendar dates, starting today — the calendar's week window. */
 function upcomingDateKeys(now: Date): string[] {
@@ -62,11 +54,7 @@ export function WeeklyAvailabilityCalendar({
 
   return (
     <Stack spacing={2}>
-      <Stack direction="row" spacing={2} flexWrap="wrap">
-        <LegendItem color="success.main" label="Available" />
-        <LegendItem color="primary.main" label="Booked" />
-        <LegendItem color="text.disabled" label="Past (unbooked)" />
-      </Stack>
+      <AvailabilityLegend />
 
       <Stack direction="row" spacing={2} sx={{ overflowX: "auto", pb: 1 }}>
       {dateKeys.map((dateKey) => {
@@ -99,49 +87,21 @@ export function WeeklyAvailabilityCalendar({
               </Typography>
             ) : (
               <Stack spacing={1} mt={1}>
-                {daySlots.map((slot) => {
-                  const state = classifySlot(slot, nowMs);
-                  const session = sessionBySlotId.get(slot.availabilitySlotId);
-                  const label = `${toTehranDisplay(slot.startTimeUtc).split(", ").pop()} · ${timeSpanToMinutes(slot.duration)}min`;
-
-                  return (
-                    <Chip
-                      key={slot.availabilitySlotId}
-                      label={label}
-                      size="small"
-                      clickable={state === "booked" && Boolean(session)}
-                      onClick={
-                        state === "booked" && session ? () => onOpenSession(session) : undefined
-                      }
-                      color={state === "booked" ? "primary" : state === "available" ? "success" : "default"}
-                      variant={state === "past" ? "outlined" : "filled"}
-                      sx={{
-                        justifyContent: "flex-start",
-                        opacity: state === "past" ? 0.6 : 1,
-                        height: "auto",
-                        minHeight: 32,
-                        "& .MuiChip-label": { whiteSpace: "normal", py: 0.5 },
-                      }}
-                    />
-                  );
-                })}
+                {daySlots.map((slot) => (
+                  <AvailabilitySlotChip
+                    key={slot.availabilitySlotId}
+                    slot={slot}
+                    session={sessionBySlotId.get(slot.availabilitySlotId)}
+                    onOpenSession={onOpenSession}
+                    nowMs={nowMs}
+                  />
+                ))}
               </Stack>
             )}
           </Box>
         );
       })}
       </Stack>
-    </Stack>
-  );
-}
-
-function LegendItem({ color, label }: { color: string; label: string }) {
-  return (
-    <Stack direction="row" spacing={0.75} alignItems="center">
-      <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: color }} />
-      <Typography variant="caption" color="text.secondary">
-        {label}
-      </Typography>
     </Stack>
   );
 }

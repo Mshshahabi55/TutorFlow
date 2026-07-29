@@ -23,15 +23,13 @@
 
 ## Release Blockers
 
-**None at the code level.** Build, lint, and full test suite are green across every layer (see Verification Pipeline below), and five of six audits returned clean.
+**None.** Build, lint, and full test suite are green across every layer (see Verification Pipeline below), and five of six audits returned clean.
 
-**One item requires an explicit owner decision before full sign-off**, not a code fix:
+### Audit trail coverage for `RelationshipConfirmed`, `SessionCompleted`, `SessionMarkedNoShow` — flagged, not a blocker
 
-### Audit trail coverage for `RelationshipConfirmed`, `SessionCompleted`, `SessionMarkedNoShow`
+These three Domain Events mutate governance-relevant state — confirming who may transact with whom (including on behalf of a minor), and determining a Session's financial/dispute-bearing outcome — but are not wired into `AuditDomainEventHandler`. This is **not** a regression or an oversight in new code: it is a long-standing, explicitly documented open question (`ADR-009` Open Question 4, carried forward from `ADR-006` Open Question 4 — "do the Domain Events not explicitly named in CONST-2's wording... each require an independent audit entry, or are some covered indirectly?"). CLAUDE.md's Stop Conditions bar inventing an answer to an unresolved open governance question, so this was escalated rather than fixed.
 
-These three Domain Events mutate governance-relevant state — confirming who may transact with whom (including on behalf of a minor), and determining a Session's financial/dispute-bearing outcome — but are not wired into `AuditDomainEventHandler`. This is **not** a regression or an oversight in new code: it is a long-standing, explicitly documented open question (`ADR-009` Open Question 4, carried forward from `ADR-006` Open Question 4 — "do the Domain Events not explicitly named in CONST-2's wording... each require an independent audit entry, or are some covered indirectly?"). CLAUDE.md's Stop Conditions bar inventing an answer to an unresolved open governance question, so this was **escalated, not fixed**.
-
-**Recommendation:** resolve `ADR-009` Open Question 4 before or immediately after tagging RC1. If the owner decides these three events must be audited, the implementation is mechanical — extend `AuditDomainEventHandler`'s existing switch statement following the identical pattern already used for the 16 currently-audited event types (no new `AuditEntry` shape or infrastructure needed).
+**Owner decision recorded 2026-07-30** (`docs/decisions/PENDING-OWNER-DECISIONS.md` Section 6): this affects audit-*policy* completeness, not runtime correctness, and is decoupled from RC1 codebase readiness — it does not block tagging. Whether these three events ultimately need independent audit entries remains a separate, still-open question, tracked in that document for resolution independent of the RC1 timeline. If and when the owner decides they do, the implementation is mechanical — extend `AuditDomainEventHandler`'s existing switch statement following the identical pattern already used for the 16 currently-audited event types (no new `AuditEntry` shape or infrastructure needed).
 
 All other bounded contexts checked — Communication (`ADR-022`), Meetings (`ADR-023`) — correctly audit every governance-relevant event and correctly *exclude* the ones their own ADRs say should be excluded (message body content, `NotificationCreated`).
 
@@ -88,4 +86,6 @@ All Definition-of-Done build/test gates are green.
 
 ## Final Recommendation
 
-**Ready for RC1**, conditional on the owner resolving `ADR-009` Open Question 4 (audit coverage for `RelationshipConfirmed`/`SessionCompleted`/`SessionMarkedNoShow`) at or shortly after tagging — either by explicitly accepting the current coverage as sufficient, or by approving the mechanical fix described above. Every other governance rule audited (authorization/security, EF Core persistence correctness, layer dependencies, no-stub discipline, money/time/i18n isolation) came back clean across all newest bounded contexts, and the full build/lint/test pipeline is green in every layer.
+**Ready for RC1.** No technical release blockers were identified. Every governance rule audited (authorization/security, EF Core persistence correctness, layer dependencies, no-stub discipline, money/time/i18n isolation) came back clean across all newest bounded contexts, and the full build/lint/test pipeline is green in every layer.
+
+One governance decision (`ADR-009` Open Question 4 — audit coverage for `RelationshipConfirmed`/`SessionCompleted`/`SessionMarkedNoShow`) remains pending. Per the owner decision recorded 2026-07-30 (`docs/decisions/PENDING-OWNER-DECISIONS.md` Section 6), this affects audit-policy completeness rather than runtime correctness and may be resolved independently of the RC1 codebase.

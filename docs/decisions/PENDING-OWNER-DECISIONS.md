@@ -94,6 +94,21 @@ Answer inline (fill in the `→` blank) or reference a separate written decision
 
 ---
 
+## 6. Audit Trail Coverage — `RelationshipConfirmed`, `SessionCompleted`, `SessionMarkedNoShow`
+
+*Source: `docs/adr/ADR-009-audit-and-observability.md` Open Question 4 (carried forward from `ADR-006` Open Question 4) — never resolved, surfaced again by the RC1 release-readiness audit (`docs/phases/RC1-RELEASE-READINESS-REPORT.md`, 2026-07-30).*
+
+`AuditDomainEventHandler` audits 16 Domain Event types but not these three, which mutate governance-relevant state: `RelationshipConfirmed` (establishes who may transact with whom, including on a minor's behalf) and `SessionCompleted`/`SessionMarkedNoShow` (determine a Session's financial/dispute-bearing outcome). This is a pre-existing gap, not new drift — `ADR-009` Open Question 4 has carried it since before RC1 work began.
+
+| # | Question | → Decision |
+|---|---|---|
+| 1 | **Gate.** Does this open question block tagging RC1? | → **Resolved 2026-07-30:** No. Audit-policy completeness is decoupled from RC1 codebase readiness and may be resolved independently. |
+| 2 | Do `RelationshipConfirmed`/`SessionCompleted`/`SessionMarkedNoShow` each require an independent audit entry, or are some covered indirectly (`ADR-009` Open Question 4 itself)? | → Still open. |
+
+**Already prepared, unblocked by this decision:** the audit mechanism these three events would use already exists and is proven across 16 other event types (`AuditDomainEventHandler`'s switch statement, `ADR-016`) — once Q2 is answered, wiring in any of the three is a mechanical addition following that same pattern, no new design or infrastructure required.
+
+---
+
 ## How to use this document
 
 - Fill in a `→` line, or write "see [external decision doc/ticket]" and link it.

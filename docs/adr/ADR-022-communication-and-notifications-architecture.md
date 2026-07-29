@@ -1,4 +1,4 @@
-**Authoritative sources (in priority order):** `PROJECT_CONSTITUTION.md`, `PRODUCT_REQUIREMENTS.md`, `BUSINESS_MODEL.md`, `DOMAIN_MODEL.md`, `ARCHITECTURE.md`, `docs/adr/ADR-001` through `ADR-021` (all Accepted, except `ADR-003` and `ADR-021`, which remain themselves Proposed). This ADR records the business-owner's explicit decision (2026-07-28) to bring text-based in-platform messaging into v1 scope, and designs the resulting Communication bounded context. It is an implementation authorization, not a design-only proposal — see Status.
+**Authoritative sources (in priority order):** `PROJECT_CONSTITUTION.md`, `PRODUCT_REQUIREMENTS.md`, `BUSINESS_MODEL.md`, `DOMAIN_MODEL.md`, `ARCHITECTURE.md`, `docs/adr/ADR-001` through `ADR-021` (all Accepted, except `ADR-021`, which remains itself Proposed). This ADR records the business-owner's explicit decision (2026-07-28) to bring text-based in-platform messaging into v1 scope, and designs the resulting Communication bounded context. It is an implementation authorization, not a design-only proposal — see Status.
 
 ---
 

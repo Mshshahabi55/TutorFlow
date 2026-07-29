@@ -1,9 +1,9 @@
-// UNUSED SCAFFOLDING — not the supported dev setup path. See the banner
-// comment at the top of docker-compose.yml in this same directory for why:
-// wrong PostgreSQL version, wrong .NET version, and pulls from Docker Hub
-// (a service ADR-018 flags as potentially unreachable from Iran). The
-// supported local setup is a natively-installed PostgreSQL 17 instance —
-// see README.md's "Database setup" section.
+// Dev/CI-only devcontainer — see the banner comment at the top of
+// docker-compose.yml in this same directory for the governing decision
+// (docs/decisions/PENDING-OWNER-DECISIONS.md Section 5, resolved
+// 2026-07-29) and version corrections (.NET 9, PostgreSQL 17). The
+// natively-installed PostgreSQL 17 setup in README.md's "Database setup"
+// section remains the always-supported fallback.
 //
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/src/dotnet-postgres

@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from "react-router-dom";
+import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 import { Button, Card, CardContent, Stack, Typography } from "@mui/material";
 import { useParentGuardian } from "@/features/identity/hooks/useParentGuardianQueries";
 import { IdLookupForm } from "@/shared/components/forms/IdLookupForm";
@@ -43,14 +43,19 @@ export function ParentGuardianDetailPage() {
             {parentGuardianQuery.isError ? (
               <Stack spacing={2} alignItems="flex-start">
                 <Typography variant="subtitle1" fontWeight={600}>
-                  We couldn&rsquo;t find that Parent/Guardian
+                  Parent/Guardian unavailable
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Double-check the id, or try again.
+                  This Parent/Guardian profile is unavailable. Double-check the id, or try again.
                 </Typography>
-                <Button variant="outlined" onClick={() => void parentGuardianQuery.refetch()}>
-                  Try again
-                </Button>
+                <Stack direction="row" spacing={1.5} flexWrap="wrap">
+                  <Button variant="outlined" onClick={() => void parentGuardianQuery.refetch()}>
+                    Try again
+                  </Button>
+                  <Button component={RouterLink} to={paths.home} variant="contained">
+                    Back to Dashboard
+                  </Button>
+                </Stack>
               </Stack>
             ) : null}
             {parentGuardianQuery.isSuccess ? (

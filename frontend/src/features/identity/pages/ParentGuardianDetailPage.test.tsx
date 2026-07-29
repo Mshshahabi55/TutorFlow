@@ -53,7 +53,7 @@ describe("ParentGuardianDetailPage", () => {
     });
 
     expect(
-      await screen.findByText("We couldn’t find that Parent/Guardian"),
+      await screen.findByText("Parent/Guardian unavailable"),
     ).toBeInTheDocument();
     expect(screen.queryByText("404 Not Found")).not.toBeInTheDocument();
   });

@@ -49,7 +49,7 @@ describe("StudentDetailPage", () => {
       routePath: "/identity/students/:studentId",
     });
 
-    expect(await screen.findByText("We couldn’t find that student")).toBeInTheDocument();
+    expect(await screen.findByText("Student unavailable")).toBeInTheDocument();
     expect(screen.queryByText("404 Not Found")).not.toBeInTheDocument();
   });
 });

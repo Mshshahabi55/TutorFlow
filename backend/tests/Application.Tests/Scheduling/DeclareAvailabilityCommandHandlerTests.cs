@@ -63,4 +63,46 @@ public class DeclareAvailabilityCommandHandlerTests
         Assert.Equal(TutorFlow.Application.Common.ErrorType.Authorization, result.Error.Type);
         Assert.Equal(0, unitOfWork.SaveChangesCallCount);
     }
+
+    // Phase 8a: the overlap invariant itself lives in AvailabilitySlot.Declare
+    // (Domain) — these two tests only prove the handler fetches the Tutor's
+    // existing slots and hands them over, not that it re-implements the rule.
+    [Fact]
+    public async Task Handle_rejects_a_slot_that_overlaps_one_already_declared_by_the_same_tutor()
+    {
+        var repository = new InMemoryAvailabilitySlotRepository();
+        var unitOfWork = new FakeUnitOfWork();
+        var tutorId = Guid.NewGuid();
+        var handler = new DeclareAvailabilityCommandHandler(repository, StubCurrentUserProvider.AsTutor(tutorId), unitOfWork);
+        var start = DateTime.UtcNow.AddDays(1);
+
+        var first = await handler.Handle(new DeclareAvailabilityCommand(tutorId, start, TimeSpan.FromHours(1), DeliveryMode.Online));
+        Assert.True(first.IsSuccess);
+
+        var second = await handler.Handle(new DeclareAvailabilityCommand(
+            tutorId, start.AddMinutes(30), TimeSpan.FromHours(1), DeliveryMode.Online));
+
+        Assert.True(second.IsFailure);
+        Assert.Equal(TutorFlow.Application.Common.ErrorType.Domain, second.Error.Type);
+        Assert.Equal(1, unitOfWork.SaveChangesCallCount);
+    }
+
+    [Fact]
+    public async Task Handle_accepts_a_back_to_back_slot_that_only_touches_an_existing_one()
+    {
+        var repository = new InMemoryAvailabilitySlotRepository();
+        var unitOfWork = new FakeUnitOfWork();
+        var tutorId = Guid.NewGuid();
+        var handler = new DeclareAvailabilityCommandHandler(repository, StubCurrentUserProvider.AsTutor(tutorId), unitOfWork);
+        var start = DateTime.UtcNow.AddDays(1);
+
+        var first = await handler.Handle(new DeclareAvailabilityCommand(tutorId, start, TimeSpan.FromHours(1), DeliveryMode.Online));
+        Assert.True(first.IsSuccess);
+
+        var second = await handler.Handle(new DeclareAvailabilityCommand(
+            tutorId, start.AddHours(1), TimeSpan.FromHours(1), DeliveryMode.Online));
+
+        Assert.True(second.IsSuccess);
+        Assert.Equal(2, unitOfWork.SaveChangesCallCount);
+    }
 }

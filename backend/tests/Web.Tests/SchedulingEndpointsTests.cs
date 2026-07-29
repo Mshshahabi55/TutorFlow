@@ -173,12 +173,19 @@ public class SchedulingEndpointsTests : IClassFixture<TutorFlowWebApplicationFac
         return await _client.SendAsync(request);
     }
 
-    private async Task<Guid> DeclareAvailabilityForTutorAsync(Guid tutorId, string token)
+    // startTimeUtc is overridable (defaults to now+1 day) so a caller
+    // declaring a second slot for the same Tutor (e.g.
+    // BookSessionWithASecondOpenSlotAsync) can pick a genuinely
+    // non-overlapping time — Phase 8a's overlap guard on
+    // AvailabilitySlot.Declare would otherwise reject a second call at the
+    // same default start time as a real conflict, which is correct
+    // production behavior, not a test bug to work around silently.
+    private async Task<Guid> DeclareAvailabilityForTutorAsync(Guid tutorId, string token, DateTime? startTimeUtc = null)
     {
         var response = await PostWithAuthAsync("/availability-slots", new
         {
             TutorId = tutorId,
-            StartTimeUtc = DateTime.UtcNow.AddDays(1),
+            StartTimeUtc = startTimeUtc ?? DateTime.UtcNow.AddDays(1),
             Duration = TimeSpan.FromHours(1),
             DeliveryMode = 0, // Online
         }, token);
@@ -221,6 +228,73 @@ public class SchedulingEndpointsTests : IClassFixture<TutorFlowWebApplicationFac
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var body = await ReadBodyAsync(response);
         Assert.True(body.GetProperty("isFailure").GetBoolean());
+    }
+
+    // Phase 8a: closes the gap BookSessionCommandHandler's own comment
+    // flagged as "explicitly deferred to a later phase" — declaring a
+    // second slot that overlaps an already-declared one for the same
+    // Tutor is rejected, at the same 409 Conflict/InvalidOperationException
+    // shape the existing IsConsumed guard above already established for
+    // this Domain error family. Verified end-to-end that no second row was
+    // persisted — GET the Tutor's slots from a fresh request afterward and
+    // confirm only the original slot exists (CLAUDE.md's own re-read rule).
+    [Fact]
+    public async Task DeclareAvailability_rejects_a_slot_that_overlaps_one_already_declared_by_the_same_tutor()
+    {
+        var (tutorId, token) = await RegisterAndLoginTutorAsync();
+        var start = DateTime.UtcNow.AddDays(1);
+        var firstResponse = await PostWithAuthAsync("/availability-slots", new
+        {
+            TutorId = tutorId,
+            StartTimeUtc = start,
+            Duration = TimeSpan.FromHours(1),
+            DeliveryMode = 0,
+        }, token);
+        firstResponse.EnsureSuccessStatusCode();
+
+        var overlapResponse = await PostWithAuthAsync("/availability-slots", new
+        {
+            TutorId = tutorId,
+            StartTimeUtc = start.AddMinutes(30),
+            Duration = TimeSpan.FromHours(1),
+            DeliveryMode = 0,
+        }, token);
+
+        Assert.Equal(HttpStatusCode.Conflict, overlapResponse.StatusCode);
+        var overlapBody = await ReadBodyAsync(overlapResponse);
+        Assert.True(overlapBody.GetProperty("isFailure").GetBoolean());
+        Assert.Equal(
+            "DeclareAvailabilityCommand.InvalidState",
+            overlapBody.GetProperty("error").GetProperty("code").GetString());
+
+        var slotsResponse = await GetWithAuthAsync($"/tutors/{tutorId}/availability-slots", token);
+        var slotsBody = await ReadBodyAsync(slotsResponse);
+        Assert.Equal(1, slotsBody.GetProperty("value").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task DeclareAvailability_accepts_a_back_to_back_slot_that_only_touches_an_existing_one()
+    {
+        var (tutorId, token) = await RegisterAndLoginTutorAsync();
+        var start = DateTime.UtcNow.AddDays(1);
+        var firstResponse = await PostWithAuthAsync("/availability-slots", new
+        {
+            TutorId = tutorId,
+            StartTimeUtc = start,
+            Duration = TimeSpan.FromHours(1),
+            DeliveryMode = 0,
+        }, token);
+        firstResponse.EnsureSuccessStatusCode();
+
+        var secondResponse = await PostWithAuthAsync("/availability-slots", new
+        {
+            TutorId = tutorId,
+            StartTimeUtc = start.AddHours(1),
+            Duration = TimeSpan.FromHours(1),
+            DeliveryMode = 0,
+        }, token);
+
+        secondResponse.EnsureSuccessStatusCode();
     }
 
     // Phase 3 Task 4: the API boundary must reject any incoming timestamp
@@ -393,7 +467,7 @@ public class SchedulingEndpointsTests : IClassFixture<TutorFlowWebApplicationFac
         var bookBody = await ReadBodyAsync(bookResponse);
         var sessionId = bookBody.GetProperty("value").GetProperty("sessionId").GetGuid();
 
-        var newSlotId = await DeclareAvailabilityForTutorAsync(tutorId, tutorToken);
+        var newSlotId = await DeclareAvailabilityForTutorAsync(tutorId, tutorToken, DateTime.UtcNow.AddDays(2));
 
         return (sessionId, studentToken, oldSlotId, newSlotId);
     }

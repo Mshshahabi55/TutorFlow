@@ -45,14 +45,24 @@ public sealed class DeclareAvailabilityCommandHandler
             return Result.Failure<AvailabilitySlotDto>(ownershipError);
         }
 
+        var tutorId = TutorId.From(command.TutorId);
+
+        // Phase 8a: the Tutor's own existing slots (any consumption state)
+        // are the only thing AvailabilitySlot.Declare needs to enforce the
+        // no-time-overlap invariant — this handler's job is purely to fetch
+        // that data and hand it over; the overlap rule itself lives entirely
+        // in Domain, not here.
+        var existingSlots = await _availabilitySlotRepository.GetByTutorIdAsync(tutorId, cancellationToken);
+
         AvailabilitySlot slot;
         try
         {
             slot = AvailabilitySlot.Declare(
-                TutorId.From(command.TutorId),
+                tutorId,
                 command.StartTimeUtc,
                 SessionDuration.Of(command.Duration),
-                command.DeliveryMode);
+                command.DeliveryMode,
+                existingSlots);
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {

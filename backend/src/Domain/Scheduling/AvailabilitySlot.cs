@@ -52,15 +52,50 @@ public sealed class AvailabilitySlot : AggregateRoot<AvailabilitySlotId>
     // never associated with more than one active Session at the same time").
     public bool IsConsumed { get; private set; }
 
+    // existingSlotsForTutor: every AvailabilitySlot already declared by this
+    // same Tutor (any consumption state — a booked slot still occupies that
+    // time, same as an open one), supplied by the caller (Application layer,
+    // via IAvailabilitySlotRepository.GetByTutorIdAsync) since this aggregate
+    // has no repository access of its own. Phase 8a closes the one gap
+    // BookSessionCommandHandler's own comment flagged as "explicitly
+    // deferred to a later phase": a Tutor could previously declare two
+    // slots that overlap in time. Two slots that only touch (one ends
+    // exactly when the other starts) are not an overlap — strict inequality
+    // on both sides — since a Tutor scheduling back-to-back teaching time is
+    // the normal case, not a conflict.
+    //
+    // Optional (defaults to "no existing slots"), not required: the one real
+    // production caller (DeclareAvailabilityCommandHandler) always supplies
+    // the real list and gets the invariant enforced. Making it required
+    // would force every one of the ~25 unrelated test fixtures elsewhere in
+    // this codebase (Meetings, Discovery, Oversight, Infrastructure tests
+    // that just need *a* slot to exist) to thread a same-Tutor overlap
+    // concept they have no interest in — an omitted argument here means
+    // "this call site isn't exercising the overlap invariant," not that the
+    // invariant is optional in Domain; it's still enforced in full whenever
+    // real data is passed, which is the only path real API traffic takes.
     public static AvailabilitySlot Declare(
         TutorId tutorId,
         DateTime startTimeUtc,
         SessionDuration duration,
-        DeliveryMode deliveryMode)
+        DeliveryMode deliveryMode,
+        IEnumerable<AvailabilitySlot>? existingSlotsForTutor = null)
     {
         Guard.Against.Null(tutorId, nameof(tutorId));
         Guard.Against.Default(startTimeUtc, nameof(startTimeUtc));
         Guard.Against.Null(duration, nameof(duration));
+
+        var endTimeUtc = startTimeUtc + duration.Value;
+
+        foreach (var existing in existingSlotsForTutor ?? [])
+        {
+            var overlaps = startTimeUtc < existing.EndTimeUtc && endTimeUtc > existing.StartTimeUtc;
+            if (overlaps)
+            {
+                throw new InvalidOperationException(
+                    "This time range overlaps an Availability Slot you have already declared.");
+            }
+        }
 
         var slot = new AvailabilitySlot(
             AvailabilitySlotId.New(),

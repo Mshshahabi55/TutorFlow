@@ -10,7 +10,8 @@ public class AvailabilitySlotTests
         TutorId.From(Guid.NewGuid()),
         DateTime.UtcNow.AddDays(1),
         SessionDuration.Of(TimeSpan.FromHours(1)),
-        DeliveryMode.Online);
+        DeliveryMode.Online,
+        existingSlotsForTutor: []);
 
     [Fact]
     public void Declaring_raises_AvailabilityDeclared()
@@ -60,7 +61,70 @@ public class AvailabilitySlotTests
             TutorId.From(Guid.NewGuid()),
             default,
             SessionDuration.Of(TimeSpan.FromHours(1)),
-            DeliveryMode.Online));
+            DeliveryMode.Online,
+            existingSlotsForTutor: []));
+    }
+
+    // Phase 8a: closes the gap BookSessionCommandHandler's own comment
+    // flagged as "explicitly deferred to a later phase" — a Tutor could
+    // previously declare two time-overlapping slots.
+    [Fact]
+    public void Declaring_a_slot_that_overlaps_an_existing_one_throws()
+    {
+        var tutorId = TutorId.From(Guid.NewGuid());
+        var start = DateTime.UtcNow.AddDays(1);
+        var existing = AvailabilitySlot.Declare(
+            tutorId, start, SessionDuration.Of(TimeSpan.FromHours(1)), DeliveryMode.Online, existingSlotsForTutor: []);
+
+        Assert.Throws<InvalidOperationException>(() => AvailabilitySlot.Declare(
+            tutorId,
+            start.AddMinutes(30),
+            SessionDuration.Of(TimeSpan.FromHours(1)),
+            DeliveryMode.Online,
+            existingSlotsForTutor: [existing]));
+    }
+
+    [Fact]
+    public void Declaring_a_slot_fully_contained_inside_an_existing_one_throws()
+    {
+        var tutorId = TutorId.From(Guid.NewGuid());
+        var start = DateTime.UtcNow.AddDays(1);
+        var existing = AvailabilitySlot.Declare(
+            tutorId, start, SessionDuration.Of(TimeSpan.FromHours(2)), DeliveryMode.Online, existingSlotsForTutor: []);
+
+        Assert.Throws<InvalidOperationException>(() => AvailabilitySlot.Declare(
+            tutorId,
+            start.AddMinutes(15),
+            SessionDuration.Of(TimeSpan.FromMinutes(30)),
+            DeliveryMode.Online,
+            existingSlotsForTutor: [existing]));
+    }
+
+    [Fact]
+    public void Declaring_a_back_to_back_slot_that_only_touches_an_existing_one_succeeds()
+    {
+        var tutorId = TutorId.From(Guid.NewGuid());
+        var start = DateTime.UtcNow.AddDays(1);
+        var duration = SessionDuration.Of(TimeSpan.FromHours(1));
+        var existing = AvailabilitySlot.Declare(tutorId, start, duration, DeliveryMode.Online, existingSlotsForTutor: []);
+
+        var next = AvailabilitySlot.Declare(
+            tutorId, existing.EndTimeUtc, duration, DeliveryMode.Online, existingSlotsForTutor: [existing]);
+
+        Assert.NotNull(next);
+    }
+
+    [Fact]
+    public void Declaring_against_no_existing_slots_succeeds()
+    {
+        var slot = AvailabilitySlot.Declare(
+            TutorId.From(Guid.NewGuid()),
+            DateTime.UtcNow.AddDays(1),
+            SessionDuration.Of(TimeSpan.FromHours(1)),
+            DeliveryMode.Online,
+            existingSlotsForTutor: []);
+
+        Assert.NotNull(slot);
     }
 
     // Phase 4.6: DOMAIN_MODEL.md Open Question 7, resolved — cancelling

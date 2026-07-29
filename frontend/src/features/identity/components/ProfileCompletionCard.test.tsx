@@ -34,7 +34,7 @@ describe("ProfileCompletionCard", () => {
   it("shows the step count and a Complete your profile CTA when incomplete", () => {
     renderCard(BASE_TUTOR, false);
 
-    expect(screen.getByText("0 of 5 steps complete.")).toBeInTheDocument();
+    expect(screen.getByText("0 of 7 steps complete.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Complete your profile" })).toHaveAttribute(
       "href",
       `/identity/tutors/${TUTOR_ID}/edit`,
@@ -50,6 +50,8 @@ describe("ProfileCompletionCard", () => {
         subject: "Mathematics",
         language: "English",
         offeredDurations: ["01:00:00"],
+        displayName: "Jane Doe",
+        photoUrl: "https://example.com/photo.jpg",
       },
       true,
     );

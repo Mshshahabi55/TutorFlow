@@ -27,6 +27,13 @@ export function deriveProfileCompletion(tutor: TutorDto, hasAvailability: boolea
     { label: "Teaching subjects added", done: tutor.subject !== null },
     { label: "Languages added", done: tutor.language !== null },
     { label: "Verification completed", done: tutor.isApproved },
+    // ADR-024 (Accepted, 2026-07-28) — extends, does not replace, the
+    // checklist above with the new onboarding-wizard fields.
+    {
+      label: "Personal introduction added",
+      done: Boolean(tutor.displayName || tutor.headline || tutor.biography),
+    },
+    { label: "Profile photo added", done: Boolean(tutor.photoUrl) },
   ];
 
   const completedCount = items.filter((item) => item.done).length;

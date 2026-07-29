@@ -19,7 +19,7 @@ describe("deriveProfileCompletion", () => {
     const result = deriveProfileCompletion(BASE_TUTOR, false);
 
     expect(result.completedCount).toBe(0);
-    expect(result.totalCount).toBe(5);
+    expect(result.totalCount).toBe(7);
     expect(result.isComplete).toBe(false);
     expect(result.items.every((item) => !item.done)).toBe(true);
   });
@@ -33,11 +33,13 @@ describe("deriveProfileCompletion", () => {
         subject: "Mathematics",
         language: "English",
         offeredDurations: ["01:00:00"],
+        displayName: "Jane Doe",
+        photoUrl: "https://example.com/photo.jpg",
       },
       true,
     );
 
-    expect(result.completedCount).toBe(5);
+    expect(result.completedCount).toBe(7);
     expect(result.isComplete).toBe(true);
   });
 
@@ -56,5 +58,27 @@ describe("deriveProfileCompletion", () => {
 
     expect(withoutAvailability.items[1]).toEqual({ label: "Availability added", done: false });
     expect(withAvailability.items[1]).toEqual({ label: "Availability added", done: true });
+  });
+
+  // ADR-024 (Accepted, 2026-07-28) — Tutor Onboarding Wizard.
+  it("marks 'Personal introduction added' done from any one of displayName/headline/biography", () => {
+    expect(deriveProfileCompletion(BASE_TUTOR, false).items[5]).toEqual({
+      label: "Personal introduction added",
+      done: false,
+    });
+    expect(deriveProfileCompletion({ ...BASE_TUTOR, headline: "Friendly Tutor" }, false).items[5]).toEqual({
+      label: "Personal introduction added",
+      done: true,
+    });
+  });
+
+  it("marks 'Profile photo added' done only when a photo URL is set", () => {
+    expect(deriveProfileCompletion(BASE_TUTOR, false).items[6]).toEqual({
+      label: "Profile photo added",
+      done: false,
+    });
+    expect(
+      deriveProfileCompletion({ ...BASE_TUTOR, photoUrl: "https://example.com/photo.jpg" }, false).items[6],
+    ).toEqual({ label: "Profile photo added", done: true });
   });
 });

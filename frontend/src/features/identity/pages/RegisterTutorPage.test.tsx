@@ -6,7 +6,7 @@ import { renderWithProviders } from "@/test/renderWithProviders";
 import * as identityService from "@/features/identity/api/identityService";
 
 describe("RegisterTutorPage", () => {
-  it("registers a Tutor and shows the returned id with a link to set up the offering", async () => {
+  it("registers a Tutor and shows the returned id with a link to complete their profile", async () => {
     vi.spyOn(identityService, "registerTutor").mockResolvedValue({
       tutorId: "11111111-1111-1111-1111-111111111111",
       isApproved: false,
@@ -28,9 +28,9 @@ describe("RegisterTutorPage", () => {
     expect(
       await screen.findByText("11111111-1111-1111-1111-111111111111"),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Set up your offering" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Complete your profile" })).toHaveAttribute(
       "href",
-      "/identity/tutors/11111111-1111-1111-1111-111111111111/edit",
+      "/identity/tutors/11111111-1111-1111-1111-111111111111/onboarding",
     );
   });
 

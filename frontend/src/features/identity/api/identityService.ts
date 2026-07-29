@@ -5,6 +5,7 @@ import type {
   RelationshipDto,
   StudentDto,
   TutorDto,
+  TutorSubjectDto,
 } from "@/services/api/dtos";
 
 // Every function here is a direct, 1:1 mapping to one endpoint already
@@ -67,6 +68,66 @@ export async function setTutorOfferedDurations(
   durations: string[],
 ): Promise<void> {
   await apiClient.patch<VoidApiResult>(`/tutors/${tutorId}/offered-durations`, { durations });
+}
+
+// ADR-024 (Accepted, 2026-07-28) — Tutor Onboarding Wizard. Every
+// function below is a direct 1:1 mapping to one of the five new endpoints,
+// same convention as every existing Tutor self-service function above.
+
+export interface SetTutorPersonalInfoRequest {
+  displayName: string | null;
+  headline: string | null;
+  biography: string | null;
+  country: string | null;
+  city: string | null;
+  otherLanguages: string[];
+}
+
+export async function setTutorPersonalInfo(
+  tutorId: string,
+  request: SetTutorPersonalInfoRequest,
+): Promise<void> {
+  await apiClient.patch<VoidApiResult>(`/tutors/${tutorId}/personal-info`, request);
+}
+
+export interface SetTutorTeachingInfoRequest {
+  tutorSubjects: TutorSubjectDto[];
+  yearsOfExperience: number | null;
+  education: string | null;
+  certifications: string | null;
+  teachingMethodology: string | null;
+  lessonSpecialties: string[];
+}
+
+export async function setTutorTeachingInfo(
+  tutorId: string,
+  request: SetTutorTeachingInfoRequest,
+): Promise<void> {
+  await apiClient.patch<VoidApiResult>(`/tutors/${tutorId}/teaching-info`, request);
+}
+
+export interface SetTutorMediaRequest {
+  photoUrl: string | null;
+  introVideoUrl: string | null;
+  galleryImageUrls: string[];
+}
+
+export async function setTutorMedia(tutorId: string, request: SetTutorMediaRequest): Promise<void> {
+  await apiClient.patch<VoidApiResult>(`/tutors/${tutorId}/media`, request);
+}
+
+export interface SetTutorPricingRequest {
+  hourlyRateAmount: number | null;
+  trialLessonAvailable: boolean;
+  trialLessonPriceAmount: number | null;
+}
+
+export async function setTutorPricing(tutorId: string, request: SetTutorPricingRequest): Promise<void> {
+  await apiClient.patch<VoidApiResult>(`/tutors/${tutorId}/pricing`, request);
+}
+
+export async function submitTutorProfile(tutorId: string): Promise<void> {
+  await apiClient.post<VoidApiResult>(`/tutors/${tutorId}/submit`);
 }
 
 export async function fetchPendingTutors(

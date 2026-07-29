@@ -58,11 +58,11 @@ export function RegisterTutorPage() {
               <CopyableId id={registerTutor.data.tutorId} />
               <Button
                 component={RouterLink}
-                to={paths.identity.tutorEdit(registerTutor.data.tutorId)}
+                to={paths.identity.tutorOnboarding(registerTutor.data.tutorId)}
                 variant="contained"
                 sx={{ alignSelf: "flex-start" }}
               >
-                Set up your offering
+                Complete your profile
               </Button>
             </Stack>
           ) : (

@@ -33,6 +33,15 @@ export type TimeSpanString = string;
 /** An ISO 8601 UTC timestamp string, as System.Text.Json serializes DateTime. */
 export type IsoDateTimeString = string;
 
+/** ADR-024 (Accepted, 2026-07-28): a Subject/Level pair, additive alongside `TutorDto.subject`. */
+export interface TutorSubjectDto {
+  subject: string;
+  level: string | null;
+}
+
+/** ADR-024 (Accepted, 2026-07-28): governs only whether a Tutor has entered the existing Admin approval queue — never a replacement for isApproved/isSuspended. */
+export type TutorProfileStatus = "Draft" | "Submitted";
+
 export interface TutorDto {
   tutorId: string;
   isApproved: boolean;
@@ -43,6 +52,32 @@ export interface TutorDto {
   language: string | null;
   location: string | null;
   offeredDurations: TimeSpanString[];
+  // ADR-024 (Accepted, 2026-07-28) — Tutor Profile Enrichment. Every field
+  // below is self-declared and unverified (see the ADR's own Verification
+  // section) — never fabricated by the frontend when absent. Optional here
+  // (the real API always sends them) specifically so the dozens of
+  // pre-existing test fixtures built before this ADR don't all need a
+  // mechanical update just to satisfy the type — every real caller of this
+  // DTO already gets them; only object literals that predate this change
+  // are missing them.
+  profileStatus?: TutorProfileStatus;
+  displayName?: string | null;
+  headline?: string | null;
+  biography?: string | null;
+  country?: string | null;
+  city?: string | null;
+  otherLanguages?: string[];
+  tutorSubjects?: TutorSubjectDto[];
+  yearsOfExperience?: number | null;
+  education?: string | null;
+  certifications?: string | null;
+  teachingMethodology?: string | null;
+  lessonSpecialties?: string[];
+  photoUrl?: string | null;
+  introVideoUrl?: string | null;
+  galleryImageUrls?: string[];
+  trialLessonAvailable?: boolean;
+  trialLessonPrice?: number | null;
 }
 
 export interface StudentDto {
@@ -89,4 +124,69 @@ export interface SessionDto {
   duration: TimeSpanString;
   deliveryMode: DeliveryMode;
   status: SessionStatus;
+}
+
+/** Mirrors TutorFlow.Domain.Communication.ValueObjects.NotificationType. No JsonStringEnumConverter is registered, so this serializes as its underlying int, same as DeliveryMode/SessionStatus/RelationshipStatus above. */
+export enum NotificationType {
+  BookingConfirmed = 0,
+  LessonCancelled = 1,
+  TutorReplied = 2,
+  NewMessage = 3,
+  ParentConfirmed = 4,
+  AvailabilityChanged = 5,
+}
+
+export interface ConversationDto {
+  conversationId: string;
+  otherParticipantId: string;
+  createdAtUtc: IsoDateTimeString;
+  lastMessageAtUtc: IsoDateTimeString | null;
+  lastMessagePreview: string | null;
+  unreadCount: number;
+}
+
+export interface MessageDto {
+  messageId: string;
+  conversationId: string;
+  senderId: string;
+  recipientId: string;
+  body: string;
+  sentAtUtc: IsoDateTimeString;
+  readAtUtc: IsoDateTimeString | null;
+}
+
+export interface NotificationDto {
+  notificationId: string;
+  type: NotificationType;
+  summary: string;
+  relatedEntityId: string | null;
+  createdAtUtc: IsoDateTimeString;
+  readAtUtc: IsoDateTimeString | null;
+}
+
+/** Mirrors TutorFlow.Domain.Meetings.ValueObjects.MeetingProviderOption. Mock is Development/Testing only — never a legitimate value in production (docs/adr/ADR-023-online-lesson-meeting-provider-architecture.md). */
+export enum MeetingProviderOption {
+  GoogleMeet = 0,
+  MicrosoftTeams = 1,
+  Zoom = 2,
+  Mock = 3,
+}
+
+/** Mirrors TutorFlow.Domain.Meetings.ValueObjects.MeetingStatus. */
+export enum MeetingStatus {
+  Scheduled = 0,
+  Cancelled = 1,
+}
+
+export interface MeetingDto {
+  meetingId: string;
+  sessionId: string;
+  provider: MeetingProviderOption;
+  joinUrl: string;
+  hostUrl: string | null;
+  startsAtUtc: IsoDateTimeString;
+  endsAtUtc: IsoDateTimeString;
+  status: MeetingStatus;
+  createdAtUtc: IsoDateTimeString;
+  updatedAtUtc: IsoDateTimeString;
 }

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TutorFlow.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using TutorFlow.Infrastructure.Persistence;
 namespace TutorFlow.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(TutorFlowDbContext))]
-    partial class TutorFlowDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260728202059_AddTutorProfileEnrichment")]
+    partial class AddTutorProfileEnrichment
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -353,14 +356,12 @@ namespace TutorFlow.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("_galleryImageUrls")
                         .IsRequired()
-                        .HasMaxLength(5000)
-                        .HasColumnType("character varying(5000)")
+                        .HasColumnType("text")
                         .HasColumnName("GalleryImageUrls");
 
                     b.Property<string>("_lessonSpecialties")
                         .IsRequired()
-                        .HasMaxLength(5000)
-                        .HasColumnType("character varying(5000)")
+                        .HasColumnType("text")
                         .HasColumnName("LessonSpecialties");
 
                     b.Property<string>("_offeredDurations")
@@ -370,14 +371,12 @@ namespace TutorFlow.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("_otherLanguages")
                         .IsRequired()
-                        .HasMaxLength(5000)
-                        .HasColumnType("character varying(5000)")
+                        .HasColumnType("text")
                         .HasColumnName("OtherLanguages");
 
                     b.Property<string>("_tutorSubjects")
                         .IsRequired()
-                        .HasMaxLength(10000)
-                        .HasColumnType("character varying(10000)")
+                        .HasColumnType("text")
                         .HasColumnName("TutorSubjects");
 
                     b.HasKey("Id");

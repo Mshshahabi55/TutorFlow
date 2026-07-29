@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TutorFlow.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using TutorFlow.Infrastructure.Persistence;
 namespace TutorFlow.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(TutorFlowDbContext))]
-    partial class TutorFlowDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260728075735_AddMeetingsContext")]
+    partial class AddMeetingsContext
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -263,30 +266,6 @@ namespace TutorFlow.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Biography")
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
-
-                    b.Property<string>("Certifications")
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
-
-                    b.Property<string>("City")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("Country")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("DisplayName")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("Education")
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
-
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasColumnType("text");
@@ -294,17 +273,9 @@ namespace TutorFlow.Infrastructure.Persistence.Migrations
                     b.Property<int>("FailedLoginAttemptCount")
                         .HasColumnType("integer");
 
-                    b.Property<string>("Headline")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
                     b.Property<decimal?>("HourlyRate")
                         .HasPrecision(12)
                         .HasColumnType("numeric(12,0)");
-
-                    b.Property<string>("IntroVideoUrl")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
 
                     b.Property<bool>("IsApproved")
                         .HasColumnType("boolean");
@@ -325,60 +296,13 @@ namespace TutorFlow.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("PhotoUrl")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("ProfileStatus")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
                     b.Property<string>("Subject")
                         .HasColumnType("text");
-
-                    b.Property<string>("TeachingMethodology")
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
-
-                    b.Property<bool>("TrialLessonAvailable")
-                        .HasColumnType("boolean");
-
-                    b.Property<decimal?>("TrialLessonPrice")
-                        .HasPrecision(12)
-                        .HasColumnType("numeric(12,0)");
-
-                    b.Property<int?>("YearsOfExperience")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("_galleryImageUrls")
-                        .IsRequired()
-                        .HasMaxLength(5000)
-                        .HasColumnType("character varying(5000)")
-                        .HasColumnName("GalleryImageUrls");
-
-                    b.Property<string>("_lessonSpecialties")
-                        .IsRequired()
-                        .HasMaxLength(5000)
-                        .HasColumnType("character varying(5000)")
-                        .HasColumnName("LessonSpecialties");
 
                     b.Property<string>("_offeredDurations")
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("OfferedDurations");
-
-                    b.Property<string>("_otherLanguages")
-                        .IsRequired()
-                        .HasMaxLength(5000)
-                        .HasColumnType("character varying(5000)")
-                        .HasColumnName("OtherLanguages");
-
-                    b.Property<string>("_tutorSubjects")
-                        .IsRequired()
-                        .HasMaxLength(10000)
-                        .HasColumnType("character varying(10000)")
-                        .HasColumnName("TutorSubjects");
 
                     b.HasKey("Id");
 

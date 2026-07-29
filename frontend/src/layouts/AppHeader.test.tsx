@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -8,6 +8,7 @@ import { ActorProvider } from "@/shared/context/ActorProvider";
 import { ColorModeProvider } from "@/shared/context/ColorModeProvider";
 import { NotificationProvider } from "@/shared/context/NotificationProvider";
 import { AuthHarness } from "@/test/AuthHarness";
+import * as communicationService from "@/features/communication/api/communicationService";
 import type { AuthenticatedUser } from "@/shared/context/AuthContext";
 
 function renderHeader(isDesktop: boolean, authUser?: AuthenticatedUser) {
@@ -37,6 +38,14 @@ function renderHeader(isDesktop: boolean, authUser?: AuthenticatedUser) {
 }
 
 describe("AppHeader", () => {
+  beforeEach(() => {
+    vi.spyOn(communicationService, "fetchMyNotifications").mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("shows the hamburger only on a non-desktop viewport", () => {
     renderHeader(false);
     expect(screen.getByLabelText("Open navigation")).toBeInTheDocument();
@@ -65,6 +74,7 @@ describe("AppHeader", () => {
       accountId: "a1",
       role: "Student",
       expiresAtUtc: "2999-01-01T00:00:00Z",
+      email: "student@example.com",
     });
     expect(await screen.findByRole("button", { name: "Account menu (Student)" })).toBeInTheDocument();
   });

@@ -3,10 +3,12 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "@/app/App";
 import * as healthService from "@/services/api/healthService";
+import * as communicationService from "@/features/communication/api/communicationService";
 
 describe("App", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    vi.spyOn(communicationService, "fetchMyNotifications").mockResolvedValue([]);
   });
 
   it("renders the app shell and the home page", async () => {

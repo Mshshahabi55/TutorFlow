@@ -13,18 +13,21 @@ import { SessionCardSkeleton } from "@/features/scheduling/components/SessionCar
 import { AvailabilitySummaryCard } from "@/features/scheduling/components/AvailabilitySummaryCard";
 import { AvailabilitySummaryCardSkeleton } from "@/features/scheduling/components/AvailabilitySummaryCardSkeleton";
 import { ProfileCompletionCard } from "@/features/identity/components/ProfileCompletionCard";
+import { RecentConversationsSection } from "@/features/communication/components/RecentConversationsSection";
 import { deriveProfileCompletion } from "@/features/identity/utils/profileCompletion";
 import { SectionCard } from "@/shared/components/SectionCard";
+import { LearningPlanCard } from "@/features/learningPlans/components/LearningPlanCard";
 import { TeachingDayCard } from "@/routes/dashboard/TeachingDayCard";
 import { NextLessonHeroCard } from "@/routes/dashboard/NextLessonHeroCard";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { IdentityGate } from "@/shared/components/IdentityGate";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
-import { ErrorState } from "@/shared/components/feedback/ErrorState";
+import { IdentityLookupErrorState } from "@/shared/components/feedback/IdentityLookupErrorState";
 import { isTodayInTehran, todayInTehranLabel } from "@/shared/time/tehranTime";
 import { ROLE_QUICK_ACTIONS } from "@/routes/dashboardRoleConfig";
 import { SessionStatus } from "@/services/api/dtos";
 import type { SessionDto } from "@/services/api/dtos";
+import type { LearningPlanPreview } from "@/features/learningPlans/types";
 import { paths } from "@/routes/paths";
 
 const RECENT_ACTIVITY_LIMIT = 3;
@@ -34,6 +37,7 @@ const ATTENTION_LIMIT = 3;
 
 interface TeachingOverviewProps {
   tutorId: string;
+  onChooseAgain: () => void;
 }
 
 function TeachingSummaryStat({ label, value }: { label: string; value: number }) {
@@ -50,17 +54,57 @@ function TeachingSummaryStat({ label, value }: { label: string; value: number })
 }
 
 /**
- * There is no "my own Tutor id" resolution from an authenticated Account
- * anywhere in this app (ADR-011 remains frozen), so the overview below only
- * populates once a Tutor id is known — via the shared `useRememberedId`/
- * `IdentityGate` pattern, so it's asked for once per device rather than on
- * every visit. Reuses `useTutor`, `useTutorSchedule`, and
+ * RC5.0: "My Learning Plans" — no Learning Plan/Enrollment capability
+ * exists in this API version yet (`docs/adr/ADR-021...`, Proposed, not
+ * Accepted). `plans` is always empty today; the counts below are real
+ * (zero, not fabricated) rather than invented numbers, and the section
+ * lights up with real `LearningPlanCard`s the moment a real endpoint
+ * exists — no structural change needed here.
+ */
+function MyLearningPlansSection() {
+  const plans: LearningPlanPreview[] = [];
+  const activeCount = plans.filter((plan) => plan.status === "Active").length;
+  const draftCount = plans.filter((plan) => plan.status === "Draft").length;
+  const archivedCount = plans.filter((plan) => plan.status === "Archived").length;
+  const enrollmentCount = 0;
+
+  return (
+    <SectionCard title="My Learning Plans">
+      <Stack spacing={2}>
+        <Stack direction="row" flexWrap="wrap" gap={3}>
+          <TeachingSummaryStat label="Active Plans" value={activeCount} />
+          <TeachingSummaryStat label="Draft Plans" value={draftCount} />
+          <TeachingSummaryStat label="Archived Plans" value={archivedCount} />
+          <TeachingSummaryStat label="Enrollments" value={enrollmentCount} />
+        </Stack>
+        {plans.length === 0 ? (
+          <EmptyState
+            title="No learning plans yet"
+            description="Structured, multi-week Learning Plans are coming soon — for now, Students book individual lessons with you directly."
+          />
+        ) : (
+          <Stack direction="row" flexWrap="wrap" gap={2}>
+            {plans.map((plan) => (
+              <LearningPlanCard key={plan.learningPlanId} plan={plan} />
+            ))}
+          </Stack>
+        )}
+      </Stack>
+    </SectionCard>
+  );
+}
+
+/**
+ * A real signed-in Tutor's own id resolves automatically (`IdentityGate`,
+ * now backed by `useOwnId`) — only the dev-only "Acting as" preview (no
+ * real session) is ever asked for it, once per device. Reuses `useTutor`,
+ * `useTutorSchedule`, and
  * `useTutorAvailabilitySlots` — the same three hooks `TutorDetailPage`,
  * `TutorSessionListPage`, `TutorStudentsPage`, and `DeclareAvailabilityPage`
  * already fetch — React Query's cache means visiting more than one of
  * these pages in a session never re-requests the same data twice.
  */
-function TeachingOverview({ tutorId }: TeachingOverviewProps) {
+function TeachingOverview({ tutorId, onChooseAgain }: TeachingOverviewProps) {
   const navigate = useNavigate();
   const tutorQuery = useTutor(tutorId);
   const scheduleQuery = useTutorSchedule(tutorId);
@@ -127,7 +171,11 @@ function TeachingOverview({ tutorId }: TeachingOverviewProps) {
           ))}
         </Stack>
       ) : scheduleQuery.isError ? (
-        <ErrorState error={scheduleQuery.error} onRetry={() => void scheduleQuery.refetch()} />
+        <IdentityLookupErrorState
+          error={scheduleQuery.error}
+          onRetry={() => void scheduleQuery.refetch()}
+          onChooseAgain={onChooseAgain}
+        />
       ) : (
         <>
           <SectionCard title="Teaching Summary">
@@ -138,6 +186,10 @@ function TeachingOverview({ tutorId }: TeachingOverviewProps) {
               <TeachingSummaryStat label="Open time slots" value={openSlots.length} />
             </Stack>
           </SectionCard>
+
+          <RecentConversationsSection />
+
+          <MyLearningPlansSection />
 
           {nextLesson ? (
             <NextLessonHeroCard session={nextLesson} subject={tutorQuery.data?.subject ?? null} />
@@ -239,7 +291,11 @@ function TeachingOverview({ tutorId }: TeachingOverviewProps) {
             ))}
           </Stack>
         ) : slotsQuery.isError ? (
-          <ErrorState error={slotsQuery.error} onRetry={() => void slotsQuery.refetch()} />
+          <IdentityLookupErrorState
+            error={slotsQuery.error}
+            onRetry={() => void slotsQuery.refetch()}
+            onChooseAgain={onChooseAgain}
+          />
         ) : openSlots.length === 0 ? (
           <EmptyState
             title="You haven't added any teaching time"
@@ -333,7 +389,7 @@ export function TutorDashboard() {
         title="Let's set up your dashboard"
         description="Enter your tutor id once — we'll remember it on this device so you'll see today's lessons, upcoming lessons, and your availability here every time."
       >
-        {(tutorId) => <TeachingOverview tutorId={tutorId} />}
+        {(tutorId, forget) => <TeachingOverview tutorId={tutorId} onChooseAgain={forget} />}
       </IdentityGate>
     </Stack>
   );

@@ -5,13 +5,22 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { DashboardPage } from "@/routes/DashboardPage";
 import { ActorProvider } from "@/shared/context/ActorProvider";
+import { AuthProvider } from "@/shared/context/AuthProvider";
 import { NotificationProvider } from "@/shared/context/NotificationProvider";
 import { ConfirmDialogProvider } from "@/shared/context/ConfirmDialogProvider";
 import * as healthService from "@/services/api/healthService";
 import * as discoveryService from "@/features/discovery/api/discoveryService";
 import * as schedulingService from "@/features/scheduling/api/schedulingService";
 import * as identityService from "@/features/identity/api/identityService";
+import * as communicationService from "@/features/communication/api/communicationService";
 import { DeliveryMode, RelationshipStatus, SessionStatus } from "@/services/api/dtos";
+
+// Every dashboard (Student/Tutor/Parent) now renders RecentConversationsSection
+// (RC5.1) — mocked once, file-wide, since no test here is about messaging
+// specifically; each describe block below still owns its own other mocks.
+beforeEach(() => {
+  vi.spyOn(communicationService, "fetchMyConversations").mockResolvedValue([]);
+});
 
 function renderDashboard() {
   const queryClient = new QueryClient({
@@ -19,15 +28,17 @@ function renderDashboard() {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <ActorProvider>
-        <NotificationProvider>
-          <ConfirmDialogProvider>
-            <MemoryRouter>
-              <DashboardPage />
-            </MemoryRouter>
-          </ConfirmDialogProvider>
-        </NotificationProvider>
-      </ActorProvider>
+      <AuthProvider>
+        <ActorProvider>
+          <NotificationProvider>
+            <ConfirmDialogProvider>
+              <MemoryRouter>
+                <DashboardPage />
+              </MemoryRouter>
+            </ConfirmDialogProvider>
+          </NotificationProvider>
+        </ActorProvider>
+      </AuthProvider>
     </QueryClientProvider>,
   );
 }
@@ -125,12 +136,14 @@ describe("DashboardPage — Student dashboard", () => {
     expect(screen.getByRole("heading", { name: "Welcome back" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Upcoming Sessions" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Continue Learning" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Messages" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Recommended Tutors" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Recent Activity" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Quick actions" })).toBeInTheDocument();
 
     expect(screen.getByText("No upcoming sessions yet")).toBeInTheDocument();
-    expect(screen.getByText("Nothing in progress yet")).toBeInTheDocument();
+    expect(screen.getByText("You haven't enrolled in a learning plan yet")).toBeInTheDocument();
+    expect(await screen.findByText("No conversations yet")).toBeInTheDocument();
     expect(screen.getByText("No recent activity yet")).toBeInTheDocument();
     expect(await screen.findByText("No tutors available yet")).toBeInTheDocument();
   });
@@ -332,10 +345,29 @@ describe("DashboardPage — Tutor dashboard", () => {
     await userEvent.click(screen.getByRole("button", { name: "Look up" }));
 
     expect(await screen.findByRole("heading", { name: "Teaching Summary" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Messages" })).toBeInTheDocument();
+    expect(await screen.findByText("No conversations yet")).toBeInTheDocument();
     expect(screen.getByText("Your Next Lesson")).toBeInTheDocument();
     expect(await screen.findByText("Mathematics")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Profile Completion" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Teaching Tips" })).toBeInTheDocument();
+  });
+
+  it("shows an honest 'My Learning Plans' section with real (zero) counts, never a fabricated plan", async () => {
+    vi.spyOn(schedulingService, "fetchTutorSchedule").mockResolvedValue([]);
+    vi.spyOn(schedulingService, "fetchTutorAvailabilitySlots").mockResolvedValue([]);
+
+    renderDashboard();
+
+    await userEvent.type(screen.getByLabelText("Tutor id"), TUTOR_ID);
+    await userEvent.click(screen.getByRole("button", { name: "Look up" }));
+
+    expect(await screen.findByRole("heading", { name: "My Learning Plans" })).toBeInTheDocument();
+    expect(screen.getByText("Active Plans")).toBeInTheDocument();
+    expect(screen.getByText("Draft Plans")).toBeInTheDocument();
+    expect(screen.getByText("Archived Plans")).toBeInTheDocument();
+    expect(screen.getByText("Enrollments")).toBeInTheDocument();
+    expect(screen.getByText("No learning plans yet")).toBeInTheDocument();
   });
 
   it("shows an Availability Overview sourced from the existing Availability Slot capability", async () => {
@@ -447,6 +479,8 @@ describe("DashboardPage — Parent dashboard", () => {
     expect(screen.getByText("st2")).toBeInTheDocument();
     expect(screen.getByText("Confirmed")).toBeInTheDocument();
     expect(screen.getByText("Invited")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Messages" })).toBeInTheDocument();
+    expect(await screen.findByText("No conversations yet")).toBeInTheDocument();
   });
 
   it("aggregates every confirmed child's own schedule into a family-wide Family Summary, Next Lesson, and Today's Lessons", async () => {

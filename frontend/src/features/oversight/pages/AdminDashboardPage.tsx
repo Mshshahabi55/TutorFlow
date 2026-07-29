@@ -7,6 +7,7 @@ import { PendingTutorCard } from "@/features/identity/components/PendingTutorCar
 import { PendingTutorCardSkeleton } from "@/features/identity/components/PendingTutorCardSkeleton";
 import { AdminSessionCard } from "@/features/oversight/components/AdminSessionCard";
 import { AdminSessionCardSkeleton } from "@/features/oversight/components/AdminSessionCardSkeleton";
+import { RecentConversationsSection } from "@/features/communication/components/RecentConversationsSection";
 import { SectionCard } from "@/shared/components/SectionCard";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { LoadingState } from "@/shared/components/feedback/LoadingState";
@@ -49,7 +50,9 @@ function MarketplaceStat<T>({ title, query, renderCount, linkTo, linkLabel }: Ma
       ) : null}
       {query.isSuccess ? (
         <Stack spacing={1}>
-          <Typography variant="h3">{renderCount(query.data)}</Typography>
+          <Typography variant="h4" component="p" fontWeight={700}>
+            {renderCount(query.data)}
+          </Typography>
           {linkTo && linkLabel ? (
             <Button component={RouterLink} to={linkTo} size="small" sx={{ alignSelf: "flex-start" }}>
               {linkLabel}
@@ -138,7 +141,9 @@ export function AdminDashboardPage() {
           />
         ) : (
           <Stack spacing={2}>
-            <Typography variant="h3">{pendingTutorsQuery.data.totalCount}</Typography>
+            <Typography variant="h4" component="p" fontWeight={700}>
+              {pendingTutorsQuery.data.totalCount}
+            </Typography>
             {pendingTutorsQuery.data.items.length > 0 ? (
               <Stack spacing={2}>
                 {pendingTutorsQuery.data.items.map((tutor) => (
@@ -178,6 +183,8 @@ export function AdminDashboardPage() {
           </Stack>
         )}
       </SectionCard>
+
+      <RecentConversationsSection />
 
       <SectionCard title="Marketplace Overview">
         <Stack direction={{ xs: "column", sm: "row" }} spacing={3}>

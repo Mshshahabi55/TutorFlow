@@ -1,8 +1,12 @@
 /** Centralized route paths — every Link/NavLink/navigate call imports from here rather than hardcoding a string. */
 export const paths = {
   home: "/",
-  /** RC2: a placeholder destination — no messaging capability exists in this API yet. */
-  messages: "/messages",
+  /** RC5.1: real Conversation/Message capability (docs/adr/ADR-022-communication-and-notifications-architecture.md). */
+  messages: {
+    inbox: "/messages",
+    conversationDetailPattern: "/messages/:conversationId",
+    conversationDetail: (conversationId: string) => `/messages/${conversationId}`,
+  },
   /** RC2: one "Profile" nav destination for every role — resolves to the role's existing detail page. */
   profile: "/profile",
   auth: {
@@ -17,6 +21,9 @@ export const paths = {
     tutorDetail: (tutorId: string) => `/identity/tutors/${tutorId}`,
     tutorEditPattern: "/identity/tutors/:tutorId/edit",
     tutorEdit: (tutorId: string) => `/identity/tutors/${tutorId}/edit`,
+    /** ADR-024 (Accepted, 2026-07-28): the 7-step Tutor Onboarding Wizard, reached after registration. */
+    tutorOnboardingPattern: "/identity/tutors/:tutorId/onboarding",
+    tutorOnboarding: (tutorId: string) => `/identity/tutors/${tutorId}/onboarding`,
     studentRegister: "/identity/students/register",
     studentDetailBase: "/identity/students",
     studentDetailPattern: "/identity/students/:studentId",

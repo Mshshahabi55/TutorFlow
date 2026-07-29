@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ThemeProvider } from "@mui/material/styles";
@@ -12,6 +12,7 @@ import { ColorModeProvider } from "@/shared/context/ColorModeProvider";
 import { NotificationProvider } from "@/shared/context/NotificationProvider";
 import { ConfirmDialogProvider } from "@/shared/context/ConfirmDialogProvider";
 import { AuthHarness } from "@/test/AuthHarness";
+import * as communicationService from "@/features/communication/api/communicationService";
 import type { AuthenticatedUser } from "@/shared/context/AuthContext";
 
 function mockViewport(matches: boolean) {
@@ -59,6 +60,10 @@ function renderShell(authUser?: AuthenticatedUser) {
 }
 
 describe("AppLayout", () => {
+  beforeEach(() => {
+    vi.spyOn(communicationService, "fetchMyNotifications").mockResolvedValue([]);
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -100,7 +105,13 @@ describe("AppLayout", () => {
 
   it("hides the dev-only RoleSwitcher for a real signed-in session", async () => {
     mockViewport(true);
-    renderShell({ token: "t", accountId: "a1", role: "Student", expiresAtUtc: "2999-01-01T00:00:00Z" });
+    renderShell({
+      token: "t",
+      accountId: "a1",
+      role: "Student",
+      expiresAtUtc: "2999-01-01T00:00:00Z",
+      email: "student@example.com",
+    });
 
     await screen.findByText("Page content");
     expect(screen.queryByLabelText("Acting as (dev only)")).not.toBeInTheDocument();

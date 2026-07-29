@@ -11,12 +11,14 @@ import { byScheduledTimeAscending, byScheduledTimeDescending } from "@/features/
 import { AdminSessionCard } from "@/features/oversight/components/AdminSessionCard";
 import { SessionCardSkeleton } from "@/features/scheduling/components/SessionCardSkeleton";
 import { NextFamilyLessonHeroCard } from "@/routes/dashboard/NextFamilyLessonHeroCard";
+import { RecentConversationsSection } from "@/features/communication/components/RecentConversationsSection";
 import { RecommendedTutors } from "@/routes/dashboard/RecommendedTutors";
 import { SectionCard } from "@/shared/components/SectionCard";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { IdentityGate } from "@/shared/components/IdentityGate";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
+import { IdentityLookupErrorState } from "@/shared/components/feedback/IdentityLookupErrorState";
 import { isTodayInTehran } from "@/shared/time/tehranTime";
 import { ROLE_QUICK_ACTIONS } from "@/routes/dashboardRoleConfig";
 import { RelationshipStatus, SessionStatus } from "@/services/api/dtos";
@@ -51,7 +53,7 @@ function FamilySummaryStat({ label, value }: { label: string; value: number }) {
  * lessons apart, and duplicating that shape into a new component would be
  * exactly the kind of "duplicated component" this phase must avoid.
  */
-function FamilyOverview({ accountId }: { accountId: string }) {
+function FamilyOverview({ accountId, onChooseAgain }: { accountId: string; onChooseAgain: () => void }) {
   const navigate = useNavigate();
   const relationshipsQuery = useRelationshipsForAccount(accountId);
   const confirmedStudentIds = (relationshipsQuery.data ?? [])
@@ -79,7 +81,13 @@ function FamilyOverview({ accountId }: { accountId: string }) {
   }
 
   if (relationshipsQuery.isError) {
-    return <ErrorState error={relationshipsQuery.error} onRetry={() => void relationshipsQuery.refetch()} />;
+    return (
+      <IdentityLookupErrorState
+        error={relationshipsQuery.error}
+        onRetry={() => void relationshipsQuery.refetch()}
+        onChooseAgain={onChooseAgain}
+      />
+    );
   }
 
   const relationships = relationshipsQuery.data;
@@ -199,6 +207,8 @@ function FamilyOverview({ accountId }: { accountId: string }) {
         )}
       </SectionCard>
 
+      <RecentConversationsSection />
+
       <SectionCard
         title="Recommended Tutors"
         action={
@@ -216,10 +226,10 @@ function FamilyOverview({ accountId }: { accountId: string }) {
 /**
  * The Parent/Guardian's family command-center landing experience. Quick
  * actions need no id and always render; the family overview reuses
- * `useRelationshipsForAccount` once a Parent/Guardian id is known — via
- * the shared `useRememberedId`/`IdentityGate` pattern (there is still no
- * "my own id" resolution from an authenticated Account — ADR-011 remains
- * frozen), so it's asked for once per device rather than on every visit.
+ * `useRelationshipsForAccount` once a Parent/Guardian id is known — a real
+ * signed-in Parent/Guardian's own id resolves automatically (`IdentityGate`,
+ * now backed by `useOwnId`); only the dev-only "Acting as" preview (no real
+ * session) is ever asked for it.
  */
 export function ParentDashboard() {
   return (
@@ -255,7 +265,7 @@ export function ParentDashboard() {
         title="Let's set up your family view"
         description="Enter your Parent/Guardian id once — we'll remember it on this device so you'll see your children and their lessons here every time."
       >
-        {(accountId) => <FamilyOverview accountId={accountId} />}
+        {(accountId, forget) => <FamilyOverview accountId={accountId} onChooseAgain={forget} />}
       </IdentityGate>
 
       <SectionCard title="Learning Tips">

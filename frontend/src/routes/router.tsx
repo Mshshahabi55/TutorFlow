@@ -12,9 +12,6 @@ const DashboardPage = lazy(() =>
 const NotFoundPage = lazy(() =>
   import("@/routes/NotFoundPage").then((module) => ({ default: module.NotFoundPage })),
 );
-const MessagesPage = lazy(() =>
-  import("@/routes/MessagesPage").then((module) => ({ default: module.MessagesPage })),
-);
 const ProfilePage = lazy(() =>
   import("@/routes/ProfilePage").then((module) => ({ default: module.ProfilePage })),
 );
@@ -36,6 +33,11 @@ const RegisterTutorPage = lazy(() =>
 const TutorOfferingPage = lazy(() =>
   import("@/features/identity/pages/TutorOfferingPage").then((module) => ({
     default: module.TutorOfferingPage,
+  })),
+);
+const TutorOnboardingWizardPage = lazy(() =>
+  import("@/features/identity/pages/TutorOnboardingWizardPage").then((module) => ({
+    default: module.TutorOnboardingWizardPage,
   })),
 );
 const TutorDetailPage = lazy(() =>
@@ -121,6 +123,17 @@ const TutorSearchPage = lazy(() =>
   })),
 );
 
+const InboxPage = lazy(() =>
+  import("@/features/communication/pages/InboxPage").then((module) => ({
+    default: module.InboxPage,
+  })),
+);
+const ConversationDetailPage = lazy(() =>
+  import("@/features/communication/pages/ConversationDetailPage").then((module) => ({
+    default: module.ConversationDetailPage,
+  })),
+);
+
 const AdminDashboardPage = lazy(() =>
   import("@/features/oversight/pages/AdminDashboardPage").then((module) => ({
     default: module.AdminDashboardPage,
@@ -173,7 +186,8 @@ export const router = createBrowserRouter([
     element: <AppLayout />,
     children: [
       { path: paths.home, element: withSuspense(<DashboardPage />) },
-      { path: paths.messages, element: withSuspense(<MessagesPage />) },
+      { path: paths.messages.inbox, element: withSuspense(<InboxPage />) },
+      { path: paths.messages.conversationDetailPattern, element: withSuspense(<ConversationDetailPage />) },
       { path: paths.profile, element: withSuspense(<ProfilePage />) },
       { path: paths.auth.login, element: withSuspense(<LoginPage />) },
       {
@@ -190,6 +204,10 @@ export const router = createBrowserRouter([
       {
         path: paths.identity.tutorEditPattern,
         element: withSuspense(withRole(["Tutor"], <TutorOfferingPage />)),
+      },
+      {
+        path: paths.identity.tutorOnboardingPattern,
+        element: withSuspense(withRole(["Tutor"], <TutorOnboardingWizardPage />)),
       },
       { path: paths.identity.tutorDetailPattern, element: withSuspense(<TutorDetailPage />) },
 

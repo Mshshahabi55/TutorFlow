@@ -1,13 +1,20 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import { AdminDashboardPage } from "@/features/oversight/pages/AdminDashboardPage";
 import { renderWithProviders } from "@/test/renderWithProviders";
 import * as identityService from "@/features/identity/api/identityService";
 import * as oversightService from "@/features/oversight/api/oversightService";
 import * as healthService from "@/services/api/healthService";
+import * as communicationService from "@/features/communication/api/communicationService";
 import { DeliveryMode, SessionStatus } from "@/services/api/dtos";
 
 describe("AdminDashboardPage", () => {
+  // RC5.1: every dashboard now renders RecentConversationsSection —
+  // mocked once here since none of these tests are about messaging itself.
+  beforeEach(() => {
+    vi.spyOn(communicationService, "fetchMyConversations").mockResolvedValue([]);
+  });
+
   it("shows the real counts from each existing capability", async () => {
     vi.spyOn(healthService, "fetchHealthStatus").mockResolvedValue("Healthy");
     vi.spyOn(identityService, "fetchPendingTutors").mockResolvedValue({
@@ -153,5 +160,30 @@ describe("AdminDashboardPage", () => {
     expect(await screen.findByRole("heading", { name: "Recent Sessions" })).toBeInTheDocument();
     expect(await screen.findByText("Tutor: t1")).toBeInTheDocument();
     expect(screen.getByText("Student: st1")).toBeInTheDocument();
+  });
+
+  // RC5.1 Step 8: Admin's own support conversations, via the same
+  // GET /conversations/mine every role uses — reused, not a bespoke
+  // Admin-only messaging system.
+  it("shows a Messages section for Admin support conversations", async () => {
+    vi.spyOn(healthService, "fetchHealthStatus").mockResolvedValue("Healthy");
+    vi.spyOn(identityService, "fetchPendingTutors").mockResolvedValue({
+      items: [],
+      totalCount: 0,
+      page: 1,
+      pageSize: 1,
+    });
+    vi.spyOn(oversightService, "fetchAllSessions").mockResolvedValue({
+      items: [],
+      totalCount: 0,
+      page: 1,
+      pageSize: 1,
+    });
+    vi.spyOn(identityService, "fetchTutorDirectory").mockResolvedValue([]);
+
+    renderWithProviders(<AdminDashboardPage />);
+
+    expect(await screen.findByRole("heading", { name: "Messages" })).toBeInTheDocument();
+    expect(await screen.findByText("No conversations yet")).toBeInTheDocument();
   });
 });

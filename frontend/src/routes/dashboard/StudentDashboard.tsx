@@ -8,9 +8,10 @@ import { SessionCardSkeleton } from "@/features/scheduling/components/SessionCar
 import { byScheduledTimeAscending, byScheduledTimeDescending } from "@/features/scheduling/utils/sessionSort";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
-import { ErrorState } from "@/shared/components/feedback/ErrorState";
+import { IdentityLookupErrorState } from "@/shared/components/feedback/IdentityLookupErrorState";
 import { SectionCard } from "@/shared/components/SectionCard";
-import { useRememberedId } from "@/shared/hooks/useRememberedId";
+import { useOwnId } from "@/shared/hooks/useOwnId";
+import { RecentConversationsSection } from "@/features/communication/components/RecentConversationsSection";
 import { RecommendedTutors } from "@/routes/dashboard/RecommendedTutors";
 import { ROLE_QUICK_ACTIONS } from "@/routes/dashboardRoleConfig";
 import { SessionStatus } from "@/services/api/dtos";
@@ -20,13 +21,20 @@ import { paths } from "@/routes/paths";
 const RECENT_ACTIVITY_LIMIT = 3;
 
 /**
- * Once a Student id is known (`useRememberedId` — set the first time the
- * Student uses My Lessons or the booking wizard), reuses `useStudentSchedule`
+ * Once a Student id is known (`useOwnId` — a real signed-in Student's own
+ * id, resolved automatically; falls back to the dev-only "Acting as"
+ * preview's remembered id otherwise), reuses `useStudentSchedule`
  * (the same hook `StudentSessionListPage` already uses) to show the next
  * upcoming Session and recent activity for real, instead of the permanent
  * empty state a brand new visitor with no remembered id sees.
  */
-function UpcomingSessionContent({ studentId }: { studentId: string }) {
+function UpcomingSessionContent({
+  studentId,
+  onChooseAgain,
+}: {
+  studentId: string;
+  onChooseAgain: () => void;
+}) {
   const navigate = useNavigate();
   const scheduleQuery = useStudentSchedule(studentId);
 
@@ -35,7 +43,13 @@ function UpcomingSessionContent({ studentId }: { studentId: string }) {
   }
 
   if (scheduleQuery.isError) {
-    return <ErrorState error={scheduleQuery.error} onRetry={() => void scheduleQuery.refetch()} />;
+    return (
+      <IdentityLookupErrorState
+        error={scheduleQuery.error}
+        onRetry={() => void scheduleQuery.refetch()}
+        onChooseAgain={onChooseAgain}
+      />
+    );
   }
 
   const nextSession = scheduleQuery.data
@@ -70,7 +84,13 @@ function UpcomingSessionContent({ studentId }: { studentId: string }) {
   );
 }
 
-function RecentActivityContent({ studentId }: { studentId: string }) {
+function RecentActivityContent({
+  studentId,
+  onChooseAgain,
+}: {
+  studentId: string;
+  onChooseAgain: () => void;
+}) {
   const navigate = useNavigate();
   const scheduleQuery = useStudentSchedule(studentId);
 
@@ -79,7 +99,13 @@ function RecentActivityContent({ studentId }: { studentId: string }) {
   }
 
   if (scheduleQuery.isError) {
-    return <ErrorState error={scheduleQuery.error} onRetry={() => void scheduleQuery.refetch()} />;
+    return (
+      <IdentityLookupErrorState
+        error={scheduleQuery.error}
+        onRetry={() => void scheduleQuery.refetch()}
+        onChooseAgain={onChooseAgain}
+      />
+    );
   }
 
   const recentActivity = scheduleQuery.data
@@ -125,16 +151,17 @@ function RecentActivityContent({ studentId }: { studentId: string }) {
  * generic role-summary dashboard every other role still sees (unchanged in
  * `DashboardPage`). Recommended Tutors reuses Discovery's existing search
  * capability; Upcoming Sessions and Recent Activity show real data once a
- * Student id is known (`useRememberedId`), and an honest empty state
+ * Student id is known (`useOwnId`), and an honest empty state
  * otherwise — never fabricated. Continue Learning has no capability to
- * read at all (no "in-progress lesson" concept exists anywhere in this
- * API), so it always renders its own honest empty state.
+ * read at all (no Learning Plan/Enrollment concept exists anywhere in this
+ * API yet — `docs/adr/ADR-021...`, Proposed, not Accepted), so it always
+ * renders its own honest empty state.
  */
 export function StudentDashboard() {
-  const { id: studentId } = useRememberedId("student");
+  const { id: studentId, forget } = useOwnId("student");
 
   return (
-    <Stack spacing={4}>
+    <Stack spacing={3}>
       <PageHeader
         title="Welcome back"
         subtitle={
@@ -157,7 +184,7 @@ export function StudentDashboard() {
             }
           >
             {studentId ? (
-              <UpcomingSessionContent studentId={studentId} />
+              <UpcomingSessionContent studentId={studentId} onChooseAgain={forget} />
             ) : (
               <EmptyState
                 title="No upcoming sessions yet"
@@ -178,10 +205,18 @@ export function StudentDashboard() {
           </SectionCard>
         </Box>
         <Box flex={1}>
+          {/*
+           * RC5.0: "Continue Learning" — no Learning Plan/Enrollment capability
+           * exists in this API version yet (docs/adr/ADR-021..., Proposed, not
+           * Accepted), so there is no real "Current Plan" any Student can ever
+           * have today. This stays an honest empty state (never a fabricated
+           * Current Plan/Progress/Renew) using the exact wording this phase
+           * specifies, rather than pretending an enrollment exists.
+           */}
           <SectionCard title="Continue Learning">
             <EmptyState
-              title="Nothing in progress yet"
-              description="After your first completed session, you'll be able to pick up right where you left off."
+              title="You haven't enrolled in a learning plan yet"
+              description="Once Learning Plans are available, your current plan, progress, and remaining lessons will show up here."
               action={
                 <Button
                   component={RouterLink}
@@ -190,13 +225,15 @@ export function StudentDashboard() {
                   size="small"
                   startIcon={<SearchRoundedIcon />}
                 >
-                  Find Tutors
+                  View Learning Plans
                 </Button>
               }
             />
           </SectionCard>
         </Box>
       </Stack>
+
+      <RecentConversationsSection />
 
       <SectionCard
         title="Recommended Tutors"
@@ -213,7 +250,7 @@ export function StudentDashboard() {
         <Box flex={1}>
           <SectionCard title="Recent Activity">
             {studentId ? (
-              <RecentActivityContent studentId={studentId} />
+              <RecentActivityContent studentId={studentId} onChooseAgain={forget} />
             ) : (
               <EmptyState
                 title="No recent activity yet"

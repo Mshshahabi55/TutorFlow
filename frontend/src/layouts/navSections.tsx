@@ -38,7 +38,7 @@ export const STUDENT_NAV: NavEntry[] = [
   { to: paths.home, label: "Home", icon: <HomeRoundedIcon />, exact: true },
   { to: paths.discovery.tutorSearch, label: "Find Tutors", icon: <SearchRoundedIcon /> },
   { to: paths.scheduling.studentScheduleBase, label: "My Lessons", icon: <CalendarMonthRoundedIcon /> },
-  { to: paths.messages, label: "Messages", icon: <ChatBubbleOutlineRoundedIcon /> },
+  { to: paths.messages.inbox, label: "Messages", icon: <ChatBubbleOutlineRoundedIcon /> },
   { to: paths.profile, label: "Profile", icon: <PersonRoundedIcon /> },
 ];
 
@@ -47,6 +47,7 @@ export const TUTOR_NAV: NavEntry[] = [
   { to: paths.scheduling.tutorStudents, label: "My Students", icon: <GroupsRoundedIcon /> },
   { to: paths.scheduling.tutorScheduleBase, label: "My Lessons", icon: <CalendarMonthRoundedIcon /> },
   { to: paths.scheduling.declareAvailability, label: "Availability", icon: <EventAvailableRoundedIcon /> },
+  { to: paths.messages.inbox, label: "Messages", icon: <ChatBubbleOutlineRoundedIcon /> },
   { to: paths.profile, label: "Profile", icon: <PersonRoundedIcon /> },
 ];
 
@@ -54,11 +55,11 @@ export const PARENT_NAV: NavEntry[] = [
   { to: paths.home, label: "Home", icon: <HomeRoundedIcon />, exact: true },
   { to: paths.identity.relationships, label: "My Children", icon: <FamilyRestroomRoundedIcon /> },
   { to: paths.scheduling.bookSession, label: "Book a Lesson", icon: <EventRoundedIcon /> },
-  { to: paths.messages, label: "Messages", icon: <ChatBubbleOutlineRoundedIcon /> },
+  { to: paths.messages.inbox, label: "Messages", icon: <ChatBubbleOutlineRoundedIcon /> },
   { to: paths.profile, label: "Profile", icon: <PersonRoundedIcon /> },
 ];
 
-/** Admin navigation remains its own, separate, operations-flavoured list — RC2 explicitly scopes the marketplace redesign to the Student/Tutor/Parent-facing experience. */
+/** Admin navigation remains its own, separate, operations-flavoured list — RC2 explicitly scopes the marketplace redesign to the Student/Tutor/Parent-facing experience. RC5.1 adds "Support Messages" — Admin/Staff <-> any user, per ADR-022. */
 export const ADMIN_NAV: NavEntry[] = [
   { to: paths.home, label: "Dashboard", icon: <DashboardRoundedIcon />, exact: true },
   {
@@ -68,6 +69,7 @@ export const ADMIN_NAV: NavEntry[] = [
   },
   { to: paths.identity.tutorPending, label: "Tutor Approvals", icon: <FactCheckRoundedIcon /> },
   { to: paths.oversight.globalSessions, label: "All Sessions", icon: <ListAltRoundedIcon /> },
+  { to: paths.messages.inbox, label: "Support Messages", icon: <ChatBubbleOutlineRoundedIcon /> },
   { to: paths.auth.resetPassword, label: "Reset Password", icon: <LockResetRoundedIcon /> },
 ];
 

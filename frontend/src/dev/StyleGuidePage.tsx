@@ -41,6 +41,11 @@ import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { LoadingState } from "@/shared/components/feedback/LoadingState";
 import { StatusPill, type StatusTone } from "@/shared/components/feedback/StatusPill";
+import { LearningPlanCard } from "@/features/learningPlans/components/LearningPlanCard";
+import { LearningPlanSkeleton } from "@/features/learningPlans/components/LearningPlanSkeleton";
+import { PlanBadge } from "@/features/learningPlans/components/PlanBadge";
+import { PlanFeatureList } from "@/features/learningPlans/components/PlanFeatureList";
+import type { LearningPlanPreview } from "@/features/learningPlans/types";
 import { ColorModeProvider } from "@/shared/context/ColorModeProvider";
 import { useColorMode } from "@/shared/hooks/useColorMode";
 import { useConfirmDialog } from "@/shared/hooks/useConfirmDialog";
@@ -230,6 +235,25 @@ const demoColumns: DataTableColumn<DemoRow>[] = [
     render: (row) => <StatusPill label={row.status} tone={row.status} />,
   },
 ];
+
+/**
+ * RC5.0: sample data only, for this dev-only page — no Learning Plan
+ * backend exists yet (`docs/adr/ADR-021...`, Proposed, not Accepted). No
+ * real page in the app constructs a `LearningPlanPreview` value; this is
+ * the one place these components are shown with illustrative data, exactly
+ * the same convention `DEMO_ROWS` already uses for the `DataTable` preview
+ * below.
+ */
+const DEMO_LEARNING_PLAN: LearningPlanPreview = {
+  learningPlanId: "demo-1",
+  title: "IELTS Intensive",
+  durationDays: 45,
+  sessionsPerWeek: 4,
+  totalSessions: 18,
+  price: 12_000_000,
+  description: "Focused preparation for the IELTS exam, four lessons a week.",
+  status: "Active",
+};
 
 const demoFormSchema = z.object({
   name: z.string().min(1, "Required"),
@@ -467,6 +491,32 @@ export function StyleGuidePage() {
           {STATUS_TONES.map((tone) => (
             <StatusPill key={tone} label={tone} tone={tone} />
           ))}
+        </Stack>
+      </Section>
+
+      <Divider />
+
+      <Section
+        title="Learning Plan components (RC5.0)"
+        description="No Learning Plan backend exists yet (docs/adr/ADR-021..., Proposed, not Accepted) — sample data only, shown here so the reusable components can be reviewed. Every real page in the app renders these against an empty list and shows an honest 'coming soon' state instead."
+      >
+        <Stack direction="row" spacing={1.5} flexWrap="wrap">
+          <PlanBadge label="Active" />
+          <PlanBadge label="Draft" />
+          <PlanBadge label="Archived" />
+          <PlanBadge label={`${DEMO_LEARNING_PLAN.durationDays} Days`} tone="info" />
+        </Stack>
+        <Box maxWidth={320}>
+          <PlanFeatureList
+            features={[
+              `${DEMO_LEARNING_PLAN.sessionsPerWeek} lessons / week`,
+              `${DEMO_LEARNING_PLAN.totalSessions} total lessons`,
+            ]}
+          />
+        </Box>
+        <Stack direction="row" flexWrap="wrap" gap={2}>
+          <LearningPlanCard plan={DEMO_LEARNING_PLAN} onEnroll={() => notify({ message: "Demo only — not a real enrollment.", severity: "info" })} />
+          <LearningPlanSkeleton />
         </Stack>
       </Section>
 

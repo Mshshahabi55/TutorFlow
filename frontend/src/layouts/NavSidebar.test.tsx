@@ -46,17 +46,18 @@ describe("NavSidebar", () => {
     window.localStorage.clear();
   });
 
-  it("shows the Student's flat 5-item nav — Home, Find Tutors, My Lessons, Messages, Profile", () => {
+  it("shows the Student's flat 6-item nav — Home, Find Tutors, Favorites, My Lessons, Messages, Profile", () => {
     window.localStorage.setItem("tutorflow.devActorRole", "Student");
 
     renderNavSidebar({ variant: "permanent" });
 
     expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
     expect(screen.getByRole("link", { name: "Find Tutors" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Favorites" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "My Lessons" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Messages" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Profile" })).toBeInTheDocument();
-    expect(screen.getAllByRole("link")).toHaveLength(5);
+    expect(screen.getAllByRole("link")).toHaveLength(6);
   });
 
   it("shows the Tutor's flat nav — Dashboard, My Students, My Lessons, Availability, Profile", () => {

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import {
   fetchPendingTutors,
   fetchTutorById,
@@ -10,6 +10,23 @@ export function useTutor(tutorId: string | undefined) {
     queryKey: ["identity", "tutors", "detail", tutorId],
     queryFn: () => fetchTutorById(tutorId as string),
     enabled: Boolean(tutorId),
+  });
+}
+
+/**
+ * Favorites/Recently Viewed/Compare each hold a bounded, client-side list
+ * of Tutor ids (never more than a handful in realistic use) and need each
+ * one's current data — same parallel-fetch-sharing-the-single-Tutor-cache
+ * pattern `useStudentSchedules` already established. A stale/deleted id
+ * (e.g. a Tutor removed after being favorited) surfaces as that one
+ * query's own isError, not a failure of the whole list.
+ */
+export function useTutorsByIds(tutorIds: string[]) {
+  return useQueries({
+    queries: tutorIds.map((tutorId) => ({
+      queryKey: ["identity", "tutors", "detail", tutorId],
+      queryFn: () => fetchTutorById(tutorId),
+    })),
   });
 }
 

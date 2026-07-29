@@ -5,6 +5,7 @@ import EventRoundedIcon from "@mui/icons-material/EventRounded";
 import ChatBubbleOutlineRoundedIcon from "@mui/icons-material/ChatBubbleOutlineRounded";
 import TranslateRoundedIcon from "@mui/icons-material/TranslateRounded";
 import { useStartConversation } from "@/features/communication/hooks/useConversationMutations";
+import { FavoriteToggleButton } from "@/features/discovery/components/FavoriteToggleButton";
 import { useNextAvailableLabel } from "@/features/scheduling/hooks/useNextAvailableLabel";
 import { TrustIndicators } from "@/features/identity/components/TrustIndicators";
 import { useEffectiveRole } from "@/shared/hooks/useEffectiveRole";
@@ -89,9 +90,12 @@ export function TutorProfileHero({ tutor }: { tutor: TutorDto }) {
       </Avatar>
 
       <Box flex={1} minWidth={0}>
-        <Typography variant="h4" component="h1">
-          {tutor.displayName ?? tutor.subject ?? "Tutor"}
-        </Typography>
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          <Typography variant="h4" component="h1">
+            {tutor.displayName ?? tutor.subject ?? "Tutor"}
+          </Typography>
+          <FavoriteToggleButton tutorId={tutor.tutorId} size="medium" />
+        </Stack>
         {tutor.headline ? (
           <Typography variant="body1" color="text.secondary" mt={0.25}>
             {tutor.headline}

@@ -1,5 +1,6 @@
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
+import FavoriteRoundedIcon from "@mui/icons-material/FavoriteRounded";
 import CalendarMonthRoundedIcon from "@mui/icons-material/CalendarMonthRounded";
 import ChatBubbleOutlineRoundedIcon from "@mui/icons-material/ChatBubbleOutlineRounded";
 import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
@@ -37,6 +38,7 @@ export interface NavEntry {
 export const STUDENT_NAV: NavEntry[] = [
   { to: paths.home, label: "Home", icon: <HomeRoundedIcon />, exact: true },
   { to: paths.discovery.tutorSearch, label: "Find Tutors", icon: <SearchRoundedIcon /> },
+  { to: paths.discovery.favorites, label: "Favorites", icon: <FavoriteRoundedIcon /> },
   { to: paths.scheduling.studentScheduleBase, label: "My Lessons", icon: <CalendarMonthRoundedIcon /> },
   { to: paths.messages.inbox, label: "Messages", icon: <ChatBubbleOutlineRoundedIcon /> },
   { to: paths.profile, label: "Profile", icon: <PersonRoundedIcon /> },
@@ -55,6 +57,7 @@ export const PARENT_NAV: NavEntry[] = [
   { to: paths.home, label: "Home", icon: <HomeRoundedIcon />, exact: true },
   { to: paths.identity.relationships, label: "My Children", icon: <FamilyRestroomRoundedIcon /> },
   { to: paths.scheduling.bookSession, label: "Book a Lesson", icon: <EventRoundedIcon /> },
+  { to: paths.discovery.favorites, label: "Favorites", icon: <FavoriteRoundedIcon /> },
   { to: paths.messages.inbox, label: "Messages", icon: <ChatBubbleOutlineRoundedIcon /> },
   { to: paths.profile, label: "Profile", icon: <PersonRoundedIcon /> },
 ];

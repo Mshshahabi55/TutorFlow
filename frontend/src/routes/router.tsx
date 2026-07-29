@@ -118,6 +118,18 @@ const TutorSearchPage = lazy(() =>
   })),
 );
 
+const FavoriteTutorsPage = lazy(() =>
+  import("@/features/discovery/pages/FavoriteTutorsPage").then((module) => ({
+    default: module.FavoriteTutorsPage,
+  })),
+);
+
+const CompareTutorsPage = lazy(() =>
+  import("@/features/discovery/pages/CompareTutorsPage").then((module) => ({
+    default: module.CompareTutorsPage,
+  })),
+);
+
 const InboxPage = lazy(() =>
   import("@/features/communication/pages/InboxPage").then((module) => ({
     default: module.InboxPage,
@@ -284,6 +296,8 @@ export const router = createBrowserRouter([
       },
 
       { path: paths.discovery.tutorSearch, element: withSuspense(<TutorSearchPage />) },
+      { path: paths.discovery.favorites, element: withSuspense(<FavoriteTutorsPage />) },
+      { path: paths.discovery.tutorCompare, element: withSuspense(<CompareTutorsPage />) },
 
       {
         path: paths.oversight.adminDashboard,

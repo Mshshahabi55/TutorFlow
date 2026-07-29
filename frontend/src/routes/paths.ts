@@ -60,6 +60,9 @@ export const paths = {
   },
   discovery: {
     tutorSearch: "/discovery/tutors/search",
+    /** Client-side only (localStorage) — no `Favorite`/comparison Domain concept is authorized by any Accepted ADR yet; a server-side version needs one first. */
+    favorites: "/discovery/tutors/favorites",
+    tutorCompare: "/discovery/tutors/compare",
   },
   oversight: {
     adminDashboard: "/oversight/dashboard",

@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useSearchTutors } from "@/features/discovery/hooks/useSearchTutors";
+import { useTutorsByIds } from "@/features/identity/hooks/useTutorQueries";
 import {
   tutorSearchFiltersSchema,
   type TutorSearchFiltersFormValues,
@@ -15,6 +16,9 @@ import { SearchResultsHeader } from "@/features/discovery/components/SearchResul
 import { TutorFilterPanel } from "@/features/discovery/components/TutorFilterPanel";
 import { TutorCard } from "@/features/discovery/components/TutorCard";
 import { TutorCardSkeleton } from "@/features/discovery/components/TutorCardSkeleton";
+import { RecentlyViewedSection } from "@/features/discovery/components/RecentlyViewedSection";
+import { SavedSearchesPanel } from "@/features/discovery/components/SavedSearchesPanel";
+import { CompareBar, MAX_COMPARE_COUNT } from "@/features/discovery/components/CompareBar";
 import { Form } from "@/shared/components/forms/Form";
 import { FormTextField } from "@/shared/components/forms/FormTextField";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
@@ -22,7 +26,7 @@ import { UnavailableState } from "@/shared/components/feedback/UnavailableState"
 import { PageHeader } from "@/shared/components/PageHeader";
 import { paths } from "@/routes/paths";
 import { usePagination } from "@/shared/hooks/usePagination";
-import { fromTehranInput, toTehranDisplay } from "@/shared/time/tehranTime";
+import { fromTehranInput, toTehranDisplay, toTehranInputValue } from "@/shared/time/tehranTime";
 
 const EMPTY_FILTERS: SearchTutorsFilters = {
   subject: "",
@@ -41,6 +45,7 @@ const SKELETON_COUNT = 8;
  */
 export function TutorSearchPage() {
   const [filters, setFilters] = useState<SearchTutorsFilters>(EMPTY_FILTERS);
+  const [compareIds, setCompareIds] = useState<string[]>([]);
   const { page, pageSize, setPage, setPageSize, reset } = usePagination();
   const searchQuery = useSearchTutors(filters, page, pageSize);
 
@@ -69,6 +74,22 @@ export function TutorSearchPage() {
     form.setValue(field, "");
     setFilters((previous) => ({ ...previous, [field]: "" }));
     reset();
+  }
+
+  /** Re-applies a saved search: the raw `SearchTutorsFilters` (already in wire format, availableFrom already a UTC ISO string) drives both the query and the form fields shown in the filter panel — the form's `datetime-local` input needs the Tehran-local input value, not the wire one, for that one field (same conversion `toFormValues`-style helpers elsewhere in this app use). */
+  function handleApplySavedSearch(saved: SearchTutorsFilters) {
+    form.reset({
+      ...saved,
+      availableFrom: saved.availableFrom === "" ? "" : toTehranInputValue(saved.availableFrom),
+    });
+    setFilters(saved);
+    reset();
+  }
+
+  function toggleCompare(tutorId: string) {
+    setCompareIds((previous) =>
+      previous.includes(tutorId) ? previous.filter((id) => id !== tutorId) : [...previous, tutorId].slice(0, MAX_COMPARE_COUNT),
+    );
   }
 
   const activeFilters: ActiveFilterChip[] = [
@@ -103,6 +124,14 @@ export function TutorSearchPage() {
   ].filter((chip): chip is ActiveFilterChip => chip !== null);
 
   const tutors = searchQuery.data?.items ?? [];
+
+  // Fetched independently from the current results page (same order as
+  // compareIds, per useQueries) — a Tutor selected for comparison before
+  // paginating away must still show up in CompareBar.
+  const compareTutorQueries = useTutorsByIds(compareIds);
+  const compareTutors = compareTutorQueries
+    .map((query) => (query.isSuccess ? query.data : null))
+    .filter((tutor): tutor is NonNullable<typeof tutor> => tutor !== null);
 
   return (
     <Stack spacing={3}>
@@ -174,8 +203,16 @@ export function TutorSearchPage() {
 
           {/* Active filters step */}
           <ActiveFiltersBar activeFilters={activeFilters} onClearAll={handleClear} />
+
+          <SavedSearchesPanel
+            currentFilters={filters}
+            hasActiveFilters={hasActiveFilters}
+            onApply={handleApplySavedSearch}
+          />
         </Stack>
       </Form>
+
+      <RecentlyViewedSection />
 
       {/* Results count step */}
       <SearchResultsHeader resultCount={searchQuery.data?.totalCount} isSearching={searchQuery.isPending} />
@@ -226,7 +263,15 @@ export function TutorSearchPage() {
         <>
           <Stack direction="row" flexWrap="wrap" gap={3} alignItems="stretch">
             {tutors.map((tutor) => (
-              <TutorCard key={tutor.tutorId} tutor={tutor} />
+              <TutorCard
+                key={tutor.tutorId}
+                tutor={tutor}
+                compare={{
+                  isSelected: compareIds.includes(tutor.tutorId),
+                  onToggle: () => toggleCompare(tutor.tutorId),
+                  disabled: compareIds.length >= MAX_COMPARE_COUNT && !compareIds.includes(tutor.tutorId),
+                }}
+              />
             ))}
           </Stack>
           <TablePagination
@@ -243,6 +288,12 @@ export function TutorSearchPage() {
           />
         </>
       ) : null}
+
+      <CompareBar
+        selectedTutors={compareTutors}
+        onRemove={(tutorId) => setCompareIds((previous) => previous.filter((id) => id !== tutorId))}
+        onClear={() => setCompareIds([])}
+      />
     </Stack>
   );
 }

@@ -1,4 +1,4 @@
-import type { MouseEvent, ReactNode } from "react";
+import { useEffect, type MouseEvent, type ReactNode } from "react";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { Box, Button, Chip, Link as MuiLink, Stack, Typography, alpha } from "@mui/material";
 import ReviewsRoundedIcon from "@mui/icons-material/ReviewsRounded";
@@ -8,6 +8,7 @@ import PsychologyRoundedIcon from "@mui/icons-material/PsychologyRounded";
 import EventRoundedIcon from "@mui/icons-material/EventRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import { useTutor } from "@/features/identity/hooks/useTutorQueries";
+import { useRecentlyViewedTutors } from "@/features/discovery/hooks/useRecentlyViewedTutors";
 import { useTutorAvailabilitySlots } from "@/features/scheduling/hooks/useAvailabilitySlotQueries";
 import { useNextAvailableLabel } from "@/features/scheduling/hooks/useNextAvailableLabel";
 import { AvailabilitySummaryCardSkeleton } from "@/features/scheduling/components/AvailabilitySummaryCardSkeleton";
@@ -560,6 +561,17 @@ function TutorNotFound({ onRetry }: { onRetry: () => void }) {
 export function TutorDetailPage() {
   const { tutorId } = useParams<{ tutorId: string }>();
   const tutorQuery = useTutor(tutorId);
+  const { recordView } = useRecentlyViewedTutors();
+
+  // Records a view only once the Tutor is confirmed to actually exist —
+  // never for an id that 404s, so "Recently Viewed" can't fill up with
+  // dead links.
+  useEffect(() => {
+    if (tutorQuery.isSuccess) {
+      recordView(tutorQuery.data.tutorId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tutorQuery.isSuccess, tutorQuery.data?.tutorId]);
 
   if (tutorQuery.isPending) {
     return <TutorProfileSkeleton />;

@@ -1,8 +1,22 @@
 import { Link as RouterLink } from "react-router-dom";
-import { Avatar, Box, Button, Card, CardContent, Chip, Link as MuiLink, Stack, Typography, alpha } from "@mui/material";
+import {
+  Avatar,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Checkbox,
+  Chip,
+  FormControlLabel,
+  Link as MuiLink,
+  Stack,
+  Typography,
+  alpha,
+} from "@mui/material";
 import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
 import TranslateRoundedIcon from "@mui/icons-material/TranslateRounded";
 import { PlanBadge } from "@/features/learningPlans/components/PlanBadge";
+import { FavoriteToggleButton } from "@/features/discovery/components/FavoriteToggleButton";
 import { StatusPill } from "@/shared/components/feedback/StatusPill";
 import { TrustIndicators } from "@/features/identity/components/TrustIndicators";
 import { formatToman } from "@/shared/money/rial";
@@ -161,9 +175,25 @@ function TutorCardActions({ tutorId }: { tutorId: string }) {
   );
 }
 
-export function TutorCard({ tutor }: { tutor: TutorDto }) {
+export interface TutorCardCompareProps {
+  isSelected: boolean;
+  onToggle: () => void;
+  /** True once the comparison selection is already at its max (Compare needs at least 2, reads best capped — see CompareBar) and this card isn't one of the selected ones. */
+  disabled?: boolean;
+}
+
+export interface TutorCardProps {
+  tutor: TutorDto;
+  /** Omitted on every page except the search grid — Compare only makes sense while browsing multiple results at once. */
+  compare?: TutorCardCompareProps;
+}
+
+export function TutorCard({ tutor, compare }: TutorCardProps) {
   return (
-    <Card variant="outlined" sx={TUTOR_CARD_SX}>
+    <Card variant="outlined" sx={{ ...TUTOR_CARD_SX, position: "relative" }}>
+      <Box sx={{ position: "absolute", top: 4, right: 4, zIndex: 1 }}>
+        <FavoriteToggleButton tutorId={tutor.tutorId} />
+      </Box>
       <CardContent sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
         <TutorCardHeader tutor={tutor} />
         <Box mt={1}>
@@ -172,6 +202,24 @@ export function TutorCard({ tutor }: { tutor: TutorDto }) {
         <TutorCardPrice tutor={tutor} />
         <TutorCardMeta tutor={tutor} />
         <Box flexGrow={1} minHeight={16} />
+        {compare ? (
+          <FormControlLabel
+            sx={{ mb: 0.5 }}
+            control={
+              <Checkbox
+                size="small"
+                checked={compare.isSelected}
+                disabled={compare.disabled}
+                onChange={compare.onToggle}
+              />
+            }
+            label={
+              <Typography variant="body2" color="text.secondary">
+                Compare
+              </Typography>
+            }
+          />
+        ) : null}
         <TutorCardActions tutorId={tutor.tutorId} />
       </CardContent>
     </Card>

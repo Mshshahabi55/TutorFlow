@@ -79,6 +79,21 @@ Answer inline (fill in the `→` blank) or reference a separate written decision
 
 ---
 
+## 5. Docker / Containerization — Iran-Reachable Base Image Sourcing
+*Source: none — a technical/infrastructure question `ADR-018` (Accepted) already names the constraint for without resolving it. Not gating any product feature; gating only whether this repo can safely add containerization at all.*
+
+`.devcontainer/Dockerfile` and `.devcontainer/docker-compose.yml` already exist in this repo, both explicitly marked "UNUSED SCAFFOLDING" by a prior phase specifically because their base images (`mcr.microsoft.com/dotnet/*`, and Docker Hub's `postgres`) are US-hosted infrastructure `ADR-018` flags as potentially unreachable from Iran (`CLAUDE.md`: "Never add a dependency on a service unreachable from Iran"). Writing new production Dockerfiles pulling from the same registries would repeat that exact, already-identified mistake.
+
+| # | Question | → Decision |
+|---|---|---|
+| 1 | **Gate.** Is containerization needed at all before a real hosting provider is chosen (`ADR-018` point 6, itself still a separate future decision)? | → |
+| 2 | If yes: is a documented **dev/CI-only** Docker setup acceptable (never used for the real Iran-hosted production deployment, so the reachability concern doesn't apply to it), or must even that be Iran-reachable? | → |
+| 3 | If production containerization is wanted: is there a known Iran-reachable mirror/registry for `.NET`/`node`/`nginx`/`postgres` base images, or does this require self-built base images from source — a materially larger undertaking? | → |
+
+**Architecture prepared without deciding the above:** none — there is no safe partial Docker setup to build ahead of Q1, the same reasoning `.devcontainer`'s own existing comment already gives.
+
+---
+
 ## How to use this document
 
 - Fill in a `→` line, or write "see [external decision doc/ticket]" and link it.

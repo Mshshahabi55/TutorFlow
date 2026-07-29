@@ -18,6 +18,12 @@ export function PersonalInfoStep() {
         <FormTextField name="country" label="Country" sx={{ flex: 1 }} />
         <FormTextField name="city" label="City" sx={{ flex: 1 }} />
       </Stack>
+      <FormTextField
+        name="location"
+        label="Location"
+        placeholder="Shown to Students searching by location"
+        helperText="Used for search — separate from Country/City above."
+      />
       <FormTextField name="nativeLanguage" label="Native language" placeholder="e.g. English" />
       <FormTextField
         name="otherLanguages"

@@ -124,7 +124,7 @@ export function ReviewPublishStep({ tutor, hasAvailability, onPublish, isPublish
         <Typography variant="h6" component="h3" gutterBottom>
           Completion checklist
         </Typography>
-        <ProfileCompletionCard completion={completion} tutorId={tutor.tutorId} />
+        <ProfileCompletionCard completion={completion} tutorId={tutor.tutorId} showCompleteAction={false} />
       </Box>
 
       {publishError ? <Alert severity="error">{publishError}</Alert> : null}

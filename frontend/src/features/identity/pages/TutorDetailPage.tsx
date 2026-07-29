@@ -110,12 +110,12 @@ function TutorDetailActions({ tutor }: { tutor: TutorDto }) {
     return (
       <Button
         component={RouterLink}
-        to={paths.identity.tutorEdit(tutor.tutorId)}
+        to={paths.identity.tutorOnboarding(tutor.tutorId)}
         variant="contained"
         size="small"
         sx={{ alignSelf: "flex-start" }}
       >
-        Edit offering
+        Edit profile
       </Button>
     );
   }

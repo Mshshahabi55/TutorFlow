@@ -283,7 +283,7 @@ describe("TutorDetailPage", () => {
     expect(fetchTutorById).toHaveBeenCalledTimes(2);
   });
 
-  // Phase 4.9 Task 4: Edit offering and Approve/Suspend previously rendered
+  // Phase 4.9 Task 4: Edit profile and Approve/Suspend previously rendered
   // unconditionally for every viewer — the live-browser finding ("a Student
   // sees tutor Approve/Suspend, admin actions") this phase's brief reported.
   describe("role-gated actions", () => {
@@ -300,18 +300,18 @@ describe("TutorDetailPage", () => {
       expect(await screen.findByText("Pending approval")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled();
       expect(screen.getByRole("button", { name: "Suspend" })).toBeEnabled();
-      expect(screen.queryByRole("link", { name: "Edit offering" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Edit profile" })).not.toBeInTheDocument();
     });
 
-    it("shows Edit offering and raw moderation state only for the Tutor role", async () => {
+    it("shows Edit profile and raw moderation state only for the Tutor role", async () => {
       window.localStorage.setItem("tutorflow.devActorRole", "Tutor");
       vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
 
       renderPage();
 
-      expect(await screen.findByRole("link", { name: "Edit offering" })).toHaveAttribute(
+      expect(await screen.findByRole("link", { name: "Edit profile" })).toHaveAttribute(
         "href",
-        `/identity/tutors/${TUTOR_ID}/edit`,
+        `/identity/tutors/${TUTOR_ID}/onboarding`,
       );
       expect(screen.getByText("Approved")).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
@@ -344,7 +344,7 @@ describe("TutorDetailPage", () => {
 
       expect(await screen.findByText("Verified")).toBeInTheDocument();
       expect(screen.queryByText("Approved")).not.toBeInTheDocument();
-      expect(screen.queryByRole("link", { name: "Edit offering" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Edit profile" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
     });
 
@@ -355,7 +355,7 @@ describe("TutorDetailPage", () => {
 
       expect(await screen.findByText("Verified")).toBeInTheDocument();
       expect(screen.queryByText("Approved")).not.toBeInTheDocument();
-      expect(screen.queryByRole("link", { name: "Edit offering" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Edit profile" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
     });
 

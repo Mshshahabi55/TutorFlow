@@ -36,6 +36,12 @@ export function PricingStep() {
       <Collapse in={trialLessonAvailable} unmountOnExit>
         <FormTextField name="trialLessonPrice" label="Trial lesson price (Toman)" inputMode="numeric" />
       </Collapse>
+      <FormTextField
+        name="offeredDurationsMinutes"
+        label="Session lengths offered (minutes, comma-separated)"
+        placeholder="30, 60"
+        helperText="e.g. 30, 60 — the durations a Student can choose when booking you."
+      />
     </Stack>
   );
 }

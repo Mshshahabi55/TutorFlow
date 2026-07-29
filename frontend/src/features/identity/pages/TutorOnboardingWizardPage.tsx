@@ -10,7 +10,9 @@ import { useTutor } from "@/features/identity/hooks/useTutorQueries";
 import { useTutorAvailabilitySlots } from "@/features/scheduling/hooks/useAvailabilitySlotQueries";
 import {
   useSetTutorLanguage,
+  useSetTutorLocation,
   useSetTutorMedia,
+  useSetTutorOfferedDurations,
   useSetTutorPersonalInfo,
   useSetTutorPricing,
   useSetTutorSubject,
@@ -23,6 +25,7 @@ import {
   type TutorOnboardingFormValues,
 } from "@/features/identity/validation/tutorOnboardingSchema";
 import { parseCommaList, formatCommaList } from "@/features/identity/utils/commaList";
+import { formatMinutesList, minutesToTimeSpan, parseMinutesList } from "@/shared/utils/duration";
 import { encouragingMessageForProgress } from "@/features/identity/utils/onboardingProgressMessage";
 import { OnboardingWelcomeScreen } from "@/features/identity/components/onboarding/OnboardingWelcomeScreen";
 import { OnboardingWizardSkeleton } from "@/features/identity/components/onboarding/OnboardingWizardSkeleton";
@@ -80,6 +83,7 @@ function toFormValues(tutor: TutorDto): TutorOnboardingFormValues {
     biography: tutor.biography ?? "",
     country: tutor.country ?? "",
     city: tutor.city ?? "",
+    location: tutor.location ?? "",
     nativeLanguage: tutor.language ?? "",
     otherLanguages: formatCommaList(tutor.otherLanguages ?? []),
     tutorSubjects: (tutor.tutorSubjects ?? []).map((entry) => ({ subject: entry.subject, level: entry.level ?? "" })),
@@ -95,6 +99,7 @@ function toFormValues(tutor: TutorDto): TutorOnboardingFormValues {
     hourlyRate: tutor.hourlyRate !== null ? toTomanInputValue(tutor.hourlyRate) : "",
     trialLessonAvailable: tutor.trialLessonAvailable ?? false,
     trialLessonPrice: tutor.trialLessonPrice !== null && tutor.trialLessonPrice !== undefined ? toTomanInputValue(tutor.trialLessonPrice) : "",
+    offeredDurationsMinutes: formatMinutesList(tutor.offeredDurations),
   };
 }
 
@@ -158,10 +163,12 @@ export function TutorOnboardingWizardPage() {
 
   const setPersonalInfo = useSetTutorPersonalInfo(tutorId ?? "");
   const setLanguage = useSetTutorLanguage(tutorId ?? "");
+  const setLocation = useSetTutorLocation(tutorId ?? "");
   const setTeachingInfo = useSetTutorTeachingInfo(tutorId ?? "");
   const setSubject = useSetTutorSubject(tutorId ?? "");
   const setMedia = useSetTutorMedia(tutorId ?? "");
   const setPricing = useSetTutorPricing(tutorId ?? "");
+  const setOfferedDurations = useSetTutorOfferedDurations(tutorId ?? "");
   const submitProfile = useSubmitTutorProfile(tutorId ?? "");
 
   const [showWelcome, setShowWelcome] = useState(() => Boolean(tutorId) && window.localStorage.getItem(lastStepStorageKey(tutorId ?? "")) === null);
@@ -219,7 +226,7 @@ export function TutorOnboardingWizardPage() {
   }
 
   async function handlePersonalInfoNext() {
-    const valid = await form.trigger(["displayName", "headline", "biography", "country", "city", "otherLanguages"]);
+    const valid = await form.trigger(["displayName", "headline", "biography", "country", "city", "location", "otherLanguages"]);
     if (!valid) {
       return;
     }
@@ -235,6 +242,7 @@ export function TutorOnboardingWizardPage() {
           otherLanguages: parseCommaList(values.otherLanguages),
         }),
         values.nativeLanguage ? setLanguage.mutateAsync(values.nativeLanguage) : Promise.resolve(),
+        values.location ? setLocation.mutateAsync(values.location) : Promise.resolve(),
       ]);
       notify({ message: "Progress saved.", severity: "success", autoHideDurationMs: 2500 });
       goToStep(1);
@@ -290,18 +298,23 @@ export function TutorOnboardingWizardPage() {
   }
 
   async function handlePricingNext() {
-    const valid = await form.trigger(["hourlyRate", "trialLessonPrice"]);
+    const valid = await form.trigger(["hourlyRate", "trialLessonPrice", "offeredDurationsMinutes"]);
     if (!valid) {
       return;
     }
     const values = form.getValues();
     try {
-      await setPricing.mutateAsync({
-        hourlyRateAmount: values.hourlyRate !== "" ? tomanToRial(Number(values.hourlyRate)) : null,
-        trialLessonAvailable: values.trialLessonAvailable,
-        trialLessonPriceAmount:
-          values.trialLessonAvailable && values.trialLessonPrice !== "" ? tomanToRial(Number(values.trialLessonPrice)) : null,
-      });
+      await Promise.all([
+        setPricing.mutateAsync({
+          hourlyRateAmount: values.hourlyRate !== "" ? tomanToRial(Number(values.hourlyRate)) : null,
+          trialLessonAvailable: values.trialLessonAvailable,
+          trialLessonPriceAmount:
+            values.trialLessonAvailable && values.trialLessonPrice !== "" ? tomanToRial(Number(values.trialLessonPrice)) : null,
+        }),
+        values.offeredDurationsMinutes
+          ? setOfferedDurations.mutateAsync(parseMinutesList(values.offeredDurationsMinutes).map(minutesToTimeSpan))
+          : Promise.resolve(),
+      ]);
       notify({ message: "Progress saved.", severity: "success", autoHideDurationMs: 2500 });
       goToStep(4);
     } catch {
@@ -407,7 +420,7 @@ export function TutorOnboardingWizardPage() {
                 variant="contained"
                 size="large"
                 onClick={() => void handlePersonalInfoNext()}
-                disabled={setPersonalInfo.isPending || setLanguage.isPending}
+                disabled={setPersonalInfo.isPending || setLanguage.isPending || setLocation.isPending}
                 sx={{ alignSelf: "flex-start" }}
               >
                 {setPersonalInfo.isPending ? "Saving…" : "Continue"}
@@ -456,7 +469,12 @@ export function TutorOnboardingWizardPage() {
               <Button type="button" variant="outlined" startIcon={<ArrowBackRoundedIcon />} onClick={() => goToStep(2)}>
                 Back
               </Button>
-              <Button type="button" variant="contained" onClick={() => void handlePricingNext()} disabled={setPricing.isPending}>
+              <Button
+                type="button"
+                variant="contained"
+                onClick={() => void handlePricingNext()}
+                disabled={setPricing.isPending || setOfferedDurations.isPending}
+              >
                 {setPricing.isPending ? "Saving…" : "Continue"}
               </Button>
             </Stack>

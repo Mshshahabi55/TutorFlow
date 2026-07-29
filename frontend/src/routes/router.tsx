@@ -30,11 +30,6 @@ const RegisterTutorPage = lazy(() =>
     default: module.RegisterTutorPage,
   })),
 );
-const TutorOfferingPage = lazy(() =>
-  import("@/features/identity/pages/TutorOfferingPage").then((module) => ({
-    default: module.TutorOfferingPage,
-  })),
-);
 const TutorOnboardingWizardPage = lazy(() =>
   import("@/features/identity/pages/TutorOnboardingWizardPage").then((module) => ({
     default: module.TutorOnboardingWizardPage,
@@ -200,10 +195,6 @@ export const router = createBrowserRouter([
       {
         path: paths.identity.tutorPending,
         element: withSuspense(withRole(["AdminStaff"], <AdminPendingTutorsPage />)),
-      },
-      {
-        path: paths.identity.tutorEditPattern,
-        element: withSuspense(withRole(["Tutor"], <TutorOfferingPage />)),
       },
       {
         path: paths.identity.tutorOnboardingPattern,

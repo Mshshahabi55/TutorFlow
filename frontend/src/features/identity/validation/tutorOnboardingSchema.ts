@@ -16,6 +16,11 @@ function isWithinCollectionLimits(value: string): boolean {
   return entries.length <= MAX_COLLECTION_ENTRIES && entries.every((entry) => entry.length <= MAX_ENTRY_LENGTH);
 }
 
+function isPositiveNumber(value: string): boolean {
+  const parsed = Number(value);
+  return value.trim().length > 0 && Number.isFinite(parsed) && parsed > 0;
+}
+
 function isHttpOrHttpsUrl(value: string): boolean {
   try {
     const url = new URL(value);
@@ -42,6 +47,14 @@ export const tutorOnboardingSchema = z.object({
   biography: z.string().trim().max(4000, "Must be 4000 characters or fewer."),
   country: z.string().trim().max(200, "Must be 200 characters or fewer."),
   city: z.string().trim().max(200, "Must be 200 characters or fewer."),
+  // Pre-ADR-024 DISC-1 search/filter attribute (Tutor.Location) — grouped
+  // here with country/city rather than left on its own legacy page, since
+  // all three are place-based. Kept a distinct field, not merged into
+  // country/city: Location.Of's own meaning ("a specific address, a
+  // city/region, or a travel radius") is still DOMAIN_MODEL.md Open
+  // Question 11, unresolved by ADR-024, so this schema does not assume an
+  // answer either.
+  location: z.string().trim().max(200, "Must be 200 characters or fewer."),
   // The existing single Tutor.Language field (already set via the
   // pre-ADR-024 /tutors/{id}/language endpoint) stands in for "Native
   // language" — OtherLanguages (new) is additive alongside it, never a
@@ -94,6 +107,18 @@ export const tutorOnboardingSchema = z.object({
     .string()
     .trim()
     .refine((value) => value === "" || isValidTomanAmount(value), "Trial lesson price must be a whole number of Toman, greater than zero."),
+  // Comma-separated minutes, same convention tutorOfferingSchema (now
+  // retired in favor of this wizard) used — optional here, unlike that
+  // page's own required field, matching this wizard's whole "nothing is
+  // force-required except at Publish, and Tutor.SubmitProfile itself only
+  // requires Subject + HourlyRate" philosophy.
+  offeredDurationsMinutes: z
+    .string()
+    .trim()
+    .refine(
+      (value) => value === "" || value.split(",").every((part) => isPositiveNumber(part)),
+      "Enter one or more positive numbers of minutes, separated by commas (e.g. 30, 60).",
+    ),
 });
 
 export type TutorOnboardingFormValues = z.infer<typeof tutorOnboardingSchema>;
@@ -104,6 +129,7 @@ export const TUTOR_ONBOARDING_DEFAULT_VALUES: TutorOnboardingFormValues = {
   biography: "",
   country: "",
   city: "",
+  location: "",
   nativeLanguage: "",
   otherLanguages: "",
   tutorSubjects: [],
@@ -119,4 +145,5 @@ export const TUTOR_ONBOARDING_DEFAULT_VALUES: TutorOnboardingFormValues = {
   hourlyRate: "",
   trialLessonAvailable: false,
   trialLessonPrice: "",
+  offeredDurationsMinutes: "",
 };

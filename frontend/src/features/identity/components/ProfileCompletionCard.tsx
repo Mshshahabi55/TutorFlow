@@ -9,6 +9,15 @@ import { paths } from "@/routes/paths";
 export interface ProfileCompletionCardProps {
   completion: ProfileCompletion;
   tutorId: string;
+  /**
+   * False when this card is embedded inside the onboarding wizard itself
+   * (ReviewPublishStep) — the "Complete your profile" CTA below links to
+   * that same wizard route, which would be a dead/no-op click from within
+   * it. Every section above the embedded card already has its own "Edit"
+   * button for exactly this purpose. Defaults to true for every other
+   * caller (e.g. the Tutor Dashboard), where the link is the whole point.
+   */
+  showCompleteAction?: boolean;
 }
 
 /**
@@ -17,7 +26,7 @@ export interface ProfileCompletionCardProps {
  * "Verification completed" never gets the "Complete your profile" CTA
  * appended below: it's an Admin decision the Tutor can't act on directly.
  */
-export function ProfileCompletionCard({ completion, tutorId }: ProfileCompletionCardProps) {
+export function ProfileCompletionCard({ completion, tutorId, showCompleteAction = true }: ProfileCompletionCardProps) {
   const progressPercent = (completion.completedCount / completion.totalCount) * 100;
 
   return (
@@ -52,10 +61,10 @@ export function ProfileCompletionCard({ completion, tutorId }: ProfileCompletion
           ))}
         </Stack>
 
-        {completion.isComplete ? null : (
+        {completion.isComplete || !showCompleteAction ? null : (
           <Button
             component={RouterLink}
-            to={paths.identity.tutorEdit(tutorId)}
+            to={paths.identity.tutorOnboarding(tutorId)}
             variant="outlined"
             size="small"
             sx={{ alignSelf: "flex-start" }}

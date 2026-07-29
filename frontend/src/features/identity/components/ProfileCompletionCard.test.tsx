@@ -19,12 +19,13 @@ const BASE_TUTOR: TutorDto = {
   offeredDurations: [],
 };
 
-function renderCard(tutor: TutorDto, hasAvailability: boolean) {
+function renderCard(tutor: TutorDto, hasAvailability: boolean, showCompleteAction?: boolean) {
   return render(
     <MemoryRouter>
       <ProfileCompletionCard
         completion={deriveProfileCompletion(tutor, hasAvailability)}
         tutorId={TUTOR_ID}
+        showCompleteAction={showCompleteAction}
       />
     </MemoryRouter>,
   );
@@ -37,8 +38,14 @@ describe("ProfileCompletionCard", () => {
     expect(screen.getByText("0 of 7 steps complete.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Complete your profile" })).toHaveAttribute(
       "href",
-      `/identity/tutors/${TUTOR_ID}/edit`,
+      `/identity/tutors/${TUTOR_ID}/onboarding`,
     );
+  });
+
+  it("omits the CTA when showCompleteAction is false, even while incomplete", () => {
+    renderCard(BASE_TUTOR, false, false);
+
+    expect(screen.queryByRole("link", { name: "Complete your profile" })).not.toBeInTheDocument();
   });
 
   it("shows a completion message and no CTA once every item is done", () => {

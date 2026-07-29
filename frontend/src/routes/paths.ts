@@ -19,9 +19,14 @@ export const paths = {
     tutorPending: "/identity/tutors/pending",
     tutorDetailPattern: "/identity/tutors/:tutorId",
     tutorDetail: (tutorId: string) => `/identity/tutors/${tutorId}`,
-    tutorEditPattern: "/identity/tutors/:tutorId/edit",
-    tutorEdit: (tutorId: string) => `/identity/tutors/${tutorId}/edit`,
-    /** ADR-024 (Accepted, 2026-07-28): the 7-step Tutor Onboarding Wizard, reached after registration. */
+    /**
+     * ADR-024 (Accepted, 2026-07-28): the 7-step Tutor Onboarding Wizard —
+     * also the single profile editor now (it prefills from and PATCHes the
+     * Tutor's already-saved data, so re-visiting it after first completion
+     * is how a Tutor edits any part of their profile, including the
+     * pre-ADR-024 fields — Location, Offered Durations — the wizard folded
+     * in when the old standalone "/edit" page was retired).
+     */
     tutorOnboardingPattern: "/identity/tutors/:tutorId/onboarding",
     tutorOnboarding: (tutorId: string) => `/identity/tutors/${tutorId}/onboarding`,
     studentRegister: "/identity/students/register",

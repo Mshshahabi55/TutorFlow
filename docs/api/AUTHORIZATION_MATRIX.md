@@ -53,6 +53,11 @@ Every coarse-grained cell above still requires whatever fine-grained check Secti
 | `/tutors/{id}/language` | PATCH | Yes | `ManageTutorOffering` | **Yes** — same | SCH-3; ARCHITECTURE.md §17 item 3 | Unprotected |
 | `/tutors/{id}/location` | PATCH | Yes | `ManageTutorOffering` | **Yes** — same | SCH-3; ARCHITECTURE.md §17 item 3 | Unprotected |
 | `/tutors/{id}/offered-durations` | PATCH | Yes | `ManageTutorOffering` | **Yes** — same | SCH-3; ARCHITECTURE.md §17 item 3 | Unprotected |
+| `/tutors/{id}/personal-info` | PATCH | Yes | `ManageTutorOffering` | **Yes** — same | ADR-024; ARCHITECTURE.md §17 item 3 | Protected |
+| `/tutors/{id}/teaching-info` | PATCH | Yes | `ManageTutorOffering` | **Yes** — same | ADR-024; ARCHITECTURE.md §17 item 3 | Protected |
+| `/tutors/{id}/media` | PATCH | Yes | `ManageTutorOffering` | **Yes** — same | ADR-024; ARCHITECTURE.md §17 item 3 | Protected |
+| `/tutors/{id}/pricing` | PATCH | Yes | `ManageTutorOffering` | **Yes** — same | ADR-024; ARCHITECTURE.md §17 item 3 | Protected |
+| `/tutors/{id}/submit` | POST | Yes | `ManageTutorOffering` | **Yes** — same | ADR-024; ARCHITECTURE.md §17 item 3 | Protected |
 | `/students` | POST | No | `None` | No | IDR-1 (self-registration) | Unprotected (correct) |
 | `/parent-guardians` | POST | No | `None` | No | IDR-1 (self-registration) | Unprotected (correct) |
 | `/relationships` | POST | Yes | `InviteRelationship` | **Yes** — caller must be a party to the Relationship being created | IDR-4; Second Addendum Correction 1 | Unprotected |
@@ -159,3 +164,7 @@ Section 4.8 (Communication) added: 8 new endpoints for the new Communication bou
 ## Addendum — RC5.3, 2026-07-28
 
 Section 4.9 (Meetings) added: 3 new endpoints for the new Meetings bounded context (`docs/adr/ADR-023-online-lesson-meeting-provider-architecture.md`), bringing the total to **48 endpoints** (47 application endpoints + `/health`). All 3 rows are resolved, non-Open — one Tutor-only `RequirePermission(Permission.ManageMeetings)` row, one fully-fine-grained row mirroring `GET /sessions/{id}`'s own shape, and one `RequirePermission(Permission.UseMessaging)` row for the Conversation-page linkage — with fine-grained checks in the owning handlers, same as every other row in this document.
+
+## Addendum — Tutor Onboarding Wizard, 2026-07-28
+
+Section 4.1 (Identity & Relationship) gained 5 new rows for `ADR-024-tutor-profile-enrichment-and-onboarding-wizard.md` (Accepted): `/tutors/{id}/personal-info`, `/tutors/{id}/teaching-info`, `/tutors/{id}/media`, `/tutors/{id}/pricing` (all PATCH), and `/tutors/{id}/submit` (POST), bringing the total to **53 endpoints** (52 application endpoints + `/health`). All 5 rows reuse the exact same `RequirePermission(Permission.ManageTutorOffering)` + resource-ownership fine-grained check the five existing Tutor-self-service PATCH rows above already use — no new `Permission` enum value was needed.

@@ -61,6 +61,10 @@ internal sealed class AuditDomainEventHandler : IDomainEventHandler
             AvailabilitySlotReopened e => ((Guid?)e.AvailabilitySlotId.Value, domainEvent.GetType().Name),
             TutorApproved e => ((Guid?)e.TutorId.Value, domainEvent.GetType().Name),
             TutorSuspended e => ((Guid?)e.TutorId.Value, domainEvent.GetType().Name),
+            // docs/adr/ADR-024-tutor-profile-enrichment-and-onboarding-wizard.md
+            // (Accepted): moves ProfileStatus into the existing Admin
+            // approval queue — a governance-relevant state change.
+            TutorProfileSubmitted e => ((Guid?)e.TutorId.Value, domainEvent.GetType().Name),
             // Both outcomes share one event type; the Action string is what
             // distinguishes them (docs/adr/ADR-017-authentication-mechanism-decision.md).
             // SubjectId is null only when no Account matched the attempted email.

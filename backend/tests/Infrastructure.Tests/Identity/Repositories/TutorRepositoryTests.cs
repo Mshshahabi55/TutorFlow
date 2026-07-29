@@ -110,19 +110,89 @@ public class TutorRepositoryTests
         Assert.DoesNotContain(result, t => t.Id == suspended.Id);
     }
 
+    // Merge Readiness audit Critical 2: proves the new HasMaxLength
+    // backstop on TutorSubjects/OtherLanguages/LessonSpecialties/
+    // GalleryImageUrls (TutorConfiguration.cs) is sized generously enough
+    // that the legitimate maximum (TutorProfileLimits.MaxCollectionEntries
+    // entries, each at TutorProfileLimits.MaxSubjectEntryFieldLength/
+    // Tutor.ShortFieldMaxLength characters) round-trips intact through a
+    // fresh DbContext rather than being silently truncated or rejected.
     [Fact]
-    public async Task GetPendingAsync_returns_only_unapproved_tutors()
+    public async Task SetTeachingInfo_and_SetPersonalInfo_and_SetMedia_at_the_maximum_collection_size_round_trip_through_a_fresh_context()
+    {
+        using var connection = new SqliteConnection("DataSource=:memory:");
+        await connection.OpenAsync();
+
+        var options = new DbContextOptionsBuilder<TutorFlowDbContext>()
+            .UseSqlite(connection)
+            .Options;
+
+        var maxLanguages = Enumerable.Range(0, 20).Select(i => new string((char)('a' + i % 26), 200)).ToList();
+        var maxSubjects = Enumerable.Range(0, 20)
+            .Select(i => TutorSubjectEntry.Of(new string((char)('a' + i % 26), 200), new string((char)('b' + i % 26), 200)))
+            .ToList();
+        var maxGalleryUrls = Enumerable.Range(0, 20).Select(i => $"https://example.com/{new string((char)('a' + i % 26), 170)}.jpg").ToList();
+
+        Guid tutorId;
+        await using (var writeContext = new TutorFlowDbContext(options))
+        {
+            await writeContext.Database.EnsureCreatedAsync();
+
+            var repository = new TutorRepository(writeContext);
+            var tutor = Tutor.Register(TestCredentials.Email(), TestCredentials.Hash());
+            tutor.SetPersonalInfo(null, null, null, null, null, maxLanguages);
+            tutor.SetTeachingInfo(maxSubjects, null, null, null, null, maxLanguages);
+            tutor.SetMedia(null, null, maxGalleryUrls);
+            tutorId = tutor.Id.Value;
+
+            await repository.AddAsync(tutor);
+            await writeContext.SaveChangesAsync();
+        }
+
+        await using var readContext = new TutorFlowDbContext(options);
+        var readRepository = new TutorRepository(readContext);
+        var stored = await readRepository.GetByIdAsync(AccountId.From(tutorId));
+
+        Assert.NotNull(stored);
+        Assert.Equal(20, stored!.OtherLanguages.Count);
+        Assert.Equal(20, stored.TutorSubjects.Count);
+        Assert.Equal(20, stored.LessonSpecialties.Count);
+        Assert.Equal(20, stored.GalleryImageUrls.Count);
+        Assert.Equal(maxLanguages, stored.OtherLanguages);
+        Assert.Equal(maxSubjects, stored.TutorSubjects);
+    }
+
+    private static void SubmitWithMinimumOffering(Tutor tutor)
+    {
+        tutor.SetSubject(Subject.Of("Mathematics"));
+        tutor.SetHourlyRate(HourlyRate.Of(100_000));
+        tutor.SubmitProfile();
+    }
+
+    [Fact]
+    public async Task GetPendingAsync_returns_only_submitted_and_unapproved_tutors()
     {
         using var sqlite = new SqliteTestDbContext();
         var repository = new TutorRepository(sqlite.DbContext);
 
+        // ADR-024: a Tutor who registered but never submitted their
+        // onboarding profile (still Draft) must not enter the Admin queue —
+        // this is the fix for the audit's Critical 1 finding.
+        var draft = Tutor.Register(TestCredentials.Email(), TestCredentials.Hash());
+
         var pending = Tutor.Register(TestCredentials.Email(), TestCredentials.Hash());
+        SubmitWithMinimumOffering(pending);
+
         var approved = Tutor.Register(TestCredentials.Email(), TestCredentials.Hash());
+        SubmitWithMinimumOffering(approved);
         approved.Approve();
+
         var suspended = Tutor.Register(TestCredentials.Email(), TestCredentials.Hash());
+        SubmitWithMinimumOffering(suspended);
         suspended.Approve();
         suspended.Suspend();
 
+        await repository.AddAsync(draft);
         await repository.AddAsync(pending);
         await repository.AddAsync(approved);
         await repository.AddAsync(suspended);
@@ -132,6 +202,7 @@ public class TutorRepositoryTests
 
         Assert.Equal(1, totalCount);
         Assert.Single(items, t => t.Id == pending.Id);
+        Assert.DoesNotContain(items, t => t.Id == draft.Id);
         Assert.DoesNotContain(items, t => t.Id == approved.Id);
         Assert.DoesNotContain(items, t => t.Id == suspended.Id);
     }
@@ -144,7 +215,9 @@ public class TutorRepositoryTests
 
         for (var i = 0; i < 5; i++)
         {
-            await repository.AddAsync(Tutor.Register(TestCredentials.Email(), TestCredentials.Hash()));
+            var tutor = Tutor.Register(TestCredentials.Email(), TestCredentials.Hash());
+            SubmitWithMinimumOffering(tutor);
+            await repository.AddAsync(tutor);
         }
 
         await sqlite.DbContext.SaveChangesAsync();

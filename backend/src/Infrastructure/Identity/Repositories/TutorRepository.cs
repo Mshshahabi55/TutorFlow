@@ -45,7 +45,8 @@ internal sealed class TutorRepository : ITutorRepository
     public async Task<(IReadOnlyCollection<Tutor> Items, int TotalCount)> GetPendingAsync(
         PageRequest pageRequest, CancellationToken cancellationToken = default)
     {
-        var query = _dbContext.Tutors.AsNoTracking().Where(t => !t.IsApproved);
+        var query = _dbContext.Tutors.AsNoTracking()
+            .Where(t => !t.IsApproved && t.ProfileStatus == TutorProfileStatus.Submitted);
 
         var totalCount = await query.CountAsync(cancellationToken);
         var items = await query

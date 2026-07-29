@@ -21,9 +21,12 @@ public interface ITutorRepository
 
     // Serves ADM-1's "review pending Tutor registrations" need (PRODUCT_REQUIREMENTS.md
     // User Journey 5.4 step 1) — every Tutor not yet approved, regardless of any
-    // later suspension state. Paginated (Sprint 2: Pagination Infrastructure) —
-    // the underlying filter is a plain bool column, safely translatable to SQL
-    // Skip/Take.
+    // later suspension state. ADR-024: additionally requires ProfileStatus ==
+    // Submitted, so a Tutor who registered but never completed/submitted the
+    // onboarding wizard (still Draft) does not enter the Admin's review queue
+    // with nothing yet to review. Paginated (Sprint 2: Pagination
+    // Infrastructure) — the underlying filter is two plain columns, safely
+    // translatable to SQL Skip/Take.
     Task<(IReadOnlyCollection<Tutor> Items, int TotalCount)> GetPendingAsync(PageRequest pageRequest, CancellationToken cancellationToken = default);
 
     // Discoverable-only (same gate as GetDiscoverableAsync), additionally

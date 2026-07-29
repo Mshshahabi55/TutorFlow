@@ -2,24 +2,40 @@ using TutorFlow.Application.Identity.Handlers;
 using TutorFlow.Application.Identity.Queries;
 using TutorFlow.Application.Tests.TestDoubles;
 using TutorFlow.Domain.Identity;
+using TutorFlow.Domain.Identity.ValueObjects;
 
 namespace TutorFlow.Application.Tests.Identity;
 
 public class GetPendingTutorsQueryHandlerTests
 {
+    private static void SubmitWithMinimumOffering(Tutor tutor)
+    {
+        tutor.SetSubject(Subject.Of("Mathematics"));
+        tutor.SetHourlyRate(HourlyRate.Of(100_000));
+        tutor.SubmitProfile();
+    }
+
     [Fact]
-    public async Task Handle_returns_only_unapproved_tutors()
+    public async Task Handle_returns_only_submitted_and_unapproved_tutors()
     {
         var repository = new InMemoryTutorRepository();
 
-        var pending = Tutor.Register(TestCredentials.Email(), TestCredentials.Hash());
-        await repository.AddAsync(pending);
+        // ADR-024: a Tutor who registered but never submitted their
+        // onboarding profile (still Draft) must not enter the Admin queue.
+        var draft = Tutor.Register(TestCredentials.Email(), TestCredentials.Hash());
+        await repository.AddAsync(draft);
+
+        var submitted = Tutor.Register(TestCredentials.Email(), TestCredentials.Hash());
+        SubmitWithMinimumOffering(submitted);
+        await repository.AddAsync(submitted);
 
         var approved = Tutor.Register(TestCredentials.Email(), TestCredentials.Hash());
+        SubmitWithMinimumOffering(approved);
         approved.Approve();
         await repository.AddAsync(approved);
 
         var suspended = Tutor.Register(TestCredentials.Email(), TestCredentials.Hash());
+        SubmitWithMinimumOffering(suspended);
         suspended.Approve();
         suspended.Suspend();
         await repository.AddAsync(suspended);
@@ -30,7 +46,8 @@ public class GetPendingTutorsQueryHandlerTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(1, result.Value.TotalCount);
-        Assert.Single(result.Value.Items, t => t.TutorId == pending.Id.Value);
+        Assert.Single(result.Value.Items, t => t.TutorId == submitted.Id.Value);
+        Assert.DoesNotContain(result.Value.Items, t => t.TutorId == draft.Id.Value);
         Assert.DoesNotContain(result.Value.Items, t => t.TutorId == approved.Id.Value);
         Assert.DoesNotContain(result.Value.Items, t => t.TutorId == suspended.Id.Value);
     }

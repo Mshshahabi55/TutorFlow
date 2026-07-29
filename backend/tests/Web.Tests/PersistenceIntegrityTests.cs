@@ -285,6 +285,143 @@ public class PersistenceIntegrityTests : IClassFixture<TutorFlowWebApplicationFa
         }
     }
 
+    // --- ADR-024 (Accepted, 2026-07-28) — Tutor Onboarding Wizard ---
+
+    [Fact]
+    public async Task SetTutorPersonalInfo_persists_every_field_when_reread_from_a_fresh_scope()
+    {
+        var (tutorId, token) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{tutorId}/personal-info",
+            new
+            {
+                DisplayName = "Jane Doe",
+                Headline = "Friendly Math Tutor",
+                Biography = "I love teaching.",
+                Country = "Iran",
+                City = "Tehran",
+                OtherLanguages = new[] { "French", "German" },
+            },
+            token);
+        response.EnsureSuccessStatusCode();
+
+        var dbContext = FreshDbContext(out var scope);
+        using (scope)
+        {
+            var freshTutor = await dbContext.Tutors.AsNoTracking().FirstAsync(t => t.Id == AccountId.From(tutorId));
+            Assert.Equal("Jane Doe", freshTutor.DisplayName);
+            Assert.Equal("Friendly Math Tutor", freshTutor.Headline);
+            Assert.Equal("I love teaching.", freshTutor.Biography);
+            Assert.Equal("Iran", freshTutor.Country);
+            Assert.Equal("Tehran", freshTutor.City);
+            Assert.Equal(new[] { "French", "German" }, freshTutor.OtherLanguages);
+        }
+    }
+
+    [Fact]
+    public async Task SetTutorTeachingInfo_persists_multiple_subjects_and_every_field_when_reread_from_a_fresh_scope()
+    {
+        var (tutorId, token) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{tutorId}/teaching-info",
+            new
+            {
+                TutorSubjects = new[]
+                {
+                    new { Subject = "Mathematics", Level = (string?)"Beginner" },
+                    new { Subject = "Physics", Level = (string?)null },
+                },
+                YearsOfExperience = 5,
+                Education = "BSc Mathematics",
+                Certifications = "TEFL",
+                TeachingMethodology = "Socratic method",
+                LessonSpecialties = new[] { "Exam prep" },
+            },
+            token);
+        response.EnsureSuccessStatusCode();
+
+        var dbContext = FreshDbContext(out var scope);
+        using (scope)
+        {
+            var freshTutor = await dbContext.Tutors.AsNoTracking().FirstAsync(t => t.Id == AccountId.From(tutorId));
+            Assert.Equal(2, freshTutor.TutorSubjects.Count);
+            Assert.Contains(freshTutor.TutorSubjects, s => s.Subject == "Mathematics" && s.Level == "Beginner");
+            Assert.Contains(freshTutor.TutorSubjects, s => s.Subject == "Physics" && s.Level == null);
+            Assert.Equal(5, freshTutor.YearsOfExperience);
+            Assert.Equal("BSc Mathematics", freshTutor.Education);
+            Assert.Equal("TEFL", freshTutor.Certifications);
+            Assert.Equal("Socratic method", freshTutor.TeachingMethodology);
+            Assert.Equal(new[] { "Exam prep" }, freshTutor.LessonSpecialties);
+        }
+    }
+
+    [Fact]
+    public async Task SetTutorMedia_persists_every_url_when_reread_from_a_fresh_scope()
+    {
+        var (tutorId, token) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{tutorId}/media",
+            new
+            {
+                PhotoUrl = "https://example.com/photo.jpg",
+                IntroVideoUrl = "https://example.com/intro.mp4",
+                GalleryImageUrls = new[] { "https://example.com/1.jpg", "https://example.com/2.jpg" },
+            },
+            token);
+        response.EnsureSuccessStatusCode();
+
+        var dbContext = FreshDbContext(out var scope);
+        using (scope)
+        {
+            var freshTutor = await dbContext.Tutors.AsNoTracking().FirstAsync(t => t.Id == AccountId.From(tutorId));
+            Assert.Equal("https://example.com/photo.jpg", freshTutor.PhotoUrl);
+            Assert.Equal("https://example.com/intro.mp4", freshTutor.IntroVideoUrl);
+            Assert.Equal(new[] { "https://example.com/1.jpg", "https://example.com/2.jpg" }, freshTutor.GalleryImageUrls);
+        }
+    }
+
+    [Fact]
+    public async Task SetTutorPricing_persists_hourly_rate_and_trial_lesson_pricing_when_reread_from_a_fresh_scope()
+    {
+        var (tutorId, token) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{tutorId}/pricing",
+            new { HourlyRateAmount = 500_000m, TrialLessonAvailable = true, TrialLessonPriceAmount = 100_000m },
+            token);
+        response.EnsureSuccessStatusCode();
+
+        var dbContext = FreshDbContext(out var scope);
+        using (scope)
+        {
+            var freshTutor = await dbContext.Tutors.AsNoTracking().FirstAsync(t => t.Id == AccountId.From(tutorId));
+            Assert.Equal(500_000m, freshTutor.HourlyRate?.Amount);
+            Assert.True(freshTutor.TrialLessonAvailable);
+            Assert.Equal(100_000m, freshTutor.TrialLessonPrice?.Amount);
+        }
+    }
+
+    [Fact]
+    public async Task SubmitTutorProfile_persists_ProfileStatus_Submitted_when_reread_from_a_fresh_scope()
+    {
+        var (tutorId, token) = await RegisterAndLoginTutorAsync();
+        (await PatchWithAuthAsync($"/tutors/{tutorId}/subject", new { Subject = "Mathematics" }, token)).EnsureSuccessStatusCode();
+        (await PatchWithAuthAsync($"/tutors/{tutorId}/hourly-rate", new { Amount = 500_000m }, token)).EnsureSuccessStatusCode();
+
+        var response = await PostWithAuthAsync($"/tutors/{tutorId}/submit", body: null, token);
+        response.EnsureSuccessStatusCode();
+
+        var dbContext = FreshDbContext(out var scope);
+        using (scope)
+        {
+            var freshTutor = await dbContext.Tutors.AsNoTracking().FirstAsync(t => t.Id == AccountId.From(tutorId));
+            Assert.Equal(TutorProfileStatus.Submitted, freshTutor.ProfileStatus);
+        }
+    }
+
     // --- Already-tracked command paths (Student/ParentGuardian/AdminStaff/AuthToken/Relationship/Session/AvailabilitySlot repositories) ---
     // Task 2 requires reporting explicitly when these pass, since a passing
     // test here proves a repository method the Task 1 audit found was

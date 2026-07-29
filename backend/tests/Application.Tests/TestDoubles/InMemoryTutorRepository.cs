@@ -30,7 +30,7 @@ internal sealed class InMemoryTutorRepository : ITutorRepository
     public Task<(IReadOnlyCollection<Tutor> Items, int TotalCount)> GetPendingAsync(
         PageRequest pageRequest, CancellationToken cancellationToken = default)
     {
-        var pending = _tutors.Values.Where(t => !t.IsApproved).ToList();
+        var pending = _tutors.Values.Where(t => !t.IsApproved && t.ProfileStatus == TutorProfileStatus.Submitted).ToList();
         var page = pending
             .Skip((pageRequest.Page - 1) * pageRequest.PageSize)
             .Take(pageRequest.PageSize)

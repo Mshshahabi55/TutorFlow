@@ -675,13 +675,34 @@ public class IdentityEndpointsTests : IClassFixture<TutorFlowWebApplicationFacto
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    // ADR-024 (Audit Critical 1 fix): a freshly-registered Tutor starts at
+    // ProfileStatus.Draft and must NOT appear in the Admin's review queue
+    // until they submit their onboarding profile — otherwise Admins would
+    // be asked to review accounts with nothing yet to review.
     [Fact]
-    public async Task GetPendingTutors_includes_a_freshly_registered_tutor()
+    public async Task GetPendingTutors_excludes_a_freshly_registered_tutor_that_has_not_submitted_a_profile()
     {
         var adminToken = await SeedAndLoginAdminAsync();
         var registerResponse = await _client.PostAsJsonAsync("/tutors", new { Email = UniqueEmail(), Password = TestPassword });
         var registerBody = await ReadBodyAsync(registerResponse);
         var tutorId = registerBody.GetProperty("value").GetProperty("tutorId").GetGuid();
+
+        var response = await GetWithAuthAsync("/tutors/pending", adminToken);
+
+        response.EnsureSuccessStatusCode();
+        var body = await ReadBodyAsync(response);
+        var ids = body.GetProperty("value").GetProperty("items").EnumerateArray().Select(t => t.GetProperty("tutorId").GetGuid());
+        Assert.DoesNotContain(tutorId, ids);
+    }
+
+    [Fact]
+    public async Task GetPendingTutors_includes_a_tutor_who_submitted_their_onboarding_profile()
+    {
+        var adminToken = await SeedAndLoginAdminAsync();
+        var (tutorId, tutorToken) = await RegisterAndLoginTutorAsync();
+        await PatchWithAuthAsync($"/tutors/{tutorId}/hourly-rate", new { Amount = 100_000m }, tutorToken);
+        await PatchWithAuthAsync($"/tutors/{tutorId}/subject", new { Subject = "Mathematics" }, tutorToken);
+        await PostWithAuthAsync($"/tutors/{tutorId}/submit", tutorToken);
 
         var response = await GetWithAuthAsync("/tutors/pending", adminToken);
 
@@ -724,6 +745,436 @@ public class IdentityEndpointsTests : IClassFixture<TutorFlowWebApplicationFacto
         var response = await GetWithAuthAsync("/tutors/pending", token);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    // ADR-024 (Merge Readiness audit High 2) — HTTP-level authorization
+    // coverage for the 5 Tutor Onboarding Wizard endpoints, mirroring
+    // SetTutorHourlyRate's own coverage above exactly: 401 unauthenticated,
+    // 403 wrong role, 403 wrong tutor ownership, 404 missing tutor, 400
+    // invalid payload, and a successful authorized request.
+
+    [Fact]
+    public async Task SetTutorPersonalInfo_returns_success_for_registered_tutor()
+    {
+        var (tutorId, token) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{tutorId}/personal-info",
+            new { DisplayName = "Jane Doe", Headline = (string?)null, Biography = (string?)null, Country = (string?)null, City = (string?)null, OtherLanguages = (string[]?)null },
+            token);
+
+        response.EnsureSuccessStatusCode();
+        var body = await ReadBodyAsync(response);
+        Assert.True(body.GetProperty("isSuccess").GetBoolean());
+    }
+
+    [Fact]
+    public async Task SetTutorPersonalInfo_returns_failure_for_unknown_tutor()
+    {
+        var (_, token) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{Guid.NewGuid()}/personal-info",
+            new { DisplayName = "Jane Doe", Headline = (string?)null, Biography = (string?)null, Country = (string?)null, City = (string?)null, OtherLanguages = (string[]?)null },
+            token);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SetTutorPersonalInfo_returns_failure_for_a_field_exceeding_the_length_ceiling()
+    {
+        var (tutorId, token) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{tutorId}/personal-info",
+            new { DisplayName = new string('a', 201), Headline = (string?)null, Biography = (string?)null, Country = (string?)null, City = (string?)null, OtherLanguages = (string[]?)null },
+            token);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SetTutorPersonalInfo_requires_authentication()
+    {
+        var (tutorId, _) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{tutorId}/personal-info",
+            new { DisplayName = "Jane Doe", Headline = (string?)null, Biography = (string?)null, Country = (string?)null, City = (string?)null, OtherLanguages = (string[]?)null },
+            bearerToken: null);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SetTutorPersonalInfo_is_forbidden_for_a_non_tutor_role()
+    {
+        var (tutorId, _) = await RegisterAndLoginTutorAsync();
+        var adminToken = await SeedAndLoginAdminAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{tutorId}/personal-info",
+            new { DisplayName = "Jane Doe", Headline = (string?)null, Biography = (string?)null, Country = (string?)null, City = (string?)null, OtherLanguages = (string[]?)null },
+            adminToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var body = await ReadBodyAsync(response);
+        Assert.Equal("Authorization.Forbidden", body.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task SetTutorPersonalInfo_is_forbidden_for_a_different_tutor()
+    {
+        var (ownerTutorId, _) = await RegisterAndLoginTutorAsync();
+        var (_, otherTutorToken) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{ownerTutorId}/personal-info",
+            new { DisplayName = "Jane Doe", Headline = (string?)null, Biography = (string?)null, Country = (string?)null, City = (string?)null, OtherLanguages = (string[]?)null },
+            otherTutorToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var body = await ReadBodyAsync(response);
+        Assert.Equal("SetTutorPersonalInfoCommand.Forbidden", body.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task SetTutorTeachingInfo_returns_success_for_registered_tutor()
+    {
+        var (tutorId, token) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{tutorId}/teaching-info",
+            new
+            {
+                TutorSubjects = new[] { new { Subject = "Mathematics", Level = "Beginner" } },
+                YearsOfExperience = (int?)5,
+                Education = (string?)null,
+                Certifications = (string?)null,
+                TeachingMethodology = (string?)null,
+                LessonSpecialties = (string[]?)null,
+            },
+            token);
+
+        response.EnsureSuccessStatusCode();
+        var body = await ReadBodyAsync(response);
+        Assert.True(body.GetProperty("isSuccess").GetBoolean());
+    }
+
+    [Fact]
+    public async Task SetTutorTeachingInfo_returns_failure_for_unknown_tutor()
+    {
+        var (_, token) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{Guid.NewGuid()}/teaching-info",
+            new { TutorSubjects = (object?)null, YearsOfExperience = (int?)null, Education = (string?)null, Certifications = (string?)null, TeachingMethodology = (string?)null, LessonSpecialties = (string[]?)null },
+            token);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SetTutorTeachingInfo_returns_failure_for_negative_years_of_experience()
+    {
+        var (tutorId, token) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{tutorId}/teaching-info",
+            new { TutorSubjects = (object?)null, YearsOfExperience = -1, Education = (string?)null, Certifications = (string?)null, TeachingMethodology = (string?)null, LessonSpecialties = (string[]?)null },
+            token);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SetTutorTeachingInfo_requires_authentication()
+    {
+        var (tutorId, _) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{tutorId}/teaching-info",
+            new { TutorSubjects = (object?)null, YearsOfExperience = (int?)null, Education = (string?)null, Certifications = (string?)null, TeachingMethodology = (string?)null, LessonSpecialties = (string[]?)null },
+            bearerToken: null);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SetTutorTeachingInfo_is_forbidden_for_a_non_tutor_role()
+    {
+        var (tutorId, _) = await RegisterAndLoginTutorAsync();
+        var adminToken = await SeedAndLoginAdminAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{tutorId}/teaching-info",
+            new { TutorSubjects = (object?)null, YearsOfExperience = (int?)null, Education = (string?)null, Certifications = (string?)null, TeachingMethodology = (string?)null, LessonSpecialties = (string[]?)null },
+            adminToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var body = await ReadBodyAsync(response);
+        Assert.Equal("Authorization.Forbidden", body.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task SetTutorTeachingInfo_is_forbidden_for_a_different_tutor()
+    {
+        var (ownerTutorId, _) = await RegisterAndLoginTutorAsync();
+        var (_, otherTutorToken) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{ownerTutorId}/teaching-info",
+            new { TutorSubjects = (object?)null, YearsOfExperience = (int?)null, Education = (string?)null, Certifications = (string?)null, TeachingMethodology = (string?)null, LessonSpecialties = (string[]?)null },
+            otherTutorToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var body = await ReadBodyAsync(response);
+        Assert.Equal("SetTutorTeachingInfoCommand.Forbidden", body.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task SetTutorMedia_returns_success_for_registered_tutor()
+    {
+        var (tutorId, token) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{tutorId}/media",
+            new { PhotoUrl = "https://example.com/photo.jpg", IntroVideoUrl = (string?)null, GalleryImageUrls = (string[]?)null },
+            token);
+
+        response.EnsureSuccessStatusCode();
+        var body = await ReadBodyAsync(response);
+        Assert.True(body.GetProperty("isSuccess").GetBoolean());
+    }
+
+    [Fact]
+    public async Task SetTutorMedia_returns_failure_for_unknown_tutor()
+    {
+        var (_, token) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{Guid.NewGuid()}/media",
+            new { PhotoUrl = (string?)null, IntroVideoUrl = (string?)null, GalleryImageUrls = (string[]?)null },
+            token);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    // Merge Readiness audit High 1 — a non-http(s) scheme is rejected as an
+    // ordinary 400, same path as any other Domain-level rejection.
+    [Fact]
+    public async Task SetTutorMedia_returns_failure_for_a_non_http_photo_url()
+    {
+        var (tutorId, token) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{tutorId}/media",
+            new { PhotoUrl = "javascript:alert(1)", IntroVideoUrl = (string?)null, GalleryImageUrls = (string[]?)null },
+            token);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SetTutorMedia_requires_authentication()
+    {
+        var (tutorId, _) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{tutorId}/media",
+            new { PhotoUrl = (string?)null, IntroVideoUrl = (string?)null, GalleryImageUrls = (string[]?)null },
+            bearerToken: null);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SetTutorMedia_is_forbidden_for_a_non_tutor_role()
+    {
+        var (tutorId, _) = await RegisterAndLoginTutorAsync();
+        var adminToken = await SeedAndLoginAdminAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{tutorId}/media",
+            new { PhotoUrl = (string?)null, IntroVideoUrl = (string?)null, GalleryImageUrls = (string[]?)null },
+            adminToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var body = await ReadBodyAsync(response);
+        Assert.Equal("Authorization.Forbidden", body.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task SetTutorMedia_is_forbidden_for_a_different_tutor()
+    {
+        var (ownerTutorId, _) = await RegisterAndLoginTutorAsync();
+        var (_, otherTutorToken) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{ownerTutorId}/media",
+            new { PhotoUrl = (string?)null, IntroVideoUrl = (string?)null, GalleryImageUrls = (string[]?)null },
+            otherTutorToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var body = await ReadBodyAsync(response);
+        Assert.Equal("SetTutorMediaCommand.Forbidden", body.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task SetTutorPricing_returns_success_for_registered_tutor()
+    {
+        var (tutorId, token) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{tutorId}/pricing",
+            new { HourlyRateAmount = (decimal?)500_000m, TrialLessonAvailable = false, TrialLessonPriceAmount = (decimal?)null },
+            token);
+
+        response.EnsureSuccessStatusCode();
+        var body = await ReadBodyAsync(response);
+        Assert.True(body.GetProperty("isSuccess").GetBoolean());
+    }
+
+    [Fact]
+    public async Task SetTutorPricing_returns_failure_for_unknown_tutor()
+    {
+        var (_, token) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{Guid.NewGuid()}/pricing",
+            new { HourlyRateAmount = (decimal?)500_000m, TrialLessonAvailable = false, TrialLessonPriceAmount = (decimal?)null },
+            token);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SetTutorPricing_returns_failure_when_trial_lesson_available_with_no_price()
+    {
+        var (tutorId, token) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{tutorId}/pricing",
+            new { HourlyRateAmount = (decimal?)null, TrialLessonAvailable = true, TrialLessonPriceAmount = (decimal?)null },
+            token);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SetTutorPricing_requires_authentication()
+    {
+        var (tutorId, _) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{tutorId}/pricing",
+            new { HourlyRateAmount = (decimal?)500_000m, TrialLessonAvailable = false, TrialLessonPriceAmount = (decimal?)null },
+            bearerToken: null);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SetTutorPricing_is_forbidden_for_a_non_tutor_role()
+    {
+        var (tutorId, _) = await RegisterAndLoginTutorAsync();
+        var adminToken = await SeedAndLoginAdminAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{tutorId}/pricing",
+            new { HourlyRateAmount = (decimal?)500_000m, TrialLessonAvailable = false, TrialLessonPriceAmount = (decimal?)null },
+            adminToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var body = await ReadBodyAsync(response);
+        Assert.Equal("Authorization.Forbidden", body.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task SetTutorPricing_is_forbidden_for_a_different_tutor()
+    {
+        var (ownerTutorId, _) = await RegisterAndLoginTutorAsync();
+        var (_, otherTutorToken) = await RegisterAndLoginTutorAsync();
+
+        var response = await PatchWithAuthAsync(
+            $"/tutors/{ownerTutorId}/pricing",
+            new { HourlyRateAmount = (decimal?)500_000m, TrialLessonAvailable = false, TrialLessonPriceAmount = (decimal?)null },
+            otherTutorToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var body = await ReadBodyAsync(response);
+        Assert.Equal("SetTutorPricingCommand.Forbidden", body.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task SubmitTutorProfile_returns_success_once_subject_and_hourly_rate_are_set()
+    {
+        var (tutorId, token) = await RegisterAndLoginTutorAsync();
+        await PatchWithAuthAsync($"/tutors/{tutorId}/hourly-rate", new { Amount = 100_000m }, token);
+        await PatchWithAuthAsync($"/tutors/{tutorId}/subject", new { Subject = "Mathematics" }, token);
+
+        var response = await PostWithAuthAsync($"/tutors/{tutorId}/submit", token);
+
+        response.EnsureSuccessStatusCode();
+        var body = await ReadBodyAsync(response);
+        Assert.True(body.GetProperty("isSuccess").GetBoolean());
+    }
+
+    [Fact]
+    public async Task SubmitTutorProfile_returns_failure_for_unknown_tutor()
+    {
+        var (_, token) = await RegisterAndLoginTutorAsync();
+
+        var response = await PostWithAuthAsync($"/tutors/{Guid.NewGuid()}/submit", token);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SubmitTutorProfile_returns_failure_when_subject_and_hourly_rate_are_not_set()
+    {
+        var (tutorId, token) = await RegisterAndLoginTutorAsync();
+
+        var response = await PostWithAuthAsync($"/tutors/{tutorId}/submit", token);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SubmitTutorProfile_requires_authentication()
+    {
+        var (tutorId, _) = await RegisterAndLoginTutorAsync();
+
+        var response = await PostWithAuthAsync($"/tutors/{tutorId}/submit", bearerToken: null);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SubmitTutorProfile_is_forbidden_for_a_non_tutor_role()
+    {
+        var (tutorId, _) = await RegisterAndLoginTutorAsync();
+        var adminToken = await SeedAndLoginAdminAsync();
+
+        var response = await PostWithAuthAsync($"/tutors/{tutorId}/submit", adminToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var body = await ReadBodyAsync(response);
+        Assert.Equal("Authorization.Forbidden", body.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task SubmitTutorProfile_is_forbidden_for_a_different_tutor()
+    {
+        var (ownerTutorId, _) = await RegisterAndLoginTutorAsync();
+        var (_, otherTutorToken) = await RegisterAndLoginTutorAsync();
+
+        var response = await PostWithAuthAsync($"/tutors/{ownerTutorId}/submit", otherTutorToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var body = await ReadBodyAsync(response);
+        Assert.Equal("SubmitTutorProfileCommand.Forbidden", body.GetProperty("error").GetProperty("code").GetString());
     }
 
     [Fact]

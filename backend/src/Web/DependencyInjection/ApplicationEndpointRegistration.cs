@@ -34,6 +34,12 @@ public static class ApplicationEndpointRegistration
         services.AddScoped<SetTutorLanguageCommandHandler>();
         services.AddScoped<SetTutorLocationCommandHandler>();
         services.AddScoped<SetTutorOfferedDurationsCommandHandler>();
+        // ADR-024 (Accepted, 2026-07-28) — Tutor Onboarding Wizard.
+        services.AddScoped<SetTutorPersonalInfoCommandHandler>();
+        services.AddScoped<SetTutorTeachingInfoCommandHandler>();
+        services.AddScoped<SetTutorMediaCommandHandler>();
+        services.AddScoped<SetTutorPricingCommandHandler>();
+        services.AddScoped<SubmitTutorProfileCommandHandler>();
         services.AddScoped<GetPendingTutorsQueryHandler>();
         services.AddScoped<GetParentGuardianByIdQueryHandler>();
         services.AddScoped<GetRelationshipsByAccountIdQueryHandler>();

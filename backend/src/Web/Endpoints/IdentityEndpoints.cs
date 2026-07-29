@@ -103,6 +103,77 @@ public static class IdentityEndpoints
             .WithApiResultMetadata("SetTutorOfferedDurations", Tag, "Sets the session duration(s) a Tutor offers.")
             .RequirePermission(Permission.ManageTutorOffering);
 
+        // ADR-024 (Accepted, 2026-07-28) — Tutor Onboarding Wizard. Every
+        // endpoint below is Tutor-self-service, same ManageTutorOffering
+        // permission + resource-ownership shape as the five PATCH endpoints
+        // above.
+        app.MapPatch("/tutors/{tutorId:guid}/personal-info", async (
+            Guid tutorId,
+            SetPersonalInfoRequest request,
+            SetTutorPersonalInfoCommandHandler handler,
+            ILogger<Program> logger,
+            CancellationToken cancellationToken) =>
+            (await handler.Handle(
+                new SetTutorPersonalInfoCommand(
+                    tutorId, request.DisplayName, request.Headline, request.Biography,
+                    request.Country, request.City, request.OtherLanguages),
+                cancellationToken))
+                .ToApiResult(logger, nameof(SetTutorPersonalInfoCommandHandler)))
+            .WithApiResultMetadata("SetTutorPersonalInfo", Tag, "Sets a Tutor's personal-information profile fields.")
+            .RequirePermission(Permission.ManageTutorOffering);
+
+        app.MapPatch("/tutors/{tutorId:guid}/teaching-info", async (
+            Guid tutorId,
+            SetTeachingInfoRequest request,
+            SetTutorTeachingInfoCommandHandler handler,
+            ILogger<Program> logger,
+            CancellationToken cancellationToken) =>
+            (await handler.Handle(
+                new SetTutorTeachingInfoCommand(
+                    tutorId, request.TutorSubjects, request.YearsOfExperience, request.Education,
+                    request.Certifications, request.TeachingMethodology, request.LessonSpecialties),
+                cancellationToken))
+                .ToApiResult(logger, nameof(SetTutorTeachingInfoCommandHandler)))
+            .WithApiResultMetadata("SetTutorTeachingInfo", Tag, "Sets a Tutor's teaching-information profile fields.")
+            .RequirePermission(Permission.ManageTutorOffering);
+
+        app.MapPatch("/tutors/{tutorId:guid}/media", async (
+            Guid tutorId,
+            SetMediaRequest request,
+            SetTutorMediaCommandHandler handler,
+            ILogger<Program> logger,
+            CancellationToken cancellationToken) =>
+            (await handler.Handle(
+                new SetTutorMediaCommand(tutorId, request.PhotoUrl, request.IntroVideoUrl, request.GalleryImageUrls),
+                cancellationToken))
+                .ToApiResult(logger, nameof(SetTutorMediaCommandHandler)))
+            .WithApiResultMetadata("SetTutorMedia", Tag, "Sets a Tutor's profile media URLs.")
+            .RequirePermission(Permission.ManageTutorOffering);
+
+        app.MapPatch("/tutors/{tutorId:guid}/pricing", async (
+            Guid tutorId,
+            SetPricingRequest request,
+            SetTutorPricingCommandHandler handler,
+            ILogger<Program> logger,
+            CancellationToken cancellationToken) =>
+            (await handler.Handle(
+                new SetTutorPricingCommand(
+                    tutorId, request.HourlyRateAmount, request.TrialLessonAvailable, request.TrialLessonPriceAmount),
+                cancellationToken))
+                .ToApiResult(logger, nameof(SetTutorPricingCommandHandler)))
+            .WithApiResultMetadata("SetTutorPricing", Tag, "Sets a Tutor's hourly rate and trial-lesson pricing.")
+            .RequirePermission(Permission.ManageTutorOffering);
+
+        app.MapPost("/tutors/{tutorId:guid}/submit", async (
+            Guid tutorId,
+            SubmitTutorProfileCommandHandler handler,
+            ILogger<Program> logger,
+            CancellationToken cancellationToken) =>
+            (await handler.Handle(new SubmitTutorProfileCommand(tutorId), cancellationToken))
+                .ToApiResult(logger, nameof(SubmitTutorProfileCommandHandler)))
+            .WithApiResultMetadata("SubmitTutorProfile", Tag, "Submits a Tutor's onboarding profile for Admin review.")
+            .RequirePermission(Permission.ManageTutorOffering);
+
         app.MapPost("/students", async (
             RegisterStudentCommand command,
             RegisterStudentCommandHandler handler,
@@ -220,4 +291,31 @@ public static class IdentityEndpoints
     internal sealed record SetLocationRequest(string Location);
 
     internal sealed record SetOfferedDurationsRequest(IReadOnlyCollection<TimeSpan> Durations);
+
+    // ADR-024 (Accepted, 2026-07-28) — Tutor Onboarding Wizard request shapes.
+    internal sealed record SetPersonalInfoRequest(
+        string? DisplayName,
+        string? Headline,
+        string? Biography,
+        string? Country,
+        string? City,
+        IReadOnlyCollection<string>? OtherLanguages);
+
+    internal sealed record SetTeachingInfoRequest(
+        IReadOnlyCollection<TutorSubjectInput>? TutorSubjects,
+        int? YearsOfExperience,
+        string? Education,
+        string? Certifications,
+        string? TeachingMethodology,
+        IReadOnlyCollection<string>? LessonSpecialties);
+
+    internal sealed record SetMediaRequest(
+        string? PhotoUrl,
+        string? IntroVideoUrl,
+        IReadOnlyCollection<string>? GalleryImageUrls);
+
+    internal sealed record SetPricingRequest(
+        decimal? HourlyRateAmount,
+        bool TrialLessonAvailable,
+        decimal? TrialLessonPriceAmount);
 }

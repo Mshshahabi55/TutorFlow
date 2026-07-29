@@ -38,7 +38,7 @@ public class RescheduleSessionCommandHandlerTests
         await slotRepository.AddAsync(oldSlot);
         await slotRepository.AddAsync(newSlot);
         var handler = new RescheduleSessionCommandHandler(
-            sessionRepository, slotRepository, StubCurrentUserProvider.As(session.StudentId.Value, "Student"), unitOfWork);
+            sessionRepository, slotRepository, StubCurrentUserProvider.As(session.StudentId.Value, "Student"), unitOfWork, new FixedDateTimeProvider(DateTime.UtcNow), new FakeSchedulingConstraintsProvider());
 
         var result = await handler.Handle(new RescheduleSessionCommand(session.Id.Value, newSlot.Id.Value));
 
@@ -62,7 +62,7 @@ public class RescheduleSessionCommandHandlerTests
         await slotRepository.AddAsync(oldSlot);
         await slotRepository.AddAsync(newSlot);
         var handler = new RescheduleSessionCommandHandler(
-            sessionRepository, slotRepository, StubCurrentUserProvider.As(session.StudentId.Value, "Student"), unitOfWork);
+            sessionRepository, slotRepository, StubCurrentUserProvider.As(session.StudentId.Value, "Student"), unitOfWork, new FixedDateTimeProvider(DateTime.UtcNow), new FakeSchedulingConstraintsProvider());
 
         var result = await handler.Handle(new RescheduleSessionCommand(session.Id.Value, newSlot.Id.Value));
 
@@ -78,7 +78,7 @@ public class RescheduleSessionCommandHandlerTests
         var slotRepository = new InMemoryAvailabilitySlotRepository();
         var unitOfWork = new FakeUnitOfWork();
         var handler = new RescheduleSessionCommandHandler(
-            sessionRepository, slotRepository, StubCurrentUserProvider.AsAdminStaff(Guid.NewGuid()), unitOfWork);
+            sessionRepository, slotRepository, StubCurrentUserProvider.AsAdminStaff(Guid.NewGuid()), unitOfWork, new FixedDateTimeProvider(DateTime.UtcNow), new FakeSchedulingConstraintsProvider());
 
         var result = await handler.Handle(new RescheduleSessionCommand(Guid.NewGuid(), Guid.NewGuid()));
 
@@ -96,7 +96,7 @@ public class RescheduleSessionCommandHandlerTests
         await sessionRepository.AddAsync(session);
         await slotRepository.AddAsync(oldSlot);
         var handler = new RescheduleSessionCommandHandler(
-            sessionRepository, slotRepository, StubCurrentUserProvider.As(session.StudentId.Value, "Student"), unitOfWork);
+            sessionRepository, slotRepository, StubCurrentUserProvider.As(session.StudentId.Value, "Student"), unitOfWork, new FixedDateTimeProvider(DateTime.UtcNow), new FakeSchedulingConstraintsProvider());
 
         var result = await handler.Handle(new RescheduleSessionCommand(session.Id.Value, Guid.NewGuid()));
 
@@ -118,7 +118,7 @@ public class RescheduleSessionCommandHandlerTests
         await slotRepository.AddAsync(oldSlot);
         await slotRepository.AddAsync(newSlot);
         var handler = new RescheduleSessionCommandHandler(
-            sessionRepository, slotRepository, StubCurrentUserProvider.As(session.StudentId.Value, "Student"), unitOfWork);
+            sessionRepository, slotRepository, StubCurrentUserProvider.As(session.StudentId.Value, "Student"), unitOfWork, new FixedDateTimeProvider(DateTime.UtcNow), new FakeSchedulingConstraintsProvider());
 
         var result = await handler.Handle(new RescheduleSessionCommand(session.Id.Value, newSlot.Id.Value));
 
@@ -140,7 +140,7 @@ public class RescheduleSessionCommandHandlerTests
         await slotRepository.AddAsync(oldSlot);
         await slotRepository.AddAsync(otherTutorsSlot);
         var handler = new RescheduleSessionCommandHandler(
-            sessionRepository, slotRepository, StubCurrentUserProvider.As(session.StudentId.Value, "Student"), unitOfWork);
+            sessionRepository, slotRepository, StubCurrentUserProvider.As(session.StudentId.Value, "Student"), unitOfWork, new FixedDateTimeProvider(DateTime.UtcNow), new FakeSchedulingConstraintsProvider());
 
         var result = await handler.Handle(new RescheduleSessionCommand(session.Id.Value, otherTutorsSlot.Id.Value));
 
@@ -165,7 +165,7 @@ public class RescheduleSessionCommandHandlerTests
         await slotRepository.AddAsync(oldSlot);
         await slotRepository.AddAsync(alreadyConsumedSlot);
         var handler = new RescheduleSessionCommandHandler(
-            sessionRepository, slotRepository, StubCurrentUserProvider.As(session.StudentId.Value, "Student"), unitOfWork);
+            sessionRepository, slotRepository, StubCurrentUserProvider.As(session.StudentId.Value, "Student"), unitOfWork, new FixedDateTimeProvider(DateTime.UtcNow), new FakeSchedulingConstraintsProvider());
 
         var result = await handler.Handle(new RescheduleSessionCommand(session.Id.Value, alreadyConsumedSlot.Id.Value));
 
@@ -186,7 +186,7 @@ public class RescheduleSessionCommandHandlerTests
         await slotRepository.AddAsync(oldSlot);
         await slotRepository.AddAsync(newSlot);
         var handler = new RescheduleSessionCommandHandler(
-            sessionRepository, slotRepository, StubCurrentUserProvider.AsAdminStaff(Guid.NewGuid()), unitOfWork);
+            sessionRepository, slotRepository, StubCurrentUserProvider.AsAdminStaff(Guid.NewGuid()), unitOfWork, new FixedDateTimeProvider(DateTime.UtcNow), new FakeSchedulingConstraintsProvider());
 
         var result = await handler.Handle(new RescheduleSessionCommand(session.Id.Value, newSlot.Id.Value));
 
@@ -206,12 +206,106 @@ public class RescheduleSessionCommandHandlerTests
         await slotRepository.AddAsync(oldSlot);
         await slotRepository.AddAsync(newSlot);
         var handler = new RescheduleSessionCommandHandler(
-            sessionRepository, slotRepository, StubCurrentUserProvider.AsStudent(Guid.NewGuid()), unitOfWork);
+            sessionRepository, slotRepository, StubCurrentUserProvider.AsStudent(Guid.NewGuid()), unitOfWork, new FixedDateTimeProvider(DateTime.UtcNow), new FakeSchedulingConstraintsProvider());
 
         var result = await handler.Handle(new RescheduleSessionCommand(session.Id.Value, newSlot.Id.Value));
 
         Assert.True(result.IsFailure);
         Assert.Equal(TutorFlow.Application.Common.ErrorType.Authorization, result.Error.Type);
         Assert.Equal(0, unitOfWork.SaveChangesCallCount);
+    }
+
+    // docs/adr/ADR-025-... Addendum — Booking Notice & Horizon (Accepted
+    // 2026-07-29), applied identically to reschedule's new start time.
+    [Fact]
+    public async Task Handle_rejects_a_reschedule_onto_a_slot_less_than_the_minimum_notice_away()
+    {
+        var sessionRepository = new InMemorySessionRepository();
+        var slotRepository = new InMemoryAvailabilitySlotRepository();
+        var unitOfWork = new FakeUnitOfWork();
+        var (oldSlot, session, tutorId) = BookSession();
+        var now = new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc);
+        var newSlot = AvailabilitySlot.Declare(
+            tutorId, now.AddHours(23), SessionDuration.Of(TimeSpan.FromHours(1)), DeliveryMode.Online);
+        await sessionRepository.AddAsync(session);
+        await slotRepository.AddAsync(oldSlot);
+        await slotRepository.AddAsync(newSlot);
+        var handler = new RescheduleSessionCommandHandler(
+            sessionRepository, slotRepository, StubCurrentUserProvider.As(session.StudentId.Value, "Student"),
+            unitOfWork, new FixedDateTimeProvider(now), new FakeSchedulingConstraintsProvider());
+
+        var result = await handler.Handle(new RescheduleSessionCommand(session.Id.Value, newSlot.Id.Value));
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("RescheduleSessionCommand.BookingTooSoon", result.Error.Code);
+        Assert.Equal(0, unitOfWork.SaveChangesCallCount);
+    }
+
+    [Fact]
+    public async Task Handle_allows_a_reschedule_exactly_at_the_minimum_notice_boundary()
+    {
+        var sessionRepository = new InMemorySessionRepository();
+        var slotRepository = new InMemoryAvailabilitySlotRepository();
+        var unitOfWork = new FakeUnitOfWork();
+        var (oldSlot, session, tutorId) = BookSession();
+        var now = new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc);
+        var newSlot = AvailabilitySlot.Declare(
+            tutorId, now.AddHours(24), SessionDuration.Of(TimeSpan.FromHours(1)), DeliveryMode.Online);
+        await sessionRepository.AddAsync(session);
+        await slotRepository.AddAsync(oldSlot);
+        await slotRepository.AddAsync(newSlot);
+        var handler = new RescheduleSessionCommandHandler(
+            sessionRepository, slotRepository, StubCurrentUserProvider.As(session.StudentId.Value, "Student"),
+            unitOfWork, new FixedDateTimeProvider(now), new FakeSchedulingConstraintsProvider());
+
+        var result = await handler.Handle(new RescheduleSessionCommand(session.Id.Value, newSlot.Id.Value));
+
+        Assert.True(result.IsSuccess);
+    }
+
+    [Fact]
+    public async Task Handle_rejects_a_reschedule_onto_a_slot_beyond_the_maximum_horizon()
+    {
+        var sessionRepository = new InMemorySessionRepository();
+        var slotRepository = new InMemoryAvailabilitySlotRepository();
+        var unitOfWork = new FakeUnitOfWork();
+        var (oldSlot, session, tutorId) = BookSession();
+        var now = new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc);
+        var newSlot = AvailabilitySlot.Declare(
+            tutorId, now.AddDays(90).AddHours(1), SessionDuration.Of(TimeSpan.FromHours(1)), DeliveryMode.Online);
+        await sessionRepository.AddAsync(session);
+        await slotRepository.AddAsync(oldSlot);
+        await slotRepository.AddAsync(newSlot);
+        var handler = new RescheduleSessionCommandHandler(
+            sessionRepository, slotRepository, StubCurrentUserProvider.As(session.StudentId.Value, "Student"),
+            unitOfWork, new FixedDateTimeProvider(now), new FakeSchedulingConstraintsProvider());
+
+        var result = await handler.Handle(new RescheduleSessionCommand(session.Id.Value, newSlot.Id.Value));
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("RescheduleSessionCommand.BookingTooFarAhead", result.Error.Code);
+        Assert.Equal(0, unitOfWork.SaveChangesCallCount);
+    }
+
+    [Fact]
+    public async Task Handle_allows_a_reschedule_exactly_at_the_maximum_horizon_boundary()
+    {
+        var sessionRepository = new InMemorySessionRepository();
+        var slotRepository = new InMemoryAvailabilitySlotRepository();
+        var unitOfWork = new FakeUnitOfWork();
+        var (oldSlot, session, tutorId) = BookSession();
+        var now = new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc);
+        var newSlot = AvailabilitySlot.Declare(
+            tutorId, now.AddDays(90), SessionDuration.Of(TimeSpan.FromHours(1)), DeliveryMode.Online);
+        await sessionRepository.AddAsync(session);
+        await slotRepository.AddAsync(oldSlot);
+        await slotRepository.AddAsync(newSlot);
+        var handler = new RescheduleSessionCommandHandler(
+            sessionRepository, slotRepository, StubCurrentUserProvider.As(session.StudentId.Value, "Student"),
+            unitOfWork, new FixedDateTimeProvider(now), new FakeSchedulingConstraintsProvider());
+
+        var result = await handler.Handle(new RescheduleSessionCommand(session.Id.Value, newSlot.Id.Value));
+
+        Assert.True(result.IsSuccess);
     }
 }

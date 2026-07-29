@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using TutorFlow.Application.Audit.Interfaces;
 using TutorFlow.Application.Common;
 using TutorFlow.Application.Communication.Interfaces;
@@ -17,6 +18,7 @@ using TutorFlow.Infrastructure.Meetings.Configuration;
 using TutorFlow.Infrastructure.Meetings.Providers;
 using TutorFlow.Infrastructure.Meetings.Repositories;
 using TutorFlow.Infrastructure.Persistence;
+using TutorFlow.Infrastructure.Scheduling.Configuration;
 using TutorFlow.Infrastructure.Scheduling.Repositories;
 
 namespace TutorFlow.Infrastructure;
@@ -92,6 +94,16 @@ public static class DependencyInjection
         services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddScoped<IMeetingRepository, MeetingRepository>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
+
+        // docs/adr/ADR-025-... Addendum — Booking Notice & Horizon (Accepted
+        // 2026-07-29). Same ValidateOnStart discipline as MeetingProviderSettings
+        // below: a misconfigured section fails at host startup, not on the
+        // first real booking attempt.
+        services.AddOptions<SchedulingConstraintsSettings>()
+            .BindConfiguration(SchedulingConstraintsSettings.SectionName)
+            .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<SchedulingConstraintsSettings>, SchedulingConstraintsSettingsValidator>();
+        services.AddScoped<ISchedulingConstraintsProvider, SchedulingConstraintsProvider>();
 
         // docs/adr/ADR-023-online-lesson-meeting-provider-architecture.md —
         // one configuration section, no hardcoded credentials (CLAUDE.md).

@@ -124,7 +124,7 @@ public class OversightEndpointsTests : IClassFixture<TutorFlowWebApplicationFact
         var slotResponse = await PostWithAuthAsync("/availability-slots", new
         {
             TutorId = tutorId,
-            StartTimeUtc = DateTime.UtcNow.AddDays(1),
+            StartTimeUtc = DateTime.UtcNow.AddHours(25),
             Duration = TimeSpan.FromHours(1),
             DeliveryMode = 0, // Online
         }, token);

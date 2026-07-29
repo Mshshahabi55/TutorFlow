@@ -167,12 +167,15 @@ public sealed class AvailabilitySlot : AggregateRoot<AvailabilitySlotId>
     // for audit attribution (AvailabilitySlotReopened), not validated here.
     //
     // Deliberately does NOT guard against StartTimeUtc already being in the
-    // past: Book() itself has never guarded against booking a past slot
-    // either (no minimum/maximum lead time is established —
-    // DOMAIN_MODEL.md Open Question 8, still open). Adding an asymmetric
-    // "cannot reopen a past slot" rule here, where none exists on the
-    // original booking path, would be inventing a new business rule this
-    // phase is not authorized to decide, not fixing a bug.
+    // past, or against any minimum/maximum booking-notice window: the
+    // notice/horizon rule (DOMAIN_MODEL.md Open Question 8, Resolved
+    // 2026-07-29 — docs/adr/ADR-025-... Addendum) is a booking-time policy
+    // check against the current instant, enforced by
+    // BookSessionCommandHandler/RescheduleSessionCommandHandler before they
+    // ever call Book()/Consume() — not a fact this aggregate can express
+    // from its own data alone. Reopen() itself never books anything; it only
+    // frees a slot a cancellation already released, so there is nothing here
+    // for that rule to gate.
     public void Reopen(SessionId cancelledSessionId)
     {
         if (!IsConsumed)

@@ -52,4 +52,49 @@ public class StartupConfigurationValidationTests
 
         Assert.ThrowsAny<Exception>(() => factory.CreateClient());
     }
+
+    // docs/adr/ADR-025-... Addendum — Booking Notice & Horizon (Accepted
+    // 2026-07-29): same fail-fast discipline as RateLimiting/Meeting above.
+    [Fact]
+    public void Host_fails_to_start_when_SchedulingConstraints_MinimumBookingNoticeHours_is_zero()
+    {
+        using var factory = new TutorFlowWebApplicationFactory().WithWebHostBuilder(builder =>
+            builder.ConfigureAppConfiguration((_, configBuilder) =>
+                configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["SchedulingConstraints:MinimumBookingNoticeHours"] = "0",
+                })));
+
+        var exception = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
+        Assert.Contains("MinimumBookingNoticeHours", exception.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Host_fails_to_start_when_SchedulingConstraints_MaximumBookingHorizonDays_is_negative()
+    {
+        using var factory = new TutorFlowWebApplicationFactory().WithWebHostBuilder(builder =>
+            builder.ConfigureAppConfiguration((_, configBuilder) =>
+                configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["SchedulingConstraints:MaximumBookingHorizonDays"] = "-1",
+                })));
+
+        var exception = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
+        Assert.Contains("MaximumBookingHorizonDays", exception.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Host_fails_to_start_when_SchedulingConstraints_notice_meets_or_exceeds_horizon()
+    {
+        using var factory = new TutorFlowWebApplicationFactory().WithWebHostBuilder(builder =>
+            builder.ConfigureAppConfiguration((_, configBuilder) =>
+                configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["SchedulingConstraints:MinimumBookingNoticeHours"] = "2400",
+                    ["SchedulingConstraints:MaximumBookingHorizonDays"] = "90",
+                })));
+
+        var exception = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
+        Assert.Contains("MinimumBookingNoticeHours", exception.ToString(), StringComparison.Ordinal);
+    }
 }

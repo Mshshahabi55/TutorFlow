@@ -26,17 +26,23 @@ public sealed class RescheduleSessionCommandHandler
     private readonly IAvailabilitySlotRepository _availabilitySlotRepository;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IDateTimeProvider _dateTimeProvider;
+    private readonly ISchedulingConstraintsProvider _schedulingConstraintsProvider;
 
     public RescheduleSessionCommandHandler(
         ISessionRepository sessionRepository,
         IAvailabilitySlotRepository availabilitySlotRepository,
         ICurrentUserProvider currentUserProvider,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IDateTimeProvider dateTimeProvider,
+        ISchedulingConstraintsProvider schedulingConstraintsProvider)
     {
         _sessionRepository = sessionRepository;
         _availabilitySlotRepository = availabilitySlotRepository;
         _currentUserProvider = currentUserProvider;
         _unitOfWork = unitOfWork;
+        _dateTimeProvider = dateTimeProvider;
+        _schedulingConstraintsProvider = schedulingConstraintsProvider;
     }
 
     public async Task<Result> Handle(RescheduleSessionCommand command, CancellationToken cancellationToken = default)
@@ -85,6 +91,27 @@ public sealed class RescheduleSessionCommandHandler
             return Result.Failure(new Error(
                 "RescheduleSessionCommand.AvailabilitySlotNotFound",
                 "Availability slot was not found.",
+                ErrorType.Domain));
+        }
+
+        // docs/adr/ADR-025-... Addendum — Booking Notice & Horizon (Accepted
+        // 2026-07-29), applied identically to reschedule's new start time —
+        // otherwise a reschedule would bypass BookSessionCommandHandler's
+        // own notice/horizon check entirely.
+        var now = _dateTimeProvider.UtcNow;
+        if (newSlot.StartTimeUtc < now + _schedulingConstraintsProvider.MinimumBookingNotice)
+        {
+            return Result.Failure(new Error(
+                "RescheduleSessionCommand.BookingTooSoon",
+                $"This session cannot be rescheduled to less than {_schedulingConstraintsProvider.MinimumBookingNotice.TotalHours:0} hours before its start.",
+                ErrorType.Domain));
+        }
+
+        if (newSlot.StartTimeUtc > now + _schedulingConstraintsProvider.MaximumBookingHorizon)
+        {
+            return Result.Failure(new Error(
+                "RescheduleSessionCommand.BookingTooFarAhead",
+                $"This session cannot be rescheduled to more than {_schedulingConstraintsProvider.MaximumBookingHorizon.TotalDays:0} days before its start.",
                 ErrorType.Domain));
         }
 

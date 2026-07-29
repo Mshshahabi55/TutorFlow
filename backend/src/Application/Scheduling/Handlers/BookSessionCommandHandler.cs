@@ -23,6 +23,8 @@ public sealed class BookSessionCommandHandler
     private readonly ITutorRepository _tutorRepository;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IDateTimeProvider _dateTimeProvider;
+    private readonly ISchedulingConstraintsProvider _schedulingConstraintsProvider;
 
     public BookSessionCommandHandler(
         IAvailabilitySlotRepository availabilitySlotRepository,
@@ -31,7 +33,9 @@ public sealed class BookSessionCommandHandler
         IRelationshipRepository relationshipRepository,
         ITutorRepository tutorRepository,
         ICurrentUserProvider currentUserProvider,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IDateTimeProvider dateTimeProvider,
+        ISchedulingConstraintsProvider schedulingConstraintsProvider)
     {
         _availabilitySlotRepository = availabilitySlotRepository;
         _sessionRepository = sessionRepository;
@@ -40,6 +44,8 @@ public sealed class BookSessionCommandHandler
         _tutorRepository = tutorRepository;
         _currentUserProvider = currentUserProvider;
         _unitOfWork = unitOfWork;
+        _dateTimeProvider = dateTimeProvider;
+        _schedulingConstraintsProvider = schedulingConstraintsProvider;
     }
 
     public async Task<Result<SessionDto>> Handle(BookSessionCommand command, CancellationToken cancellationToken = default)
@@ -107,6 +113,27 @@ public sealed class BookSessionCommandHandler
             return Result.Failure<SessionDto>(new Error(
                 "BookSessionCommand.AvailabilitySlotNotFound",
                 "Availability slot was not found.",
+                ErrorType.Domain));
+        }
+
+        // docs/adr/ADR-025-... Addendum — Booking Notice & Horizon (Accepted
+        // 2026-07-29): a booking-time policy check against the current
+        // instant, not a fact knowable from the slot's own data alone — so
+        // it lives here, not in AvailabilitySlot.Book/Declare (Domain).
+        var now = _dateTimeProvider.UtcNow;
+        if (slot.StartTimeUtc < now + _schedulingConstraintsProvider.MinimumBookingNotice)
+        {
+            return Result.Failure<SessionDto>(new Error(
+                "BookSessionCommand.BookingTooSoon",
+                $"This session cannot be booked less than {_schedulingConstraintsProvider.MinimumBookingNotice.TotalHours:0} hours before its start.",
+                ErrorType.Domain));
+        }
+
+        if (slot.StartTimeUtc > now + _schedulingConstraintsProvider.MaximumBookingHorizon)
+        {
+            return Result.Failure<SessionDto>(new Error(
+                "BookSessionCommand.BookingTooFarAhead",
+                $"This session cannot be booked more than {_schedulingConstraintsProvider.MaximumBookingHorizon.TotalDays:0} days before its start.",
                 ErrorType.Domain));
         }
 

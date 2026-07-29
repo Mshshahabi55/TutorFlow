@@ -93,7 +93,7 @@ public class MeetingEndpointsTests : IClassFixture<TutorFlowWebApplicationFactor
         var response = await PostWithAuthAsync("/availability-slots", new
         {
             TutorId = tutorId,
-            StartTimeUtc = DateTime.UtcNow.AddDays(1),
+            StartTimeUtc = DateTime.UtcNow.AddHours(25),
             Duration = TimeSpan.FromHours(1),
             DeliveryMode = 0, // Online
         }, tutorToken);
@@ -106,7 +106,7 @@ public class MeetingEndpointsTests : IClassFixture<TutorFlowWebApplicationFactor
         var response = await PostWithAuthAsync("/availability-slots", new
         {
             TutorId = tutorId,
-            StartTimeUtc = DateTime.UtcNow.AddDays(1),
+            StartTimeUtc = DateTime.UtcNow.AddHours(25),
             Duration = TimeSpan.FromHours(1),
             DeliveryMode = 1, // InPerson
         }, tutorToken);

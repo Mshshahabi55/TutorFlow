@@ -1,5 +1,7 @@
+using TutorFlow.Application.Common;
 using TutorFlow.Application.Scheduling.Commands;
 using TutorFlow.Application.Scheduling.Handlers;
+using TutorFlow.Application.Scheduling.Interfaces;
 using TutorFlow.Application.Tests.TestDoubles;
 using TutorFlow.Domain.Identity;
 using TutorFlow.Domain.Identity.ValueObjects;
@@ -14,9 +16,14 @@ public class BookSessionCommandHandlerTests
     // project, a separate assembly, has no way to call it even if it wanted
     // to. The only path to a Session is AvailabilitySlot.Book(...) — these
     // tests verify the handler uses exactly that path.
+    // AddHours(25), not AddDays(1): CreateHandler's default clock captures
+    // DateTime.UtcNow a moment after this method does, so a slot declared
+    // exactly at the 24-hour minimum-notice boundary would flake — the
+    // handler's "now" would already be later than this method's, making the
+    // slot look less than 24 hours away by the time it's checked.
     private static AvailabilitySlot DeclareSlot(TutorId tutorId) => AvailabilitySlot.Declare(
         tutorId,
-        DateTime.UtcNow.AddDays(1),
+        DateTime.UtcNow.AddHours(25),
         SessionDuration.Of(TimeSpan.FromHours(1)),
         DeliveryMode.Online);
 
@@ -52,9 +59,13 @@ public class BookSessionCommandHandlerTests
         InMemoryTutorRepository tutorRepository,
         FakeUnitOfWork unitOfWork,
         Guid callerId,
-        string callerRole) =>
+        string callerRole,
+        IDateTimeProvider? dateTimeProvider = null,
+        ISchedulingConstraintsProvider? schedulingConstraintsProvider = null) =>
         new(slotRepository, sessionRepository, studentRepository, relationshipRepository, tutorRepository,
-            StubCurrentUserProvider.As(callerId, callerRole), unitOfWork);
+            StubCurrentUserProvider.As(callerId, callerRole), unitOfWork,
+            dateTimeProvider ?? new FixedDateTimeProvider(DateTime.UtcNow),
+            schedulingConstraintsProvider ?? new FakeSchedulingConstraintsProvider());
 
     [Fact]
     public async Task Handle_books_session_against_slot_and_calls_SaveChanges()
@@ -245,5 +256,96 @@ public class BookSessionCommandHandlerTests
         Assert.True(result.IsFailure);
         Assert.Equal(TutorFlow.Application.Common.ErrorType.Authorization, result.Error.Type);
         Assert.Equal(0, sut.UnitOfWork.SaveChangesCallCount);
+    }
+
+    // docs/adr/ADR-025-... Addendum — Booking Notice & Horizon (Accepted
+    // 2026-07-29): a Session may not be booked less than the configured
+    // minimum notice before its start.
+    [Fact]
+    public async Task Handle_rejects_a_booking_that_starts_less_than_the_minimum_notice_away()
+    {
+        var sut = await CreateSutPartsAsync();
+        var now = new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc);
+        var slot = AvailabilitySlot.Declare(
+            TutorId.From(Guid.NewGuid()),
+            now.AddHours(23),
+            SessionDuration.Of(TimeSpan.FromHours(1)),
+            DeliveryMode.Online);
+        await sut.SlotRepository.AddAsync(slot);
+        var handler = CreateHandler(
+            sut.SlotRepository, sut.SessionRepository, sut.StudentRepository, sut.RelationshipRepository,
+            sut.TutorRepository, sut.UnitOfWork, sut.Student.Id.Value, "Student",
+            new FixedDateTimeProvider(now), new FakeSchedulingConstraintsProvider());
+
+        var result = await handler.Handle(new BookSessionCommand(slot.Id.Value, sut.Student.Id.Value, null));
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("BookSessionCommand.BookingTooSoon", result.Error.Code);
+        Assert.Equal(0, sut.UnitOfWork.SaveChangesCallCount);
+    }
+
+    [Fact]
+    public async Task Handle_allows_a_booking_exactly_at_the_minimum_notice_boundary()
+    {
+        var sut = await CreateSutPartsAsync();
+        var now = new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc);
+        var slot = AvailabilitySlot.Declare(
+            TutorId.From(Guid.NewGuid()),
+            now.AddHours(24),
+            SessionDuration.Of(TimeSpan.FromHours(1)),
+            DeliveryMode.Online);
+        await sut.SlotRepository.AddAsync(slot);
+        var handler = CreateHandler(
+            sut.SlotRepository, sut.SessionRepository, sut.StudentRepository, sut.RelationshipRepository,
+            sut.TutorRepository, sut.UnitOfWork, sut.Student.Id.Value, "Student",
+            new FixedDateTimeProvider(now), new FakeSchedulingConstraintsProvider());
+
+        var result = await handler.Handle(new BookSessionCommand(slot.Id.Value, sut.Student.Id.Value, null));
+
+        Assert.True(result.IsSuccess);
+    }
+
+    [Fact]
+    public async Task Handle_rejects_a_booking_that_starts_beyond_the_maximum_horizon()
+    {
+        var sut = await CreateSutPartsAsync();
+        var now = new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc);
+        var slot = AvailabilitySlot.Declare(
+            TutorId.From(Guid.NewGuid()),
+            now.AddDays(90).AddHours(1),
+            SessionDuration.Of(TimeSpan.FromHours(1)),
+            DeliveryMode.Online);
+        await sut.SlotRepository.AddAsync(slot);
+        var handler = CreateHandler(
+            sut.SlotRepository, sut.SessionRepository, sut.StudentRepository, sut.RelationshipRepository,
+            sut.TutorRepository, sut.UnitOfWork, sut.Student.Id.Value, "Student",
+            new FixedDateTimeProvider(now), new FakeSchedulingConstraintsProvider());
+
+        var result = await handler.Handle(new BookSessionCommand(slot.Id.Value, sut.Student.Id.Value, null));
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("BookSessionCommand.BookingTooFarAhead", result.Error.Code);
+        Assert.Equal(0, sut.UnitOfWork.SaveChangesCallCount);
+    }
+
+    [Fact]
+    public async Task Handle_allows_a_booking_exactly_at_the_maximum_horizon_boundary()
+    {
+        var sut = await CreateSutPartsAsync();
+        var now = new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc);
+        var slot = AvailabilitySlot.Declare(
+            TutorId.From(Guid.NewGuid()),
+            now.AddDays(90),
+            SessionDuration.Of(TimeSpan.FromHours(1)),
+            DeliveryMode.Online);
+        await sut.SlotRepository.AddAsync(slot);
+        var handler = CreateHandler(
+            sut.SlotRepository, sut.SessionRepository, sut.StudentRepository, sut.RelationshipRepository,
+            sut.TutorRepository, sut.UnitOfWork, sut.Student.Id.Value, "Student",
+            new FixedDateTimeProvider(now), new FakeSchedulingConstraintsProvider());
+
+        var result = await handler.Handle(new BookSessionCommand(slot.Id.Value, sut.Student.Id.Value, null));
+
+        Assert.True(result.IsSuccess);
     }
 }

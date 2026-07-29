@@ -140,7 +140,7 @@ public class SchedulingEndpointsTests : IClassFixture<TutorFlowWebApplicationFac
         var response = await PostWithAuthAsync("/availability-slots", new
         {
             TutorId = tutorId,
-            StartTimeUtc = DateTime.UtcNow.AddDays(1),
+            StartTimeUtc = DateTime.UtcNow.AddHours(25),
             Duration = TimeSpan.FromHours(1),
             DeliveryMode = 0, // Online
         }, token);
@@ -185,7 +185,7 @@ public class SchedulingEndpointsTests : IClassFixture<TutorFlowWebApplicationFac
         var response = await PostWithAuthAsync("/availability-slots", new
         {
             TutorId = tutorId,
-            StartTimeUtc = startTimeUtc ?? DateTime.UtcNow.AddDays(1),
+            StartTimeUtc = startTimeUtc ?? DateTime.UtcNow.AddHours(25),
             Duration = TimeSpan.FromHours(1),
             DeliveryMode = 0, // Online
         }, token);
@@ -201,7 +201,7 @@ public class SchedulingEndpointsTests : IClassFixture<TutorFlowWebApplicationFac
         var response = await PostWithAuthAsync("/availability-slots", new
         {
             TutorId = tutorId,
-            StartTimeUtc = DateTime.UtcNow.AddDays(1),
+            StartTimeUtc = DateTime.UtcNow.AddHours(25),
             Duration = TimeSpan.FromHours(1),
             DeliveryMode = 0,
         }, token);
@@ -220,7 +220,7 @@ public class SchedulingEndpointsTests : IClassFixture<TutorFlowWebApplicationFac
         var response = await PostWithAuthAsync("/availability-slots", new
         {
             TutorId = Guid.Empty,
-            StartTimeUtc = DateTime.UtcNow.AddDays(1),
+            StartTimeUtc = DateTime.UtcNow.AddHours(25),
             Duration = TimeSpan.FromHours(1),
             DeliveryMode = 0,
         }, token);
@@ -242,7 +242,7 @@ public class SchedulingEndpointsTests : IClassFixture<TutorFlowWebApplicationFac
     public async Task DeclareAvailability_rejects_a_slot_that_overlaps_one_already_declared_by_the_same_tutor()
     {
         var (tutorId, token) = await RegisterAndLoginTutorAsync();
-        var start = DateTime.UtcNow.AddDays(1);
+        var start = DateTime.UtcNow.AddHours(25);
         var firstResponse = await PostWithAuthAsync("/availability-slots", new
         {
             TutorId = tutorId,
@@ -276,7 +276,7 @@ public class SchedulingEndpointsTests : IClassFixture<TutorFlowWebApplicationFac
     public async Task DeclareAvailability_accepts_a_back_to_back_slot_that_only_touches_an_existing_one()
     {
         var (tutorId, token) = await RegisterAndLoginTutorAsync();
-        var start = DateTime.UtcNow.AddDays(1);
+        var start = DateTime.UtcNow.AddHours(25);
         var firstResponse = await PostWithAuthAsync("/availability-slots", new
         {
             TutorId = tutorId,
@@ -343,7 +343,7 @@ public class SchedulingEndpointsTests : IClassFixture<TutorFlowWebApplicationFac
         var response = await PostWithAuthAsync("/availability-slots", new
         {
             TutorId = Guid.NewGuid(),
-            StartTimeUtc = DateTime.UtcNow.AddDays(1),
+            StartTimeUtc = DateTime.UtcNow.AddHours(25),
             Duration = TimeSpan.FromHours(1),
             DeliveryMode = 0,
         }, bearerToken: null);
@@ -368,7 +368,7 @@ public class SchedulingEndpointsTests : IClassFixture<TutorFlowWebApplicationFac
         var response = await PostWithAuthAsync("/availability-slots", new
         {
             TutorId = otherTutorId,
-            StartTimeUtc = DateTime.UtcNow.AddDays(1),
+            StartTimeUtc = DateTime.UtcNow.AddHours(25),
             Duration = TimeSpan.FromHours(1),
             DeliveryMode = 0,
         }, callerToken);
@@ -449,11 +449,63 @@ public class SchedulingEndpointsTests : IClassFixture<TutorFlowWebApplicationFac
         Assert.Equal("BookSessionCommand.Forbidden", body.GetProperty("error").GetProperty("code").GetString());
     }
 
+    // docs/adr/ADR-025-... Addendum — Booking Notice & Horizon (Accepted
+    // 2026-07-29). Re-reads the slot from a fresh request afterward and
+    // confirms it is still unconsumed — CLAUDE.md's own re-read rule,
+    // applied to a rejection path: proves the rejected booking left no
+    // trace, not just that the endpoint returned an error.
+    [Fact]
+    public async Task BookSession_returns_failure_for_a_slot_starting_less_than_the_minimum_notice_away()
+    {
+        var (tutorId, tutorToken) = await RegisterAndLoginTutorAsync();
+        var slotId = await DeclareAvailabilityForTutorAsync(tutorId, tutorToken, DateTime.UtcNow.AddHours(1));
+        var (studentId, studentToken) = await RegisterAndLoginStudentAsync();
+
+        var response = await PostWithAuthAsync("/sessions", new
+        {
+            AvailabilitySlotId = slotId,
+            StudentId = studentId,
+            ParentGuardianId = (Guid?)null,
+        }, studentToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await ReadBodyAsync(response);
+        Assert.Equal("BookSessionCommand.BookingTooSoon", body.GetProperty("error").GetProperty("code").GetString());
+
+        var slotResponse = await GetWithAuthAsync($"/availability-slots/{slotId}", tutorToken);
+        var slotBody = await ReadBodyAsync(slotResponse);
+        Assert.False(slotBody.GetProperty("value").GetProperty("isConsumed").GetBoolean());
+    }
+
+    [Fact]
+    public async Task BookSession_returns_failure_for_a_slot_starting_beyond_the_maximum_horizon()
+    {
+        var (tutorId, tutorToken) = await RegisterAndLoginTutorAsync();
+        var slotId = await DeclareAvailabilityForTutorAsync(tutorId, tutorToken, DateTime.UtcNow.AddDays(91));
+        var (studentId, studentToken) = await RegisterAndLoginStudentAsync();
+
+        var response = await PostWithAuthAsync("/sessions", new
+        {
+            AvailabilitySlotId = slotId,
+            StudentId = studentId,
+            ParentGuardianId = (Guid?)null,
+        }, studentToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await ReadBodyAsync(response);
+        Assert.Equal("BookSessionCommand.BookingTooFarAhead", body.GetProperty("error").GetProperty("code").GetString());
+
+        var slotResponse = await GetWithAuthAsync($"/availability-slots/{slotId}", tutorToken);
+        var slotBody = await ReadBodyAsync(slotResponse);
+        Assert.False(slotBody.GetProperty("value").GetProperty("isConsumed").GetBoolean());
+    }
+
     // Phase 4.7: books Session onto slot A for a given Tutor, then declares
     // a second, still-open slot B for that SAME Tutor — the shape every
     // Reschedule test below needs (the new endpoint targets a slot, not a
     // raw timestamp, so it must belong to the Session's own Tutor).
-    private async Task<(Guid SessionId, string StudentToken, Guid OldSlotId, Guid NewSlotId)> BookSessionWithASecondOpenSlotAsync()
+    private async Task<(Guid SessionId, string StudentToken, Guid OldSlotId, Guid NewSlotId)> BookSessionWithASecondOpenSlotAsync(
+        DateTime? newSlotStartTimeUtc = null)
     {
         var (tutorId, tutorToken) = await RegisterAndLoginTutorAsync();
         var oldSlotId = await DeclareAvailabilityForTutorAsync(tutorId, tutorToken);
@@ -467,9 +519,39 @@ public class SchedulingEndpointsTests : IClassFixture<TutorFlowWebApplicationFac
         var bookBody = await ReadBodyAsync(bookResponse);
         var sessionId = bookBody.GetProperty("value").GetProperty("sessionId").GetGuid();
 
-        var newSlotId = await DeclareAvailabilityForTutorAsync(tutorId, tutorToken, DateTime.UtcNow.AddDays(2));
+        var newSlotId = await DeclareAvailabilityForTutorAsync(tutorId, tutorToken, newSlotStartTimeUtc ?? DateTime.UtcNow.AddDays(2));
 
         return (sessionId, studentToken, oldSlotId, newSlotId);
+    }
+
+    // docs/adr/ADR-025-... Addendum — Booking Notice & Horizon (Accepted
+    // 2026-07-29), applied identically to reschedule.
+    [Fact]
+    public async Task RescheduleSession_returns_failure_for_a_new_slot_starting_less_than_the_minimum_notice_away()
+    {
+        var (sessionId, studentToken, _, newSlotId) =
+            await BookSessionWithASecondOpenSlotAsync(DateTime.UtcNow.AddHours(1));
+
+        var response = await PostWithAuthAsync(
+            $"/sessions/{sessionId}/reschedule", new { NewAvailabilitySlotId = newSlotId }, studentToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await ReadBodyAsync(response);
+        Assert.Equal("RescheduleSessionCommand.BookingTooSoon", body.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task RescheduleSession_returns_failure_for_a_new_slot_starting_beyond_the_maximum_horizon()
+    {
+        var (sessionId, studentToken, _, newSlotId) =
+            await BookSessionWithASecondOpenSlotAsync(DateTime.UtcNow.AddDays(91));
+
+        var response = await PostWithAuthAsync(
+            $"/sessions/{sessionId}/reschedule", new { NewAvailabilitySlotId = newSlotId }, studentToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await ReadBodyAsync(response);
+        Assert.Equal("RescheduleSessionCommand.BookingTooFarAhead", body.GetProperty("error").GetProperty("code").GetString());
     }
 
     [Fact]

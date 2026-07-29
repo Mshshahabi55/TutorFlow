@@ -143,15 +143,34 @@ the same `ApiResponse` envelope every other error uses. Both limits are
 config-driven (`appsettings.json`) so they can be retuned per environment
 without a code change.
 
+### Booking notice & horizon
+
+A Session may only be booked (or rescheduled) at least 24 hours before its
+start (`SchedulingConstraints:MinimumBookingNoticeHours`, default 24) and no
+more than 90 days before its start (`SchedulingConstraints:MaximumBookingHorizonDays`,
+default 90), platform-wide — resolved 2026-07-29, see
+`docs/adr/ADR-025-scheduling-recurring-availability-and-booking-constraints.md`'s
+Addendum. Both limits are enforced in `BookSessionCommandHandler` and
+`RescheduleSessionCommandHandler` (Application layer, against the current
+instant) — not in `AvailabilitySlot`/`Session` (Domain), since a booking-time
+policy check against "now" isn't a fact either aggregate can express from its
+own data alone. A violation returns `400 Bad Request` with error code
+`BookSessionCommand.BookingTooSoon`/`.BookingTooFarAhead` (or the
+`RescheduleSessionCommand.*` equivalents). Config-driven, same pattern as
+Rate limiting above, so either limit can be retuned per environment without
+a code change.
+
 ### Startup configuration validation
 
-Rate-limiting and Meeting-provider settings are validated when the host
-starts (`ValidateOnStart`), not lazily on first use — a zero/negative
-`PermitLimit`/`WindowSeconds`, or a `Meeting:DefaultProvider` value that
-isn't a recognized provider name, fails the host immediately with a clear
-message instead of surfacing as an unhandled exception on whatever request
-happens to touch it first. Same "fail fast" principle already applied to
-a placeholder database connection string.
+Rate-limiting, Meeting-provider, and Scheduling-constraints settings are
+validated when the host starts (`ValidateOnStart`), not lazily on first use —
+a zero/negative `PermitLimit`/`WindowSeconds`, a `Meeting:DefaultProvider`
+value that isn't a recognized provider name, a zero/negative
+`MinimumBookingNoticeHours`/`MaximumBookingHorizonDays`, or a notice floor
+that meets or exceeds the horizon ceiling, all fail the host immediately with
+a clear message instead of surfacing as an unhandled exception on whatever
+request happens to touch it first. Same "fail fast" principle already applied
+to a placeholder database connection string.
 
 ### Request logging
 

@@ -146,8 +146,12 @@ public sealed class Session : AggregateRoot<SessionId>
     //   concerns Book() already establishes (AvailabilitySlot alone owns
     //   consumption; Session never checks it itself).
     // Deliberately does NOT guard against newScheduledTimeUtc already being
-    // in the past — Book()/Reopen() never have either (no minimum/maximum
-    // lead time exists; DOMAIN_MODEL.md Open Question 8, still open).
+    // in the past, or against any minimum/maximum booking-notice window —
+    // Book() never has either. The notice/horizon rule (DOMAIN_MODEL.md
+    // Open Question 8, Resolved 2026-07-29 — docs/adr/ADR-025-... Addendum)
+    // is a booking-time policy check against the current instant, enforced
+    // by RescheduleSessionCommandHandler before it ever calls this method —
+    // not a fact this aggregate can express from its own data alone.
     public void Reschedule(
         AvailabilitySlotId newAvailabilitySlotId,
         TutorId newAvailabilitySlotTutorId,

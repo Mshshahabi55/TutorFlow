@@ -1,12 +1,10 @@
 import { Box, Stack, Typography, useTheme } from "@mui/material";
-import { SessionStatus } from "@/services/api/dtos";
-import type { SessionDto } from "@/services/api/dtos";
+import type { StatusCounts } from "@/features/scheduling/utils/sessionStatusCounts";
 
 interface StatusBar {
-  status: SessionStatus;
   label: string;
   count: number;
-  color: string;
+  colorKey: "info" | "success" | "error" | "warning";
 }
 
 /**
@@ -21,28 +19,22 @@ interface StatusBar {
  * (never color-only identity), so this is its own accessible "table" —
  * no separate hidden data table needed for four rows this small.
  */
-export function SessionStatusBreakdownChart({ sessions }: { sessions: SessionDto[] }) {
+export function SessionStatusBreakdownChart({ counts }: { counts: StatusCounts }) {
   const theme = useTheme();
 
   const bars: StatusBar[] = [
-    { status: SessionStatus.Scheduled, label: "Upcoming", count: 0, color: theme.palette.info.main },
-    { status: SessionStatus.Completed, label: "Completed", count: 0, color: theme.palette.success.main },
-    { status: SessionStatus.Cancelled, label: "Cancelled", count: 0, color: theme.palette.error.main },
-    { status: SessionStatus.NoShow, label: "No-Show", count: 0, color: theme.palette.warning.main },
+    { label: "Upcoming", count: counts.scheduled, colorKey: "info" },
+    { label: "Completed", count: counts.completed, colorKey: "success" },
+    { label: "Cancelled", count: counts.cancelled, colorKey: "error" },
+    { label: "No-Show", count: counts.noShow, colorKey: "warning" },
   ];
-  for (const session of sessions) {
-    const bar = bars.find((b) => b.status === session.status);
-    if (bar) {
-      bar.count += 1;
-    }
-  }
 
   const maxCount = Math.max(1, ...bars.map((b) => b.count));
 
   return (
     <Stack spacing={1.5} aria-label="Session status breakdown">
       {bars.map((bar) => (
-        <Stack key={bar.status} direction="row" spacing={1.5} alignItems="center">
+        <Stack key={bar.label} direction="row" spacing={1.5} alignItems="center">
           <Typography variant="body2" color="text.secondary" sx={{ width: 96, flexShrink: 0 }}>
             {bar.label}
           </Typography>
@@ -51,7 +43,7 @@ export function SessionStatusBreakdownChart({ sessions }: { sessions: SessionDto
               sx={{
                 width: `${(bar.count / maxCount) * 100}%`,
                 height: "100%",
-                bgcolor: bar.color,
+                bgcolor: theme.palette[bar.colorKey].main,
                 borderRadius: 999,
                 transition: (t) => t.transitions.create("width"),
                 "@media (prefers-reduced-motion: reduce)": { transition: "none" },

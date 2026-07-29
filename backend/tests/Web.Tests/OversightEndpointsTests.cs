@@ -197,4 +197,40 @@ public class OversightEndpointsTests : IClassFixture<TutorFlowWebApplicationFact
         var body = await ReadBodyAsync(response);
         Assert.Equal("Authorization.Forbidden", body.GetProperty("error").GetProperty("code").GetString());
     }
+
+    [Fact]
+    public async Task GetSessionStatusCounts_reflects_a_freshly_booked_sessions_Scheduled_status()
+    {
+        var adminToken = await SeedAndLoginAdminAsync();
+        await BookSessionAsync();
+
+        var response = await GetWithAuthAsync("/sessions/status-counts", adminToken);
+
+        response.EnsureSuccessStatusCode();
+        var body = await ReadBodyAsync(response);
+        Assert.True(body.GetProperty("value").GetProperty("scheduled").GetInt32() >= 1);
+    }
+
+    [Fact]
+    public async Task GetSessionStatusCounts_requires_authentication()
+    {
+        var response = await GetWithAuthAsync("/sessions/status-counts", bearerToken: null);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetSessionStatusCounts_is_forbidden_for_a_non_admin_role()
+    {
+        var email = UniqueEmail();
+        var registerResponse = await _client.PostAsJsonAsync("/tutors", new { Email = email, Password = TestPassword });
+        await ReadBodyAsync(registerResponse);
+        var loginResponse = await _client.PostAsJsonAsync("/auth/login", new { Email = email, Password = TestPassword });
+        var loginBody = await ReadBodyAsync(loginResponse);
+        var tutorToken = loginBody.GetProperty("value").GetProperty("token").GetString();
+
+        var response = await GetWithAuthAsync("/sessions/status-counts", tutorToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
 }

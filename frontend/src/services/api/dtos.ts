@@ -126,6 +126,14 @@ export interface SessionDto {
   status: SessionStatus;
 }
 
+/** GET /sessions/status-counts (Marketplace Oversight, Admin dashboard KPI) — platform-wide Session counts grouped by status. */
+export interface SessionStatusCountsDto {
+  scheduled: number;
+  completed: number;
+  cancelled: number;
+  noShow: number;
+}
+
 /** Mirrors TutorFlow.Domain.Communication.ValueObjects.NotificationType. No JsonStringEnumConverter is registered, so this serializes as its underlying int, same as DeliveryMode/SessionStatus/RelationshipStatus above. */
 export enum NotificationType {
   BookingConfirmed = 0,

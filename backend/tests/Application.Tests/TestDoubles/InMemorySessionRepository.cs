@@ -45,6 +45,14 @@ internal sealed class InMemorySessionRepository : ISessionRepository
         return Task.FromResult(session);
     }
 
+    public Task<IReadOnlyDictionary<SessionStatus, int>> GetStatusCountsAsync(CancellationToken cancellationToken = default)
+    {
+        IReadOnlyDictionary<SessionStatus, int> counts = _sessions.Values
+            .GroupBy(s => s.Status)
+            .ToDictionary(g => g.Key, g => g.Count());
+        return Task.FromResult(counts);
+    }
+
     public Task AddAsync(Session session, CancellationToken cancellationToken = default)
     {
         _sessions[session.Id.Value] = session;

@@ -5,6 +5,7 @@ import EventRoundedIcon from "@mui/icons-material/EventRounded";
 import { useStudentSchedule } from "@/features/scheduling/hooks/useSessionQueries";
 import { SessionCard } from "@/features/scheduling/components/SessionCard";
 import { SessionStatusBreakdownChart } from "@/features/scheduling/components/SessionStatusBreakdownChart";
+import { deriveStatusCounts } from "@/features/scheduling/utils/sessionStatusCounts";
 import { SessionCardSkeleton } from "@/features/scheduling/components/SessionCardSkeleton";
 import { byScheduledTimeAscending, byScheduledTimeDescending } from "@/features/scheduling/utils/sessionSort";
 import { PageHeader } from "@/shared/components/PageHeader";
@@ -138,7 +139,7 @@ function RecentActivityContent({
     <Stack spacing={3}>
       {/* From the Student's full schedule, not just the slice shown below
           — an honest breakdown, not one skewed by RECENT_ACTIVITY_LIMIT. */}
-      <SessionStatusBreakdownChart sessions={scheduleQuery.data} />
+      <SessionStatusBreakdownChart counts={deriveStatusCounts(scheduleQuery.data)} />
       <Stack spacing={2}>
         {recentActivity.map((session) => (
           <SessionCard

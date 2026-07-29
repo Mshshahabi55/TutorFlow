@@ -27,5 +27,11 @@ public interface ISessionRepository
     // aggregate; this exposes an existing fact, it does not add one.
     Task<Session?> GetByAvailabilitySlotIdAsync(AvailabilitySlotId availabilitySlotId, CancellationToken cancellationToken = default);
 
+    // Platform-wide, unscoped by actor (same audience as GetAllAsync above,
+    // ADM-3) — a DB-side GROUP BY, never every Session row pulled into
+    // memory just to count them, since Sessions is the table most likely
+    // to grow large fastest (GetAllAsync's own comment).
+    Task<IReadOnlyDictionary<SessionStatus, int>> GetStatusCountsAsync(CancellationToken cancellationToken = default);
+
     Task AddAsync(Session session, CancellationToken cancellationToken = default);
 }

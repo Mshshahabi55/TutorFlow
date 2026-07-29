@@ -105,6 +105,7 @@ Every coarse-grained cell above still requires whatever fine-grained check Secti
 | Endpoint | Method | Auth Required | Coarse-Grained Permission | Fine-Grained Check Required | Source | WP3 Status |
 |---|---|---|---|---|---|---|
 | `/sessions` | GET | Yes | `ViewAllSchedules` | No — deliberately unscoped, "all schedules" (ADM-3) | ADM-3 | Unprotected |
+| `/sessions/status-counts` | GET | Yes | `ViewAllSchedules` | No — same audience/scope as `GET /sessions` above, aggregated instead of listed | ADM-3 | Protected |
 
 ## 4.6 Audit
 
@@ -168,3 +169,7 @@ Section 4.9 (Meetings) added: 3 new endpoints for the new Meetings bounded conte
 ## Addendum — Tutor Onboarding Wizard, 2026-07-28
 
 Section 4.1 (Identity & Relationship) gained 5 new rows for `ADR-024-tutor-profile-enrichment-and-onboarding-wizard.md` (Accepted): `/tutors/{id}/personal-info`, `/tutors/{id}/teaching-info`, `/tutors/{id}/media`, `/tutors/{id}/pricing` (all PATCH), and `/tutors/{id}/submit` (POST), bringing the total to **53 endpoints** (52 application endpoints + `/health`). All 5 rows reuse the exact same `RequirePermission(Permission.ManageTutorOffering)` + resource-ownership fine-grained check the five existing Tutor-self-service PATCH rows above already use — no new `Permission` enum value was needed.
+
+## Addendum — Admin Dashboard KPI, 2026-07-29
+
+Section 4.5 (Marketplace Oversight) gained 1 new row: `GET /sessions/status-counts` (platform-wide Session counts grouped by status, for the Admin dashboard's status-breakdown chart), bringing the total to **54 endpoints** (53 application endpoints + `/health`). Reuses the exact same `RequirePermission(Permission.ViewAllSchedules)` coarse-grained gate and "deliberately unscoped" reasoning `GET /sessions` above already has — no new `Permission` enum value needed, no resource-instance owner for a platform-wide aggregate to check against.

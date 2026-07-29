@@ -3,6 +3,9 @@ import { Box, Button, Stack, Typography } from "@mui/material";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { usePendingTutors, useTutorDirectory } from "@/features/identity/hooks/useTutorQueries";
 import { useAllSessions } from "@/features/oversight/hooks/useAllSessions";
+import { useSessionStatusCounts } from "@/features/oversight/hooks/useSessionStatusCounts";
+import { SessionStatusBreakdownChart } from "@/features/scheduling/components/SessionStatusBreakdownChart";
+import { countsFromDto } from "@/features/scheduling/utils/sessionStatusCounts";
 import { PendingTutorCard } from "@/features/identity/components/PendingTutorCard";
 import { PendingTutorCardSkeleton } from "@/features/identity/components/PendingTutorCardSkeleton";
 import { AdminSessionCard } from "@/features/oversight/components/AdminSessionCard";
@@ -78,6 +81,7 @@ export function AdminDashboardPage() {
   const navigate = useNavigate();
   const pendingTutorsQuery = usePendingTutors(1, PENDING_TUTORS_PREVIEW);
   const allSessionsQuery = useAllSessions(1, RECENT_SESSIONS_PREVIEW);
+  const statusCountsQuery = useSessionStatusCounts();
   const tutorDirectoryQuery = useTutorDirectory();
   const healthQuery = useQuery({ queryKey: ["health"], queryFn: fetchHealthStatus });
 
@@ -201,6 +205,16 @@ export function AdminDashboardPage() {
             linkLabel="View directory"
           />
         </Stack>
+      </SectionCard>
+
+      <SectionCard title="Session Status Breakdown">
+        {statusCountsQuery.isPending ? (
+          <LoadingState label="Loading session counts…" />
+        ) : statusCountsQuery.isError ? (
+          <ErrorState error={statusCountsQuery.error} onRetry={() => void statusCountsQuery.refetch()} />
+        ) : (
+          <SessionStatusBreakdownChart counts={countsFromDto(statusCountsQuery.data)} />
+        )}
       </SectionCard>
 
       <SectionCard title="Platform Health">

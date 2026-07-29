@@ -28,6 +28,16 @@ public static class OversightEndpoints
                 "GetAllSessions", Tag, "Lists every Session across the platform (ADM-3: view all schedules).")
             .RequirePermission(Permission.ViewAllSchedules);
 
+        app.MapGet("/sessions/status-counts", async (
+            GetSessionStatusCountsQueryHandler handler,
+            ILogger<Program> logger,
+            CancellationToken cancellationToken) =>
+            (await handler.Handle(new GetSessionStatusCountsQuery(), cancellationToken))
+                .ToApiResult(logger, nameof(GetSessionStatusCountsQueryHandler)))
+            .WithApiResultMetadata<SessionStatusCountsDto>(
+                "GetSessionStatusCounts", Tag, "Counts every Session across the platform, grouped by status (Admin dashboard KPI).")
+            .RequirePermission(Permission.ViewAllSchedules);
+
         return app;
     }
 }

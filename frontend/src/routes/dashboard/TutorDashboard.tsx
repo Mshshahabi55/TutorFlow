@@ -11,6 +11,7 @@ import { TutorSessionCard } from "@/features/scheduling/components/TutorSessionC
 import { StudentRosterCard } from "@/features/scheduling/components/StudentRosterCard";
 import { SessionCardSkeleton } from "@/features/scheduling/components/SessionCardSkeleton";
 import { SessionStatusBreakdownChart } from "@/features/scheduling/components/SessionStatusBreakdownChart";
+import { deriveStatusCounts } from "@/features/scheduling/utils/sessionStatusCounts";
 import { AvailabilitySummaryCard } from "@/features/scheduling/components/AvailabilitySummaryCard";
 import { AvailabilitySummaryCardSkeleton } from "@/features/scheduling/components/AvailabilitySummaryCardSkeleton";
 import { ProfileCompletionCard } from "@/features/identity/components/ProfileCompletionCard";
@@ -190,7 +191,7 @@ function TeachingOverview({ tutorId, onChooseAgain }: TeachingOverviewProps) {
 
           {sessions.length > 0 ? (
             <SectionCard title="Lesson History">
-              <SessionStatusBreakdownChart sessions={sessions} />
+              <SessionStatusBreakdownChart counts={deriveStatusCounts(sessions)} />
             </SectionCard>
           ) : null}
 

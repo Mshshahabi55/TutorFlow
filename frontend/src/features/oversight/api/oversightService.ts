@@ -1,6 +1,6 @@
 import { apiClient, unwrapValue } from "@/services/api/apiClient";
 import type { ApiResult, PagedResult } from "@/services/api/apiTypes";
-import type { SessionDto } from "@/services/api/dtos";
+import type { SessionDto, SessionStatusCountsDto } from "@/services/api/dtos";
 
 // Direct, 1:1 mapping to GET /sessions (TutorFlow.Web.Endpoints.OversightEndpoints)
 // — verified against that source, not inferred. This is the only capability
@@ -15,5 +15,11 @@ export async function fetchAllSessions(
   const response = await apiClient.get<ApiResult<PagedResult<SessionDto>>>("/sessions", {
     params: { page, pageSize },
   });
+  return unwrapValue(response.data);
+}
+
+/** Direct, 1:1 mapping to GET /sessions/status-counts — the Admin dashboard's status-breakdown chart. */
+export async function fetchSessionStatusCounts(): Promise<SessionStatusCountsDto> {
+  const response = await apiClient.get<ApiResult<SessionStatusCountsDto>>("/sessions/status-counts");
   return unwrapValue(response.data);
 }

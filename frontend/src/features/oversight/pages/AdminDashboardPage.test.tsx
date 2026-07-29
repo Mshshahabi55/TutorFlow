@@ -13,6 +13,12 @@ describe("AdminDashboardPage", () => {
   // mocked once here since none of these tests are about messaging itself.
   beforeEach(() => {
     vi.spyOn(communicationService, "fetchMyConversations").mockResolvedValue([]);
+    vi.spyOn(oversightService, "fetchSessionStatusCounts").mockResolvedValue({
+      scheduled: 0,
+      completed: 0,
+      cancelled: 0,
+      noShow: 0,
+    });
   });
 
   it("shows the real counts from each existing capability", async () => {
@@ -185,5 +191,33 @@ describe("AdminDashboardPage", () => {
 
     expect(await screen.findByRole("heading", { name: "Messages" })).toBeInTheDocument();
     expect(await screen.findByText("No conversations yet")).toBeInTheDocument();
+  });
+
+  it("shows the Session Status Breakdown chart using GET /sessions/status-counts", async () => {
+    vi.spyOn(healthService, "fetchHealthStatus").mockResolvedValue("Healthy");
+    vi.spyOn(identityService, "fetchPendingTutors").mockResolvedValue({
+      items: [],
+      totalCount: 0,
+      page: 1,
+      pageSize: 1,
+    });
+    vi.spyOn(oversightService, "fetchAllSessions").mockResolvedValue({
+      items: [],
+      totalCount: 0,
+      page: 1,
+      pageSize: 1,
+    });
+    vi.spyOn(identityService, "fetchTutorDirectory").mockResolvedValue([]);
+    vi.spyOn(oversightService, "fetchSessionStatusCounts").mockResolvedValue({
+      scheduled: 4,
+      completed: 9,
+      cancelled: 1,
+      noShow: 2,
+    });
+
+    renderWithProviders(<AdminDashboardPage />);
+
+    expect(await screen.findByRole("heading", { name: "Session Status Breakdown" })).toBeInTheDocument();
+    expect(await screen.findByText("9")).toBeInTheDocument();
   });
 });

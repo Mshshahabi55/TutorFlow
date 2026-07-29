@@ -59,6 +59,7 @@ public static class ApplicationEndpointRegistration
         services.AddScoped<SearchTutorsQueryHandler>();
 
         services.AddScoped<GetAllSessionsQueryHandler>();
+        services.AddScoped<GetSessionStatusCountsQueryHandler>();
 
         services.AddScoped<GetAuditEntriesQueryHandler>();
 

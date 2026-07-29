@@ -43,6 +43,17 @@ internal sealed class SessionRepository : ISessionRepository
         AvailabilitySlotId availabilitySlotId, CancellationToken cancellationToken = default) =>
         _dbContext.Sessions.FirstOrDefaultAsync(s => s.AvailabilitySlotId == availabilitySlotId, cancellationToken);
 
+    public async Task<IReadOnlyDictionary<SessionStatus, int>> GetStatusCountsAsync(CancellationToken cancellationToken = default)
+    {
+        var counts = await _dbContext.Sessions
+            .AsNoTracking()
+            .GroupBy(s => s.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        return counts.ToDictionary(c => c.Status, c => c.Count);
+    }
+
     public Task AddAsync(Session session, CancellationToken cancellationToken = default)
     {
         _dbContext.Sessions.Add(session);

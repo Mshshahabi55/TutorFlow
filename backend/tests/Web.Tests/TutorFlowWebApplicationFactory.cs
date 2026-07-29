@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using TutorFlow.Infrastructure.Persistence;
@@ -27,6 +28,19 @@ public sealed class TutorFlowWebApplicationFactory : WebApplicationFactory<Progr
         // added, so there is nothing to remove before this factory's own
         // SQLite registration below.
         builder.UseEnvironment("Testing");
+
+        // docs/adr/ADR-023-online-lesson-meeting-provider-architecture.md:
+        // MockMeetingProvider is always registered for the "Testing"
+        // environment (see Program.cs) — pointing the default provider at
+        // it here lets Web.Tests exercise the real "Start Lesson" success
+        // path end-to-end without real vendor credentials.
+        builder.ConfigureAppConfiguration((_, configBuilder) =>
+        {
+            configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Meeting:DefaultProvider"] = "Mock",
+            });
+        });
 
         builder.ConfigureServices(services =>
         {

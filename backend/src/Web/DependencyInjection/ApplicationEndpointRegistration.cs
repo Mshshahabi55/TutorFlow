@@ -1,6 +1,8 @@
 using TutorFlow.Application.Audit.Handlers;
 using TutorFlow.Application.Authorization;
+using TutorFlow.Application.Communication.Handlers;
 using TutorFlow.Application.Discovery.Handlers;
+using TutorFlow.Application.Meetings.Handlers;
 using TutorFlow.Application.Identity.Handlers;
 using TutorFlow.Application.Oversight.Handlers;
 using TutorFlow.Application.Scheduling.Handlers;
@@ -54,6 +56,19 @@ public static class ApplicationEndpointRegistration
 
         services.AddScoped<GetAuditEntriesQueryHandler>();
 
+        services.AddScoped<StartConversationCommandHandler>();
+        services.AddScoped<SendMessageCommandHandler>();
+        services.AddScoped<MarkConversationReadCommandHandler>();
+        services.AddScoped<MarkNotificationReadCommandHandler>();
+        services.AddScoped<MarkAllNotificationsReadCommandHandler>();
+        services.AddScoped<GetMyConversationsQueryHandler>();
+        services.AddScoped<GetConversationMessagesQueryHandler>();
+        services.AddScoped<GetMyNotificationsQueryHandler>();
+
+        services.AddScoped<CreateMeetingCommandHandler>();
+        services.AddScoped<GetMeetingBySessionQueryHandler>();
+        services.AddScoped<GetActiveMeetingForConversationQueryHandler>();
+
         // Permission evaluation (Launch Preparation, Priority 2, WP2) —
         // stateless, so Singleton; not yet consumed by any endpoint
         // (endpoint protection is WP4's scope), registered now so WP3/WP4
@@ -71,6 +86,8 @@ public static class ApplicationEndpointRegistration
         app.MapDiscoveryEndpoints();
         app.MapOversightEndpoints();
         app.MapAuditEndpoints();
+        app.MapCommunicationEndpoints();
+        app.MapMeetingEndpoints();
 
         return app;
     }

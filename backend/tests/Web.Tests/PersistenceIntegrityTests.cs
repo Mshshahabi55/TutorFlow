@@ -6,8 +6,10 @@ using Microsoft.Extensions.DependencyInjection;
 using TutorFlow.Application.Common;
 using TutorFlow.Application.Identity.Interfaces;
 using TutorFlow.Domain.Common;
+using TutorFlow.Domain.Communication.ValueObjects;
 using TutorFlow.Domain.Identity;
 using TutorFlow.Domain.Identity.ValueObjects;
+using TutorFlow.Domain.Meetings.ValueObjects;
 using TutorFlow.Domain.Scheduling.ValueObjects;
 using TutorFlow.Infrastructure.Persistence;
 
@@ -483,5 +485,226 @@ public class PersistenceIntegrityTests : IClassFixture<TutorFlowWebApplicationFa
             var freshSession = await dbContext.Sessions.AsNoTracking().FirstAsync(s => s.Id == SessionId.From(sessionId));
             Assert.Equal(SessionStatus.NoShow, freshSession.Status);
         }
+    }
+
+    // --- Communication context (RC5.1, docs/adr/ADR-022-communication-and-notifications-architecture.md) ---
+
+    private async Task<Guid> StartConversationAsync(Guid targetAccountId, string callerToken)
+    {
+        var response = await PostWithAuthAsync("/conversations", new { TargetAccountId = targetAccountId }, callerToken);
+        var body = await ReadBodyAsync(response);
+        return body.GetProperty("value").GetProperty("conversationId").GetGuid();
+    }
+
+    [Fact]
+    public async Task StartConversation_persists_the_Conversation_when_reread_from_a_fresh_scope()
+    {
+        var (tutorId, _) = await RegisterAndLoginTutorAsync();
+        var (_, studentToken, _) = await RegisterAndLoginStudentAsync();
+
+        var conversationId = await StartConversationAsync(tutorId, studentToken);
+
+        var dbContext = FreshDbContext(out var scope);
+        using (scope)
+        {
+            var freshConversation = await dbContext.Conversations.AsNoTracking()
+                .FirstAsync(c => c.Id == ConversationId.From(conversationId));
+            Assert.NotNull(freshConversation);
+        }
+    }
+
+    [Fact]
+    public async Task SendMessage_persists_the_Message_and_the_Conversations_LastMessageAtUtc_when_reread_from_a_fresh_scope()
+    {
+        var (tutorId, _) = await RegisterAndLoginTutorAsync();
+        var (_, studentToken, _) = await RegisterAndLoginStudentAsync();
+        var conversationId = await StartConversationAsync(tutorId, studentToken);
+
+        var response = await PostWithAuthAsync(
+            $"/conversations/{conversationId}/messages", new { Body = "Are you available Tuesday?" }, studentToken);
+        response.EnsureSuccessStatusCode();
+
+        var dbContext = FreshDbContext(out var scope);
+        using (scope)
+        {
+            var freshMessage = await dbContext.Messages.AsNoTracking()
+                .FirstAsync(m => m.ConversationId == ConversationId.From(conversationId));
+            Assert.Equal("Are you available Tuesday?", freshMessage.Body);
+
+            var freshConversation = await dbContext.Conversations.AsNoTracking()
+                .FirstAsync(c => c.Id == ConversationId.From(conversationId));
+            Assert.NotNull(freshConversation.LastMessageAtUtc);
+        }
+    }
+
+    [Fact]
+    public async Task MarkConversationRead_persists_ReadAtUtc_on_every_unread_Message_addressed_to_the_caller()
+    {
+        var (tutorId, tutorToken) = await RegisterAndLoginTutorAsync();
+        var (_, studentToken, _) = await RegisterAndLoginStudentAsync();
+        var conversationId = await StartConversationAsync(tutorId, studentToken);
+        (await PostWithAuthAsync(
+            $"/conversations/{conversationId}/messages", new { Body = "Hello!" }, studentToken)).EnsureSuccessStatusCode();
+
+        var response = await PostWithAuthAsync($"/conversations/{conversationId}/read", body: null, tutorToken);
+        response.EnsureSuccessStatusCode();
+
+        var dbContext = FreshDbContext(out var scope);
+        using (scope)
+        {
+            var freshMessage = await dbContext.Messages.AsNoTracking()
+                .FirstAsync(m => m.ConversationId == ConversationId.From(conversationId));
+            Assert.NotNull(freshMessage.ReadAtUtc);
+        }
+    }
+
+    [Fact]
+    public async Task MarkNotificationRead_persists_ReadAtUtc_when_reread_from_a_fresh_scope()
+    {
+        var (tutorId, tutorToken) = await RegisterAndLoginTutorAsync();
+        var (_, studentToken, _) = await RegisterAndLoginStudentAsync();
+        var conversationId = await StartConversationAsync(tutorId, studentToken);
+        (await PostWithAuthAsync(
+            $"/conversations/{conversationId}/messages", new { Body = "Hi there" }, studentToken)).EnsureSuccessStatusCode();
+
+        var notificationsResponse = await GetWithAuthAsync("/notifications/mine", tutorToken);
+        var notificationId = (await ReadBodyAsync(notificationsResponse))
+            .GetProperty("value")[0].GetProperty("notificationId").GetGuid();
+
+        var response = await PostWithAuthAsync($"/notifications/{notificationId}/read", body: null, tutorToken);
+        response.EnsureSuccessStatusCode();
+
+        var dbContext = FreshDbContext(out var scope);
+        using (scope)
+        {
+            var freshNotification = await dbContext.Notifications.AsNoTracking()
+                .FirstAsync(n => n.Id == NotificationId.From(notificationId));
+            Assert.NotNull(freshNotification.ReadAtUtc);
+        }
+    }
+
+    [Fact]
+    public async Task MarkAllNotificationsRead_persists_ReadAtUtc_on_every_Notification_addressed_to_the_caller()
+    {
+        var (_, studentToken, _, _, _) = await BookSessionAsync();
+
+        var response = await PostWithAuthAsync("/notifications/mark-all-read", body: null, studentToken);
+        response.EnsureSuccessStatusCode();
+
+        var afterResponse = await GetWithAuthAsync("/notifications/mine", studentToken);
+        var notifications = (await ReadBodyAsync(afterResponse)).GetProperty("value").EnumerateArray().ToList();
+
+        Assert.NotEmpty(notifications);
+        Assert.All(notifications, n => Assert.True(n.TryGetProperty("readAtUtc", out var readAt) && readAt.ValueKind != JsonValueKind.Null));
+    }
+
+    // Proves NotificationDomainEventHandler's reactive wiring end-to-end
+    // through the real HTTP pipeline: booking a Session (Scheduling &
+    // Booking context) raises SessionBooked, which — with zero direct
+    // cross-context querying, per ADR-002 — produces a BookingConfirmed
+    // Notification for the Student in the same transaction (ADR-022).
+    [Fact]
+    public async Task BookSession_reactively_persists_a_BookingConfirmed_Notification_for_the_Student()
+    {
+        var (sessionId, studentToken, _, _, _) = await BookSessionAsync();
+
+        var response = await GetWithAuthAsync("/notifications/mine", studentToken);
+        response.EnsureSuccessStatusCode();
+        var body = await ReadBodyAsync(response);
+        var notifications = body.GetProperty("value").EnumerateArray().ToList();
+
+        // NotificationType has no JsonStringEnumConverter registered (Program.cs
+        // only adds the two UTC DateTime converters) — every enum in this API
+        // already serializes as its underlying int (e.g. DeliveryMode), and
+        // NotificationType.BookingConfirmed = 0 follows the same convention.
+        Assert.Contains(notifications, n => n.GetProperty("type").GetInt32() == (int)NotificationType.BookingConfirmed);
+    }
+
+    // --- Meetings context (RC5.3, docs/adr/ADR-023-online-lesson-meeting-provider-architecture.md) ---
+
+    [Fact]
+    public async Task StartLesson_persists_the_Meeting_when_reread_from_a_fresh_scope()
+    {
+        var (sessionId, _, tutorToken, _, _) = await BookSessionAsync();
+
+        var response = await PostWithAuthAsync($"/sessions/{sessionId}/meeting", body: null, tutorToken);
+        response.EnsureSuccessStatusCode();
+
+        var dbContext = FreshDbContext(out var scope);
+        using (scope)
+        {
+            var freshMeeting = await dbContext.Meetings.AsNoTracking()
+                .FirstAsync(m => m.SessionId == SessionId.From(sessionId));
+            Assert.Equal(MeetingStatus.Scheduled, freshMeeting.Status);
+            Assert.StartsWith("https://mock-meeting.tutorflow.dev/join/", freshMeeting.JoinUrl);
+        }
+    }
+
+    // Proves MeetingSyncDomainEventHandler's reactive, best-effort sync
+    // (docs/adr/ADR-023-...): rescheduling a Session with an existing
+    // Meeting updates that Meeting's own StartsAtUtc/EndsAtUtc in the same
+    // transaction, without the reschedule request itself failing.
+    [Fact]
+    public async Task RescheduleSession_reactively_updates_the_existing_Meetings_own_times()
+    {
+        var (sessionId, studentToken, tutorToken, _, tutorId) = await BookSessionAsync();
+        (await PostWithAuthAsync($"/sessions/{sessionId}/meeting", body: null, tutorToken)).EnsureSuccessStatusCode();
+
+        var newSlotResponse = await PostWithAuthAsync("/availability-slots", new
+        {
+            TutorId = tutorId,
+            StartTimeUtc = DateTime.UtcNow.AddDays(5),
+            Duration = TimeSpan.FromHours(1),
+            DeliveryMode = 0,
+        }, tutorToken);
+        var newSlotBody = await ReadBodyAsync(newSlotResponse);
+        var newSlotId = newSlotBody.GetProperty("value").GetProperty("availabilitySlotId").GetGuid();
+
+        var rescheduleResponse = await PostWithAuthAsync(
+            $"/sessions/{sessionId}/reschedule", new { NewAvailabilitySlotId = newSlotId }, studentToken);
+        rescheduleResponse.EnsureSuccessStatusCode();
+
+        var dbContext = FreshDbContext(out var scope);
+        using (scope)
+        {
+            var freshSession = await dbContext.Sessions.AsNoTracking().FirstAsync(s => s.Id == SessionId.From(sessionId));
+            var freshMeeting = await dbContext.Meetings.AsNoTracking()
+                .FirstAsync(m => m.SessionId == SessionId.From(sessionId));
+
+            Assert.Equal(freshSession.ScheduledTimeUtc, freshMeeting.StartsAtUtc);
+            Assert.Equal(freshSession.EndTimeUtc, freshMeeting.EndsAtUtc);
+        }
+    }
+
+    // Proves the same reactive sync for cancellation — cancelling a Session
+    // with an existing Meeting cancels that Meeting too, in the same
+    // transaction, without the cancellation itself failing.
+    [Fact]
+    public async Task CancelSession_reactively_cancels_the_existing_Meeting()
+    {
+        var (sessionId, studentToken, tutorToken, _, _) = await BookSessionAsync();
+        (await PostWithAuthAsync($"/sessions/{sessionId}/meeting", body: null, tutorToken)).EnsureSuccessStatusCode();
+
+        var response = await PostWithAuthAsync($"/sessions/{sessionId}/cancel", body: null, studentToken);
+        response.EnsureSuccessStatusCode();
+
+        var dbContext = FreshDbContext(out var scope);
+        using (scope)
+        {
+            var freshMeeting = await dbContext.Meetings.AsNoTracking()
+                .FirstAsync(m => m.SessionId == SessionId.From(sessionId));
+            Assert.Equal(MeetingStatus.Cancelled, freshMeeting.Status);
+        }
+    }
+
+    private async Task<HttpResponseMessage> GetWithAuthAsync(string url, string? bearerToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        if (bearerToken is not null)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
+        }
+
+        return await _client.SendAsync(request);
     }
 }

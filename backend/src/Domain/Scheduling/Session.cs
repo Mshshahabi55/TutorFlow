@@ -106,7 +106,7 @@ public sealed class Session : AggregateRoot<SessionId>
             SessionStatus.Scheduled,
             price);
 
-        session.RaiseDomainEvent(new SessionBooked(session.Id, tutorId, studentId, availabilitySlotId));
+        session.RaiseDomainEvent(new SessionBooked(session.Id, tutorId, studentId, availabilitySlotId, parentGuardianId));
 
         return session;
     }
@@ -184,7 +184,7 @@ public sealed class Session : AggregateRoot<SessionId>
         Duration = newDuration;
         DeliveryMode = newDeliveryMode;
 
-        RaiseDomainEvent(new SessionRescheduled(Id, oldAvailabilitySlotId, newAvailabilitySlotId, newScheduledTimeUtc));
+        RaiseDomainEvent(new SessionRescheduled(Id, oldAvailabilitySlotId, newAvailabilitySlotId, newScheduledTimeUtc, EndTimeUtc));
     }
 
     public void Cancel()
@@ -195,7 +195,7 @@ public sealed class Session : AggregateRoot<SessionId>
         }
 
         Status = SessionStatus.Cancelled;
-        RaiseDomainEvent(new SessionCancelled(Id));
+        RaiseDomainEvent(new SessionCancelled(Id, TutorId, StudentId, ParentGuardianId));
     }
 
     public void Complete()

@@ -115,6 +115,31 @@ Every coarse-grained cell above still requires whatever fine-grained check Secti
 |---|---|---|---|---|---|---|
 | `/health` | GET | No | `None` | No | Addendum Decision 5 | Unprotected (correct, verified) |
 
+## 4.8 Communication
+
+New bounded context, RC5.1. `Permission.UseMessaging` is granted to all four roles (`RolePermissionCatalog`) — coarse-grained protection alone never permits or denies anything by itself here; every row below additionally requires the fine-grained, resource-instance check its own Application-layer handler enforces, per `docs/adr/ADR-022-communication-and-notifications-architecture.md`.
+
+| Endpoint | Method | Auth Required | Coarse-Grained Permission | Fine-Grained Check Required | Source | WP3 Status |
+|---|---|---|---|---|---|---|
+| `/conversations` | POST | Yes | `UseMessaging` | **Yes** — a genuinely new Conversation may only be started Student/Parent-Guardian → Tutor, or Admin/Staff → anyone; a Tutor may never unilaterally start one. Re-requesting an existing pair returns that Conversation instead (idempotent) | ADR-022 | Protected |
+| `/conversations/mine` | GET | Yes | `UseMessaging` | No — inherently scoped to the caller's own Conversations | ADR-022 | Protected |
+| `/conversations/{id}/messages` | GET | Yes | `UseMessaging` | **Yes** — caller must be one of the two participants on that specific Conversation | ADR-022 | Protected |
+| `/conversations/{id}/messages` | POST | Yes | `UseMessaging` | **Yes** — same | ADR-022 | Protected |
+| `/conversations/{id}/read` | POST | Yes | `UseMessaging` | **Yes** — same | ADR-022 | Protected |
+| `/notifications/mine` | GET | Yes | `UseMessaging` | No — inherently scoped to the caller as recipient | ADR-022 | Protected |
+| `/notifications/{id}/read` | POST | Yes | `UseMessaging` | **Yes** — caller must be the Notification's own recipient | ADR-022 | Protected |
+| `/notifications/mark-all-read` | POST | Yes | `UseMessaging` | No — inherently scoped to the caller as recipient | ADR-022 | Protected |
+
+## 4.9 Meetings
+
+New bounded context, RC5.3 (`docs/adr/ADR-023-online-lesson-meeting-provider-architecture.md`). `Permission.ManageMeetings` is Tutor-only (`RolePermissionCatalog`) — Student/Parent-Guardian/Admin-Staff never create or modify a Meeting, only read one (Admin: read-only, per that ADR's own instruction).
+
+| Endpoint | Method | Auth Required | Coarse-Grained Permission | Fine-Grained Check Required | Source | WP3 Status |
+|---|---|---|---|---|---|---|
+| `/sessions/{id}/meeting` | POST | Yes | `ManageMeetings` | **Yes** — caller must be the named Session's own Tutor ("Start Lesson," idempotent — a repeat call returns the already-started Meeting) | ADR-023 | Protected |
+| `/sessions/{id}/meeting` | GET | Conditional | `N/A (fully fine-grained)` | **Yes** — same parties as `GET /sessions/{id}` itself (Tutor, Student, booking Parent/Guardian, or Admin/Staff) | ADR-023 | Protected (deferred to handler by design, same shape as `GET /sessions/{id}`) |
+| `/conversations/{id}/active-meeting` | GET | Yes | `UseMessaging` | **Yes** — caller must be one of the two participants on that specific Conversation | ADR-023 | Protected |
+
 # 5. Summary
 
 - **37 endpoints total** (36 application endpoints + `/health`).
@@ -126,3 +151,11 @@ Every coarse-grained cell above still requires whatever fine-grained check Secti
 ---
 
 *Status: Accepted — 2026-07-21. Ratified as a Priority 2, WP3 Final Gate governance item. All 37 rows are now resolved and ready for WP4 as written — the 6 rows previously Open were resolved by `ADR-003`'s Third Addendum, Decisions 8–13 (2026-07-21).*
+
+## Addendum — RC5.1, 2026-07-28
+
+Section 4.8 (Communication) added: 8 new endpoints for the new Communication bounded context (`docs/adr/ADR-022-communication-and-notifications-architecture.md`), bringing the total to **45 endpoints** (44 application endpoints + `/health`). All 8 rows are resolved, non-Open, and implemented with `RequirePermission(Permission.UseMessaging)` plus fine-grained checks in the owning handlers — none of Section 5's original 2026-07-21 counts above are restated or corrected, since they describe that date's snapshot of Sections 4.1–4.7 only.
+
+## Addendum — RC5.3, 2026-07-28
+
+Section 4.9 (Meetings) added: 3 new endpoints for the new Meetings bounded context (`docs/adr/ADR-023-online-lesson-meeting-provider-architecture.md`), bringing the total to **48 endpoints** (47 application endpoints + `/health`). All 3 rows are resolved, non-Open — one Tutor-only `RequirePermission(Permission.ManageMeetings)` row, one fully-fine-grained row mirroring `GET /sessions/{id}`'s own shape, and one `RequirePermission(Permission.UseMessaging)` row for the Conversation-page linkage — with fine-grained checks in the owning handlers, same as every other row in this document.

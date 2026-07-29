@@ -183,7 +183,8 @@ public class SessionTests
                 && rescheduled.SessionId == session.Id
                 && rescheduled.OldAvailabilitySlotId == originalSlot.Id
                 && rescheduled.NewAvailabilitySlotId == newSlot.Id
-                && rescheduled.NewScheduledTimeUtc == newSlot.StartTimeUtc);
+                && rescheduled.NewScheduledTimeUtc == newSlot.StartTimeUtc
+                && rescheduled.NewEndTimeUtc == newSlot.StartTimeUtc + newSlot.Duration.Value);
     }
 
     [Fact]

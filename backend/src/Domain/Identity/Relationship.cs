@@ -65,6 +65,6 @@ public sealed class Relationship : AggregateRoot<RelationshipId>
         }
 
         Status = RelationshipStatus.Confirmed;
-        RaiseDomainEvent(new RelationshipConfirmed(Id, ParentGuardianId, StudentId));
+        RaiseDomainEvent(new RelationshipConfirmed(Id, ParentGuardianId, StudentId, InvitedByAccountId));
     }
 }

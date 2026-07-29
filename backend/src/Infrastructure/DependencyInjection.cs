@@ -2,11 +2,20 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TutorFlow.Application.Audit.Interfaces;
 using TutorFlow.Application.Common;
+using TutorFlow.Application.Communication.Interfaces;
 using TutorFlow.Application.Identity.Interfaces;
+using TutorFlow.Application.Meetings.Interfaces;
 using TutorFlow.Application.Scheduling.Interfaces;
+using TutorFlow.Domain.Meetings.ValueObjects;
 using TutorFlow.Infrastructure.Audit;
 using TutorFlow.Infrastructure.Common;
+using TutorFlow.Infrastructure.Communication;
+using TutorFlow.Infrastructure.Communication.Repositories;
 using TutorFlow.Infrastructure.Identity.Repositories;
+using TutorFlow.Infrastructure.Meetings;
+using TutorFlow.Infrastructure.Meetings.Configuration;
+using TutorFlow.Infrastructure.Meetings.Providers;
+using TutorFlow.Infrastructure.Meetings.Repositories;
 using TutorFlow.Infrastructure.Persistence;
 using TutorFlow.Infrastructure.Scheduling.Repositories;
 
@@ -20,7 +29,11 @@ public static class DependencyInjection
     // than a hard-coded UseNpgsql call so a test host can substitute a
     // different provider (e.g., SQLite) without this method ever
     // registering Npgsql's services in the first place.
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services, Action<DbContextOptionsBuilder> configureDbContext)
+    // isDevelopment: docs/adr/ADR-023-...'s MockMeetingProvider is
+    // registered only when true, mirroring DevelopmentSeeder's own
+    // environment guard — Program.cs supplies builder.Environment.IsDevelopment().
+    public static IServiceCollection AddInfrastructure(
+        this IServiceCollection services, Action<DbContextOptionsBuilder> configureDbContext, bool isDevelopment)
     {
         services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
 
@@ -49,6 +62,17 @@ public static class DependencyInjection
         // DbContext instance within a request.
         services.AddScoped<IDomainEventHandler, AuditDomainEventHandler>();
 
+        // Second IDomainEventHandler, per docs/adr/ADR-022-communication-and-notifications-architecture.md
+        // — DomainEventDispatcher already fans out to every registered
+        // handler, so this runs alongside AuditDomainEventHandler, not
+        // instead of it.
+        services.AddScoped<IDomainEventHandler, NotificationDomainEventHandler>();
+
+        // Third IDomainEventHandler, per docs/adr/ADR-023-online-lesson-meeting-provider-architecture.md
+        // — best-effort, non-blocking sync of an existing Meeting when its
+        // Session reschedules/cancels (see that class's own remarks).
+        services.AddScoped<IDomainEventHandler, MeetingSyncDomainEventHandler>();
+
         services.AddDbContext<TutorFlowDbContext>(configureDbContext);
 
         // Real persistence (docs/adr/ADR-013-persistence-technology.md).
@@ -63,7 +87,42 @@ public static class DependencyInjection
         services.AddScoped<IRelationshipRepository, RelationshipRepository>();
         services.AddScoped<IAvailabilitySlotRepository, AvailabilitySlotRepository>();
         services.AddScoped<ISessionRepository, SessionRepository>();
+        services.AddScoped<IConversationRepository, ConversationRepository>();
+        services.AddScoped<IMessageRepository, MessageRepository>();
+        services.AddScoped<INotificationRepository, NotificationRepository>();
+        services.AddScoped<IMeetingRepository, MeetingRepository>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
+
+        // docs/adr/ADR-023-online-lesson-meeting-provider-architecture.md —
+        // one configuration section, no hardcoded credentials (CLAUDE.md).
+        services.AddOptions<MeetingProviderSettings>().BindConfiguration(MeetingProviderSettings.SectionName);
+        services.AddScoped<IMeetingProviderSettingsCatalog, MeetingProviderSettingsCatalog>();
+        services.AddScoped<IMeetingProviderResolver, MeetingProviderResolver>();
+
+        // Each real provider is a typed HttpClient (pooled connection
+        // lifetime managed by IHttpClientFactory) plus a keyed IMeetingProvider
+        // registration resolving to that same typed client instance —
+        // IMeetingProviderResolver is the only place that ever asks for a
+        // specific key. Adding a future provider (Cisco Webex, Jitsi Meet,
+        // BigBlueButton, ...) means exactly these two lines, nothing else.
+        services.AddHttpClient<GoogleMeetProvider>();
+        services.AddKeyedScoped<IMeetingProvider>(
+            MeetingProviderOption.GoogleMeet, (sp, _) => sp.GetRequiredService<GoogleMeetProvider>());
+
+        services.AddHttpClient<MicrosoftTeamsProvider>();
+        services.AddKeyedScoped<IMeetingProvider>(
+            MeetingProviderOption.MicrosoftTeams, (sp, _) => sp.GetRequiredService<MicrosoftTeamsProvider>());
+
+        services.AddHttpClient<ZoomProvider>();
+        services.AddKeyedScoped<IMeetingProvider>(
+            MeetingProviderOption.Zoom, (sp, _) => sp.GetRequiredService<ZoomProvider>());
+
+        // MockMeetingProvider — Development only (docs/adr/ADR-023-...;
+        // mirrors DevelopmentSeeder's own environment guard).
+        if (isDevelopment)
+        {
+            services.AddKeyedScoped<IMeetingProvider, MockMeetingProvider>(MeetingProviderOption.Mock);
+        }
 
         // Read-only access to the audit trail ADR-016 already writes
         // (Backend Completion Phase, Track A, Phase A1).

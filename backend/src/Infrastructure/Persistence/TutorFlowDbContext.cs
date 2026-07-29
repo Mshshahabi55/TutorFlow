@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using TutorFlow.Domain.Communication;
 using TutorFlow.Domain.Identity;
+using TutorFlow.Domain.Meetings;
 using TutorFlow.Domain.Scheduling;
 using TutorFlow.Infrastructure.Audit;
 
@@ -30,6 +32,14 @@ public sealed class TutorFlowDbContext : DbContext
     public DbSet<AvailabilitySlot> AvailabilitySlots => Set<AvailabilitySlot>();
 
     public DbSet<Session> Sessions => Set<Session>();
+
+    public DbSet<Conversation> Conversations => Set<Conversation>();
+
+    public DbSet<Message> Messages => Set<Message>();
+
+    public DbSet<Notification> Notifications => Set<Notification>();
+
+    public DbSet<Meeting> Meetings => Set<Meeting>();
 
     // Internal: AuditEntry is Infrastructure-only derived data with no
     // Application-layer reader (ADR-016: Impact on DDD); AuditDomainEventHandler

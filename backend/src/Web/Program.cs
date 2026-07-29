@@ -26,7 +26,12 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 // first place rather than needing to be removed post hoc.
 if (builder.Environment.IsEnvironment("Testing"))
 {
-    builder.Services.AddInfrastructure(_ => { });
+    // isDevelopment: true here specifically — the test host is a
+    // controlled, non-production environment where MockMeetingProvider
+    // (docs/adr/ADR-023-...) is always safe to register, letting
+    // Web.Tests exercise the real "Start Lesson" success path end-to-end
+    // without needing real vendor credentials.
+    builder.Services.AddInfrastructure(_ => { }, isDevelopment: true);
 }
 else
 {
@@ -42,7 +47,7 @@ else
             "Connection string 'TutorFlow' still contains placeholder credentials ('REPLACE_ME'); configure a real connection string for this environment.");
     }
 
-    builder.Services.AddInfrastructure(options => options.UseNpgsql(connectionString));
+    builder.Services.AddInfrastructure(options => options.UseNpgsql(connectionString), builder.Environment.IsDevelopment());
 }
 
 builder.Services.AddApplicationHandlers();

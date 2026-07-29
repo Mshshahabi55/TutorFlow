@@ -37,7 +37,7 @@ public sealed class PostgresTestFixture
     public ServiceProvider BuildServiceProvider()
     {
         var services = new ServiceCollection();
-        services.AddInfrastructure(options => options.UseNpgsql(ConnectionString));
+        services.AddInfrastructure(options => options.UseNpgsql(ConnectionString), isDevelopment: false);
         return services.BuildServiceProvider();
     }
 

@@ -1,6 +1,8 @@
 using TutorFlow.Application.Common;
 using TutorFlow.Domain.Common;
+using TutorFlow.Domain.Communication.Events;
 using TutorFlow.Domain.Identity.Events;
+using TutorFlow.Domain.Meetings.Events;
 using TutorFlow.Domain.Scheduling.Events;
 using TutorFlow.Infrastructure.Persistence;
 
@@ -65,6 +67,23 @@ internal sealed class AuditDomainEventHandler : IDomainEventHandler
             LoginAttempted e => (e.AccountId?.Value, e.Succeeded ? "LoginSucceeded" : "LoginFailed"),
             AccountLocked e => ((Guid?)e.AccountId.Value, domainEvent.GetType().Name),
             PasswordReset e => ((Guid?)e.AccountId.Value, domainEvent.GetType().Name),
+            // docs/adr/ADR-022-communication-and-notifications-architecture.md's
+            // Audit & privacy section: metadata only (who/when/which
+            // conversation) — the Message's own Body is never read here and
+            // never added to AuditEntry, which has no free-text payload
+            // field to begin with (CONST-4/GDPR-grade protection; recording
+            // that a message was sent is accountability, duplicating its
+            // content into a second store is a liability this ADR does not
+            // take on).
+            ConversationStarted e => ((Guid?)e.ConversationId.Value, domainEvent.GetType().Name),
+            MessageSent e => ((Guid?)e.ConversationId.Value, domainEvent.GetType().Name),
+            // docs/adr/ADR-023-online-lesson-meeting-provider-architecture.md:
+            // every Meeting lifecycle event is a governance-relevant state
+            // change, independent of whether it also produces a Notification
+            // (MeetingCancelled does not — see NotificationDomainEventHandler).
+            MeetingCreated e => ((Guid?)e.MeetingId.Value, domainEvent.GetType().Name),
+            MeetingUpdated e => ((Guid?)e.MeetingId.Value, domainEvent.GetType().Name),
+            MeetingCancelled e => ((Guid?)e.MeetingId.Value, domainEvent.GetType().Name),
             _ => (null, null),
         };
 

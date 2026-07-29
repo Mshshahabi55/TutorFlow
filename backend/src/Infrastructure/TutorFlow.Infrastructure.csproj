@@ -13,6 +13,16 @@
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.1" />
+    <!-- Added for docs/adr/ADR-023-online-lesson-meeting-provider-architecture.md:
+         binds the "Meeting" configuration section (BindConfiguration) to
+         MeetingProviderSettings — not transitively available from the
+         Hosting.Abstractions/DependencyInjection.Abstractions packages
+         already referenced here. -->
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="9.0.1" />
+    <!-- Added for docs/adr/ADR-023-...: AddHttpClient<T>() (typed HttpClient
+         factory) for GoogleMeetProvider/MicrosoftTeamsProvider/ZoomProvider's
+         real REST calls to each vendor's API. -->
+    <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.1" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
   </ItemGroup>
 

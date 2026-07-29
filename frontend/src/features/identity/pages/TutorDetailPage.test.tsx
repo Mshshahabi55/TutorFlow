@@ -48,9 +48,13 @@ describe("TutorDetailPage", () => {
 
     expect(await screen.findByRole("heading", { name: "Mathematics" })).toBeInTheDocument();
     expect(screen.getByText("Remote")).toBeInTheDocument();
-    expect(screen.getByText(/Speaks English/)).toBeInTheDocument();
-    expect(screen.getByText("50,000 Toman/hr")).toBeInTheDocument();
+    expect(screen.getByText("English")).toBeInTheDocument();
     expect(screen.getByText("30 minutes")).toBeInTheDocument();
+    // The Hero, the fixed mobile booking bar (Phase 4 PART 6), and the
+    // sticky booking card (enriched in Phase 9) all show the real rate —
+    // CSS/breakpoints control which is visible at a given viewport, jsdom
+    // renders every node regardless, so there are genuinely three matches.
+    expect(screen.getAllByText("50,000 Toman/hr")).toHaveLength(3);
   });
 
   // Phase 3 Step 3: the raw StatusPills (Approved/Suspended/Discoverable)
@@ -103,29 +107,101 @@ describe("TutorDetailPage", () => {
     renderPage();
 
     await screen.findByRole("heading", { name: "Mathematics" });
-    expect(screen.getByRole("link", { name: "Subjects" })).toHaveAttribute("href", "#subjects");
-    expect(screen.getByRole("link", { name: "Teaching Info" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "About" })).toHaveAttribute("href", "#about");
+    expect(screen.getByRole("link", { name: "Learning Plans" })).toHaveAttribute(
       "href",
-      "#teaching-information",
+      "#learning-plans",
     );
     expect(screen.getByRole("link", { name: "Availability" })).toHaveAttribute(
       "href",
       "#availability",
     );
     expect(screen.getByRole("link", { name: "Reviews" })).toHaveAttribute("href", "#reviews");
+    expect(screen.getByRole("link", { name: "FAQ" })).toHaveAttribute("href", "#faq");
+    expect(screen.getByRole("link", { name: "Similar tutors" })).toHaveAttribute("href", "#similar-tutors");
+  });
+
+  it("shows an honest 'no learning plans yet' state, never a fabricated plan", async () => {
+    vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
+
+    renderPage();
+
+    expect(await screen.findByRole("heading", { name: "No learning plans yet" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Book a single lesson instead/ }),
+    ).toHaveAttribute("href", `/scheduling/sessions/book?tutorId=${TUTOR_ID}`);
+  });
+
+  it("shows an honest FAQ placeholder, never fabricated Q&A", async () => {
+    vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
+
+    renderPage();
+
+    expect(await screen.findByText("No frequently asked questions yet")).toBeInTheDocument();
+  });
+
+  it("shows an honest Certificates & Experience placeholder when a Tutor hasn't filled that section in", async () => {
+    vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
+
+    renderPage();
+
+    expect(await screen.findByText("No certificates or experience added yet")).toBeInTheDocument();
+  });
+
+  it("shows real Certificates & Experience content once a Tutor has added it (Phase 9, ADR-024 fields)", async () => {
+    vi.spyOn(identityService, "fetchTutorById").mockResolvedValue({
+      ...TUTOR,
+      yearsOfExperience: 5,
+      education: "BSc Mathematics",
+      certifications: "TEFL",
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("5 years of teaching experience")).toBeInTheDocument();
+    expect(screen.getByText("BSc Mathematics")).toBeInTheDocument();
+    expect(screen.getByText("TEFL")).toBeInTheDocument();
+    expect(screen.queryByText("No certificates or experience added yet")).not.toBeInTheDocument();
+  });
+
+  it("shows a real photo, display name, and headline once a Tutor has added them (Phase 9, ADR-024 fields)", async () => {
+    vi.spyOn(identityService, "fetchTutorById").mockResolvedValue({
+      ...TUTOR,
+      displayName: "Jane Doe",
+      headline: "Friendly Math Tutor",
+      photoUrl: "https://example.com/jane.jpg",
+    });
+
+    renderPage();
+
+    expect(await screen.findByRole("heading", { name: "Jane Doe" })).toBeInTheDocument();
+    expect(screen.getByText("Friendly Math Tutor")).toBeInTheDocument();
+  });
+
+  it("shows trial-lesson info on the sticky booking card only when the Tutor offers one", async () => {
+    vi.spyOn(identityService, "fetchTutorById").mockResolvedValue({
+      ...TUTOR,
+      trialLessonAvailable: true,
+      trialLessonPrice: 100_000,
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("Trial lesson — 10,000 Toman")).toBeInTheDocument();
   });
 
   describe("Availability preview", () => {
-    it("shows an honest 'no open times' message when the Tutor has no open Availability Slots", async () => {
+    it("shows a read-only calendar with no day marked available when the Tutor has no open Availability Slots", async () => {
       vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
       vi.spyOn(schedulingService, "fetchTutorAvailabilitySlots").mockResolvedValue([]);
 
       renderPage();
 
-      expect(await screen.findByText("No open times right now — check back later.")).toBeInTheDocument();
+      expect(await screen.findByText("Has open teaching times")).toBeInTheDocument();
+      expect(screen.queryByLabelText(/— available/)).not.toBeInTheDocument();
     });
 
-    it("shows the Tutor's next open Availability Slots, excluding consumed ones", async () => {
+    it("marks a day with an open Availability Slot as available on the calendar, excluding consumed ones, with no click-to-book interaction", async () => {
       vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
       vi.spyOn(schedulingService, "fetchTutorAvailabilitySlots").mockResolvedValue([
         {
@@ -150,8 +226,14 @@ describe("TutorDetailPage", () => {
 
       renderPage();
 
-      expect(await screen.findByRole("button", { name: /min · Online/ })).toBeInTheDocument();
-      expect(screen.getAllByRole("button", { name: /min · Online/ })).toHaveLength(1);
+      expect(await screen.findByLabelText(/Aug 01 — available/)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Aug 02 — no availability/)).toBeInTheDocument();
+      // No booking logic inside the profile — the calendar's day cells are
+      // purely informational, never a button/link into the wizard.
+      expect(screen.queryAllByRole("button", { name: /Aug 01/ })).toHaveLength(0);
+      // The Hero's trust row and the sticky booking card both surface the
+      // same real availability data as a "Next available" fact (Phase 9).
+      expect(screen.getAllByText(/Next available/)).toHaveLength(2);
     });
   });
 
@@ -166,7 +248,9 @@ describe("TutorDetailPage", () => {
 
     expect(await screen.findByRole("heading", { name: "Mathematics" })).toBeInTheDocument();
     // 45 Rial rounds to 5 Toman for display (4.5 rounds up) rather than throwing.
-    expect(screen.getByText("5 Toman/hr")).toBeInTheDocument();
+    // Rendered three times (Hero + fixed mobile booking bar + the sticky
+    // booking card's own price, enriched in Phase 9) — see the note above.
+    expect(screen.getAllByText("5 Toman/hr")).toHaveLength(3);
   });
 
   it("shows a friendly not-found panel with a Find Tutors action when the lookup fails, never the raw backend error", async () => {
@@ -175,10 +259,10 @@ describe("TutorDetailPage", () => {
     renderPage();
 
     expect(
-      await screen.findByRole("heading", { name: "We couldn’t find that tutor" }),
+      await screen.findByRole("heading", { name: "Tutor unavailable" }),
     ).toBeInTheDocument();
     expect(screen.queryByText("404 Not Found")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Find Tutors/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Find another tutor/ })).toHaveAttribute(
       "href",
       "/discovery/tutors/search",
     );
@@ -192,7 +276,7 @@ describe("TutorDetailPage", () => {
 
     renderPage();
 
-    await screen.findByRole("heading", { name: "We couldn’t find that tutor" });
+    await screen.findByRole("heading", { name: "Tutor unavailable" });
     await userEvent.click(screen.getByRole("button", { name: "Try again" }));
 
     expect(await screen.findByRole("heading", { name: "Mathematics" })).toBeInTheDocument();
@@ -273,6 +357,46 @@ describe("TutorDetailPage", () => {
       expect(screen.queryByText("Approved")).not.toBeInTheDocument();
       expect(screen.queryByRole("link", { name: "Edit offering" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
+    });
+
+    // RC5.1: real messaging (docs/adr/ADR-022-...) — only a Student or
+    // Parent/Guardian may start a new Conversation with a Tutor
+    // (StartConversationCommandHandler's own restriction).
+    it("shows Send Message only for the Student and ParentGuardian roles", async () => {
+      vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
+
+      window.localStorage.setItem("tutorflow.devActorRole", "Student");
+      renderPage();
+      expect(await screen.findByRole("button", { name: "Send Message" })).toBeInTheDocument();
+    });
+
+    it("shows Send Message for the ParentGuardian role", async () => {
+      vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
+      window.localStorage.setItem("tutorflow.devActorRole", "ParentGuardian");
+
+      renderPage();
+
+      expect(await screen.findByRole("button", { name: "Send Message" })).toBeInTheDocument();
+    });
+
+    it("hides Send Message for the Tutor role", async () => {
+      vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
+      window.localStorage.setItem("tutorflow.devActorRole", "Tutor");
+
+      renderPage();
+
+      await screen.findByText("Approved");
+      expect(screen.queryByRole("button", { name: "Send Message" })).not.toBeInTheDocument();
+    });
+
+    it("hides Send Message for the AdminStaff role", async () => {
+      vi.spyOn(identityService, "fetchTutorById").mockResolvedValue(TUTOR);
+      window.localStorage.setItem("tutorflow.devActorRole", "AdminStaff");
+
+      renderPage();
+
+      await screen.findByText("Approved");
+      expect(screen.queryByRole("button", { name: "Send Message" })).not.toBeInTheDocument();
     });
   });
 });

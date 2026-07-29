@@ -37,15 +37,22 @@ export function TutorFilterPanel({ activeFilterCount, children }: TutorFilterPan
         slotProps={{ paper: { sx: { width: { xs: "100%", sm: 380 } } } }}
       >
         <Box p={3} role="presentation">
-          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-            <Typography variant="h5" component="h2">
-              Filters
-            </Typography>
+          <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={0.5}>
+            <Box>
+              <Typography variant="h5" component="h2">
+                Filters
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Narrow down your search
+              </Typography>
+            </Box>
             <IconButton onClick={() => setOpen(false)} aria-label="Close filters">
               <CloseRoundedIcon />
             </IconButton>
           </Stack>
-          <Stack spacing={2}>{children}</Stack>
+          <Stack spacing={2.5} mt={2.5}>
+            {children}
+          </Stack>
           <Button variant="contained" fullWidth sx={{ mt: 3 }} onClick={() => setOpen(false)}>
             Show results
           </Button>

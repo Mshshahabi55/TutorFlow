@@ -62,7 +62,7 @@ function GenericDashboard({ actor }: { actor: CurrentActor }) {
   });
 
   return (
-    <Stack spacing={4}>
+    <Stack spacing={3}>
       <PageHeader
         title="Dashboard"
         subtitle={

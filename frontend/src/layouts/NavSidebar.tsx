@@ -17,7 +17,7 @@ function NavList({ onNavigate, collapsed }: { onNavigate?: () => void; collapsed
   const effectiveRole = useEffectiveRole();
 
   return (
-    <List component="nav" aria-label="Primary">
+    <List component="nav" aria-label="Primary" sx={{ px: 1.5, py: 1 }}>
       {navForRole(effectiveRole).map((entry) => (
         <NavigationItem
           key={entry.to}

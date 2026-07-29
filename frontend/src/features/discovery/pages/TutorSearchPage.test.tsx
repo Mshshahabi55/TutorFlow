@@ -221,8 +221,66 @@ describe("TutorSearchPage", () => {
     renderWithProviders(<TutorSearchPage />);
 
     await screen.findByRole("heading", { name: "Mathematics" });
-    expect(screen.getByTitle("Verified tutor")).toBeInTheDocument();
+    expect(screen.getByText("Verified")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Physics" })).toBeInTheDocument();
+  });
+
+  it("clears the typed subject via the search field's own clear button", async () => {
+    vi.spyOn(discoveryService, "searchTutors").mockResolvedValue({
+      items: [],
+      totalCount: 0,
+      page: 1,
+      pageSize: 20,
+    });
+
+    renderWithProviders(<TutorSearchPage />);
+    await screen.findByText("No Tutors match these filters");
+
+    expect(screen.queryByRole("button", { name: "Clear subject" })).not.toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText("Subject"), "Mathematics");
+    expect(screen.getByLabelText("Subject")).toHaveValue("Mathematics");
+
+    await userEvent.click(screen.getByRole("button", { name: "Clear subject" }));
+    expect(screen.getByLabelText("Subject")).toHaveValue("");
+  });
+
+  it("shows a Reset Filters action on the empty state only when a filter is active", async () => {
+    vi.spyOn(discoveryService, "searchTutors").mockResolvedValue({
+      items: [],
+      totalCount: 0,
+      page: 1,
+      pageSize: 20,
+    });
+
+    renderWithProviders(<TutorSearchPage />);
+    await screen.findByText("No Tutors match these filters");
+    expect(screen.queryByRole("button", { name: "Reset Filters" })).not.toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText("Subject"), "Mathematics");
+    await userEvent.click(screen.getByRole("button", { name: "Search" }));
+
+    await userEvent.click(await screen.findByRole("button", { name: "Reset Filters" }));
+    expect(screen.getByLabelText("Subject")).toHaveValue("");
+  });
+
+  it("offers Try again, Clear filters, and Go Home when the search fails, never the raw backend error", async () => {
+    const searchTutors = vi
+      .spyOn(discoveryService, "searchTutors")
+      .mockRejectedValueOnce(new Error("Network Error"))
+      .mockResolvedValueOnce({ items: [], totalCount: 0, page: 1, pageSize: 20 });
+
+    renderWithProviders(<TutorSearchPage />);
+
+    expect(await screen.findByRole("heading", { name: "We couldn't load Tutors" })).toBeInTheDocument();
+    expect(screen.queryByText("Network Error")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Go Home" })).toHaveAttribute("href", "/");
+    // No filter is active yet, so there is nothing to clear.
+    expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("No Tutors match these filters")).toBeInTheDocument();
+    expect(searchTutors).toHaveBeenCalledTimes(2);
   });
 
   it("renders the filters behind a Filters button inside a slide-over Drawer", async () => {

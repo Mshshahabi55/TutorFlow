@@ -44,7 +44,7 @@ export function AppHeader({ isDesktop, onOpenMobileNav }: AppHeaderProps) {
         borderColor: "divider",
       }}
     >
-      <Toolbar sx={{ gap: { xs: 0.5, sm: 1.5 }, px: { xs: 1.5, sm: 2 } }}>
+      <Toolbar sx={{ gap: { xs: 1, sm: 2 }, px: { xs: 2, sm: 3 } }}>
         {!isDesktop ? (
           <IconButton edge="start" aria-label="Open navigation" onClick={onOpenMobileNav}>
             <MenuRoundedIcon />
@@ -70,7 +70,7 @@ export function AppHeader({ isDesktop, onOpenMobileNav }: AppHeaderProps) {
         {isAuthenticated ? (
           <UserMenu />
         ) : (
-          <Button component={RouterLink} to={paths.auth.login} size="small" variant="outlined">
+          <Button component={RouterLink} to={paths.auth.login} variant="outlined">
             Sign in
           </Button>
         )}

@@ -43,14 +43,60 @@ describe("TutorCard", () => {
         <TutorCard tutor={{ ...BASE_TUTOR, isApproved: true }} />
       </MemoryRouter>,
     );
-    expect(screen.getByTitle("Verified tutor")).toBeInTheDocument();
+    expect(screen.getByText("Verified")).toBeInTheDocument();
 
     rerender(
       <MemoryRouter>
         <TutorCard tutor={{ ...BASE_TUTOR, isApproved: false }} />
       </MemoryRouter>,
     );
-    expect(screen.queryByTitle("Verified tutor")).not.toBeInTheDocument();
+    expect(screen.queryByText("Verified")).not.toBeInTheDocument();
+  });
+
+  it("shows a real photo when photoUrl is set, and a display name over the subject fallback", () => {
+    renderCard({ ...BASE_TUTOR, displayName: "Jane Doe", headline: "Friendly Math Tutor", photoUrl: "https://example.com/jane.jpg" });
+
+    expect(screen.getByRole("heading", { name: "Jane Doe" })).toBeInTheDocument();
+    expect(screen.getByText("Friendly Math Tutor")).toBeInTheDocument();
+    expect(screen.getByRole("img")).toHaveAttribute("src", "https://example.com/jane.jpg");
+  });
+
+  it("shows additional subjects (with level) and other languages when present", () => {
+    renderCard({
+      ...BASE_TUTOR,
+      tutorSubjects: [
+        { subject: "Mathematics", level: null },
+        { subject: "Physics", level: "Advanced" },
+      ],
+      otherLanguages: ["French"],
+    });
+
+    expect(screen.getByText("Physics (Advanced)")).toBeInTheDocument();
+    expect(screen.getByText("French")).toBeInTheDocument();
+  });
+
+  it("shows a trial-lesson badge only when the Tutor offers one", () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <TutorCard tutor={{ ...BASE_TUTOR, trialLessonAvailable: true }} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("Trial lesson available")).toBeInTheDocument();
+
+    rerender(
+      <MemoryRouter>
+        <TutorCard tutor={{ ...BASE_TUTOR, trialLessonAvailable: false }} />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByText("Trial lesson available")).not.toBeInTheDocument();
+  });
+
+  it("never shows a rating, review count, or online indicator, since none exist in the API", () => {
+    renderCard(BASE_TUTOR);
+
+    expect(screen.queryByText(/review/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/rating/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/online/i)).not.toBeInTheDocument();
   });
 
   it("shows language, location, price, and offered durations from real Tutor data", () => {
@@ -83,6 +129,17 @@ describe("TutorCard", () => {
     expect(screen.getByRole("link", { name: "Book Lesson" })).toHaveAttribute(
       "href",
       "/scheduling/sessions/book?tutorId=11111111-1111-1111-1111-111111111111",
+    );
+  });
+
+  it("shows an honest 'Learning Plans coming soon' badge, never a fabricated starting price, and links to the profile's Learning Plans section", () => {
+    renderCard(BASE_TUTOR);
+
+    expect(screen.getByText("Learning Plans coming soon")).toBeInTheDocument();
+    expect(screen.queryByText(/Starting from/)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View Learning Plans" })).toHaveAttribute(
+      "href",
+      "/identity/tutors/11111111-1111-1111-1111-111111111111#learning-plans",
     );
   });
 });

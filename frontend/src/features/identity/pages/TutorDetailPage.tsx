@@ -1,42 +1,56 @@
-import type { MouseEvent } from "react";
-import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
-import { Box, Button, Chip, Link as MuiLink, Stack, Typography } from "@mui/material";
+import type { MouseEvent, ReactNode } from "react";
+import { Link as RouterLink, useParams } from "react-router-dom";
+import { Box, Button, Chip, Link as MuiLink, Stack, Typography, alpha } from "@mui/material";
 import ReviewsRoundedIcon from "@mui/icons-material/ReviewsRounded";
+import HelpOutlineRoundedIcon from "@mui/icons-material/HelpOutlineRounded";
+import WorkspacePremiumRoundedIcon from "@mui/icons-material/WorkspacePremiumRounded";
+import PsychologyRoundedIcon from "@mui/icons-material/PsychologyRounded";
 import EventRoundedIcon from "@mui/icons-material/EventRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import { useTutor } from "@/features/identity/hooks/useTutorQueries";
 import { useTutorAvailabilitySlots } from "@/features/scheduling/hooks/useAvailabilitySlotQueries";
-import { AvailabilityCard } from "@/features/scheduling/components/AvailabilityCard";
+import { useNextAvailableLabel } from "@/features/scheduling/hooks/useNextAvailableLabel";
 import { AvailabilitySummaryCardSkeleton } from "@/features/scheduling/components/AvailabilitySummaryCardSkeleton";
 import { TutorApprovalActions } from "@/features/identity/components/TutorApprovalActions";
 import { TutorProfileHero } from "@/features/identity/components/TutorProfileHero";
 import { TutorProfileSkeleton } from "@/features/identity/components/TutorProfileSkeleton";
 import { ProfileCompletionCard } from "@/features/identity/components/ProfileCompletionCard";
+import { ProfilePlaceholderSection } from "@/features/identity/components/ProfilePlaceholderSection";
+import { AvailabilityPreviewCalendar } from "@/features/identity/components/AvailabilityPreviewCalendar";
+import { MobileBookingBar, MOBILE_BOOKING_BAR_HEIGHT } from "@/features/identity/components/MobileBookingBar";
+import { RelatedTutorsSection } from "@/features/identity/components/RelatedTutorsSection";
 import { deriveProfileCompletion } from "@/features/identity/utils/profileCompletion";
 import { SectionCard } from "@/shared/components/SectionCard";
+import { LearningPlanCard } from "@/features/learningPlans/components/LearningPlanCard";
+import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { formatMinutesList } from "@/shared/utils/duration";
 import { formatToman } from "@/shared/money/rial";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
+import { UnavailableState } from "@/shared/components/feedback/UnavailableState";
 import { StatusPill } from "@/shared/components/feedback/StatusPill";
 import { CopyableId } from "@/shared/components/CopyableId";
 import { useEffectiveRole } from "@/shared/hooks/useEffectiveRole";
 import { paths } from "@/routes/paths";
-import type { AvailabilitySlotDto, TutorDto } from "@/services/api/dtos";
-
-const AVAILABILITY_PREVIEW_LIMIT = 3;
+import type { TutorDto } from "@/services/api/dtos";
+import type { LearningPlanPreview } from "@/features/learningPlans/types";
 
 const PROFILE_SECTIONS = [
-  { id: "subjects", label: "Subjects" },
-  { id: "teaching-information", label: "Teaching Info" },
+  { id: "about", label: "About" },
+  { id: "learning-plans", label: "Learning Plans" },
   { id: "availability", label: "Availability" },
   { id: "reviews", label: "Reviews" },
+  { id: "faq", label: "FAQ" },
+  { id: "similar-tutors", label: "Similar tutors" },
 ] as const;
 
 /**
  * In-page anchor jumps, not routes — every section already renders on this
  * one page (there is no per-section data to lazily load), so this is only
  * a faster way to reach a section that's already there, same spirit as
- * `Breadcrumbs`' "don't invent a second navigation model."
+ * `Breadcrumbs`' "don't invent a second navigation model." `top: 88`
+ * (Phase 4 fix — was `top: 0`, which sat directly behind the fixed
+ * `AppHeader` instead of flush beneath it) matches the same offset this
+ * page's own sticky booking rail and Phase 3's sticky search bar both use.
  */
 function TutorProfileSectionNav() {
   function handleJump(event: MouseEvent<HTMLAnchorElement>, id: string) {
@@ -51,7 +65,7 @@ function TutorProfileSectionNav() {
       flexWrap="wrap"
       sx={{
         position: "sticky",
-        top: 0,
+        top: 88,
         zIndex: 1,
         bgcolor: "background.default",
         py: 1.5,
@@ -172,80 +186,227 @@ function OwnProfileCompletionSection({ tutor }: { tutor: TutorDto }) {
   );
 }
 
-function SubjectsAndLanguagesSection({ tutor }: { tutor: TutorDto }) {
-  if (!tutor.subject && !tutor.language) {
+/**
+ * "Why learn with this tutor" (Phase 4 PART 1/3 — renamed and merged from
+ * the previous separate "Subjects & Languages" + "Teaching Information"
+ * sections): every real, decision-relevant fact about what this Tutor
+ * teaches and how, as a small grid of highlight boxes rather than a plain
+ * caption+chip stack or a database-style field list. The hourly rate is
+ * deliberately NOT repeated here even though it's real (already prominent
+ * in the Hero, Phase 4 PART 2) — showing it a second time would be noise,
+ * not new information, the same declutter reasoning `TutorCard`'s meta
+ * block already applies to Subject vs. its own heading.
+ *
+ * Phase 9: `biography` and `otherLanguages` were added to `TutorDto` by
+ * ADR-024 but weren't read here yet — a bio paragraph now renders above the
+ * highlights grid when present (the closest thing this profile has to a
+ * real "About" write-up), and other spoken languages join the existing
+ * Subjects/Session-lengths highlights rather than needing their own
+ * section (this section's whole point is merging related facts, not
+ * flat-listing every field). The primary spoken language is still not
+ * repeated here — it already has its own badge in the Hero.
+ */
+function WhyLearnSection({ tutor }: { tutor: TutorDto }) {
+  const hasSessionLengths = tutor.offeredDurations.length > 0;
+  const otherLanguages = tutor.otherLanguages ?? [];
+
+  if (!tutor.subject && !hasSessionLengths && !tutor.biography && otherLanguages.length === 0) {
     return null;
   }
 
-  return (
-    <SectionCard id="subjects" headingComponent="h2" title="Subjects & Languages">
-      <Stack spacing={2}>
-        {tutor.subject ? (
-          <Box>
-            <Typography variant="caption" color="text.secondary">
-              Subjects
-            </Typography>
-            <Box mt={0.5}>
-              <Chip label={tutor.subject} size="small" />
-            </Box>
-          </Box>
-        ) : null}
-        {tutor.language ? (
-          <Box>
-            <Typography variant="caption" color="text.secondary">
-              Languages
-            </Typography>
-            <Box mt={0.5}>
-              <Chip label={tutor.language} size="small" variant="outlined" />
-            </Box>
-          </Box>
-        ) : null}
-      </Stack>
-    </SectionCard>
-  );
-}
+  const highlights: { key: string; label: string; content: ReactNode }[] = [];
 
-function TeachingInformationSection({ tutor }: { tutor: TutorDto }) {
-  return (
-    <SectionCard id="teaching-information" headingComponent="h2" title="Teaching Information">
-      <Stack spacing={2}>
-        <Box>
-          <Typography variant="caption" color="text.secondary">
-            Hourly rate
-          </Typography>
-          <Typography variant="body1" fontWeight={600}>
-            {tutor.hourlyRate !== null ? `${formatToman(tutor.hourlyRate)} Toman/hr` : "Not set"}
-          </Typography>
-        </Box>
-        <Box>
-          <Typography variant="caption" color="text.secondary">
-            Session lengths
-          </Typography>
-          <Typography variant="body1">
-            {tutor.offeredDurations.length > 0
-              ? `${formatMinutesList(tutor.offeredDurations)} minutes`
-              : "Not set"}
-          </Typography>
-        </Box>
-      </Stack>
-    </SectionCard>
-  );
-}
-
-/** No review capability exists in this API version — a professional placeholder, never a fabricated review. */
-function ReviewsSection() {
-  return (
-    <SectionCard id="reviews" headingComponent="h2" title="Reviews">
-      <Stack spacing={1} alignItems="flex-start">
-        <ReviewsRoundedIcon color="disabled" fontSize="large" aria-hidden="true" />
+  if (tutor.subject) {
+    highlights.push({ key: "subject", label: "Subjects", content: <Chip label={tutor.subject} size="small" /> });
+  }
+  if (otherLanguages.length > 0) {
+    highlights.push({
+      key: "otherLanguages",
+      label: "Also speaks",
+      content: (
+        <Stack direction="row" flexWrap="wrap" gap={0.5}>
+          {otherLanguages.map((lang) => (
+            <Chip key={lang} label={lang} size="small" />
+          ))}
+        </Stack>
+      ),
+    });
+  }
+  if (hasSessionLengths) {
+    highlights.push({
+      key: "durations",
+      label: "Session lengths",
+      content: (
         <Typography variant="body1" fontWeight={600}>
-          No reviews yet
+          {formatMinutesList(tutor.offeredDurations)} minutes
         </Typography>
-        <Typography variant="body2" color="text.secondary">
-          This tutor hasn&rsquo;t received any reviews yet. Book a lesson to be one of the first to
-          share your experience.
-        </Typography>
+      ),
+    });
+  }
+
+  return (
+    <SectionCard id="about" headingComponent="h2" title="Why learn with this tutor">
+      <Stack spacing={2}>
+        {tutor.biography ? (
+          <Typography variant="body1" color="text.secondary" sx={{ whiteSpace: "pre-line" }}>
+            {tutor.biography}
+          </Typography>
+        ) : null}
+        {highlights.length > 0 ? (
+          <Stack direction="row" flexWrap="wrap" gap={2}>
+            {highlights.map((highlight) => (
+              <Box
+                key={highlight.key}
+                sx={{
+                  flex: "1 1 200px",
+                  p: 2,
+                  borderRadius: 3,
+                  bgcolor: (t) => alpha(t.palette.primary.main, t.palette.mode === "dark" ? 0.14 : 0.06),
+                }}
+              >
+                <Typography variant="caption" color="text.secondary">
+                  {highlight.label}
+                </Typography>
+                <Box mt={1}>{highlight.content}</Box>
+              </Box>
+            ))}
+          </Stack>
+        ) : null}
       </Stack>
+    </SectionCard>
+  );
+}
+
+/**
+ * Phase 9: `education`/`certifications`/`yearsOfExperience` exist on
+ * `TutorDto` (ADR-024) but this section previously always rendered
+ * `ProfilePlaceholderSection`'s generic "no certificates or experience
+ * added yet" regardless of whether that data existed — real content is now
+ * shown when any of the three is present, falling back to the exact same
+ * honest placeholder only when a Tutor genuinely hasn't filled any of them
+ * in, preserving `ProfilePlaceholderSection`'s own "never a fabricated
+ * value" contract.
+ */
+function ExperienceSection({ tutor }: { tutor: TutorDto }) {
+  if (!tutor.education && !tutor.certifications && tutor.yearsOfExperience == null) {
+    return (
+      <ProfilePlaceholderSection
+        id="certificates"
+        title="Certificates & Experience"
+        icon={<WorkspacePremiumRoundedIcon fontSize="large" aria-hidden="true" />}
+        heading="No certificates or experience added yet"
+        description="This tutor hasn't added any certificates or teaching experience to their profile yet."
+      />
+    );
+  }
+
+  return (
+    <SectionCard id="certificates" headingComponent="h2" title="Certificates & Experience">
+      <Stack spacing={2}>
+        {tutor.yearsOfExperience != null ? (
+          <Typography variant="body1" fontWeight={600}>
+            {tutor.yearsOfExperience} {tutor.yearsOfExperience === 1 ? "year" : "years"} of teaching experience
+          </Typography>
+        ) : null}
+        {tutor.education ? (
+          <Box>
+            <Typography variant="caption" color="text.secondary">
+              Education
+            </Typography>
+            <Typography variant="body1" sx={{ whiteSpace: "pre-line" }}>
+              {tutor.education}
+            </Typography>
+          </Box>
+        ) : null}
+        {tutor.certifications ? (
+          <Box>
+            <Typography variant="caption" color="text.secondary">
+              Certifications
+            </Typography>
+            <Typography variant="body1" sx={{ whiteSpace: "pre-line" }}>
+              {tutor.certifications}
+            </Typography>
+          </Box>
+        ) : null}
+      </Stack>
+    </SectionCard>
+  );
+}
+
+/**
+ * Phase 9: same pattern as `ExperienceSection` — `teachingMethodology`/
+ * `lessonSpecialties` exist on `TutorDto` (ADR-024) but weren't read here
+ * yet; falls back to the existing honest placeholder when both are absent.
+ */
+function TeachingStyleSection({ tutor }: { tutor: TutorDto }) {
+  const specialties = tutor.lessonSpecialties ?? [];
+
+  if (!tutor.teachingMethodology && specialties.length === 0) {
+    return (
+      <ProfilePlaceholderSection
+        id="teaching-style"
+        title="Teaching Style"
+        icon={<PsychologyRoundedIcon fontSize="large" aria-hidden="true" />}
+        heading="No teaching style details added yet"
+        description="This tutor hasn't described their teaching style or methods yet."
+      />
+    );
+  }
+
+  return (
+    <SectionCard id="teaching-style" headingComponent="h2" title="Teaching Style">
+      <Stack spacing={2}>
+        {tutor.teachingMethodology ? (
+          <Typography variant="body1" color="text.secondary" sx={{ whiteSpace: "pre-line" }}>
+            {tutor.teachingMethodology}
+          </Typography>
+        ) : null}
+        {specialties.length > 0 ? (
+          <Stack direction="row" flexWrap="wrap" gap={1}>
+            {specialties.map((specialty) => (
+              <Chip key={specialty} label={specialty} size="small" />
+            ))}
+          </Stack>
+        ) : null}
+      </Stack>
+    </SectionCard>
+  );
+}
+
+/**
+ * RC5.0: no Learning Plan capability exists in this API version yet
+ * (`docs/adr/ADR-021...`, Proposed, not Accepted) — an honest empty state,
+ * never a fabricated plan. `plans` is always empty today; the mapped branch
+ * exists so this section lights up with real `LearningPlanCard`s the
+ * moment a real endpoint exists, with no structural change needed here.
+ */
+function LearningPlansSection({ tutor }: { tutor: TutorDto }) {
+  const plans: LearningPlanPreview[] = [];
+
+  return (
+    <SectionCard id="learning-plans" headingComponent="h2" title="Learning Plans">
+      {plans.length === 0 ? (
+        <EmptyState
+          title="No learning plans yet"
+          description={`${tutor.subject ?? "This tutor"} hasn't published a structured Learning Plan yet — book a single lesson to get started in the meantime.`}
+          action={
+            <Button
+              component={RouterLink}
+              to={`${paths.scheduling.bookSession}?tutorId=${tutor.tutorId}`}
+              variant="outlined"
+              startIcon={<EventRoundedIcon />}
+            >
+              Book a single lesson instead
+            </Button>
+          }
+        />
+      ) : (
+        <Stack direction="row" flexWrap="wrap" gap={2}>
+          {plans.map((plan) => (
+            <LearningPlanCard key={plan.learningPlanId} plan={plan} />
+          ))}
+        </Stack>
+      )}
     </SectionCard>
   );
 }
@@ -253,21 +414,16 @@ function ReviewsSection() {
 /**
  * Reuses `useTutorAvailabilitySlots` — the same capability the Booking
  * wizard's Choose Date/Choose Time steps and the Tutor Dashboard's
- * Availability Summary already use — for a read-only teaser of the next
- * few open times. Clicking one jumps straight into the booking wizard with
- * that exact slot pre-selected (skipping straight to Review), the same
- * deep link `AvailabilitySlotDetailPage`'s "Book this slot" link already
- * uses.
+ * Availability Summary already use. Phase 9: the previous flat row of
+ * up-to-3 slot cards (each clickable straight into the booking wizard) is
+ * replaced by a read-only `AvailabilityPreviewCalendar` — a month view is a
+ * more honest "preview," and per this phase's own constraint, no booking
+ * logic (slot selection, wizard deep links) lives inside the profile page
+ * anymore; the existing "View full schedule" link (unchanged) is the one
+ * path from here into booking.
  */
 function AvailabilityPreviewSection({ tutor }: { tutor: TutorDto }) {
-  const navigate = useNavigate();
   const slotsQuery = useTutorAvailabilitySlots(tutor.tutorId);
-
-  function openInWizard(slot: AvailabilitySlotDto) {
-    void navigate(
-      `${paths.scheduling.bookSession}?tutorId=${tutor.tutorId}&availabilitySlotId=${slot.availabilitySlotId}`,
-    );
-  }
 
   if (slotsQuery.isPending) {
     return (
@@ -289,40 +445,62 @@ function AvailabilityPreviewSection({ tutor }: { tutor: TutorDto }) {
     );
   }
 
-  const openSlots = slotsQuery.data
-    .filter((slot) => !slot.isConsumed)
-    .sort((a, b) => Date.parse(a.startTimeUtc) - Date.parse(b.startTimeUtc))
-    .slice(0, AVAILABILITY_PREVIEW_LIMIT);
-
   return (
     <SectionCard id="availability" headingComponent="h2" title="Availability">
-      {openSlots.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">
-          No open times right now — check back later.
-        </Typography>
-      ) : (
-        <Stack direction="row" flexWrap="wrap" gap={2}>
-          {openSlots.map((slot) => (
-            <AvailabilityCard
-              key={slot.availabilitySlotId}
-              slot={slot}
-              selected={false}
-              onSelect={openInWizard}
-            />
-          ))}
-        </Stack>
-      )}
+      <Typography variant="body2" color="text.secondary" mb={2}>
+        A preview of this tutor&rsquo;s open teaching times (Tehran time) — book a lesson to choose an exact time.
+      </Typography>
+      <AvailabilityPreviewCalendar slots={slotsQuery.data} />
+      <Button
+        component={RouterLink}
+        to={`${paths.scheduling.bookSession}?tutorId=${tutor.tutorId}`}
+        variant="text"
+        startIcon={<EventRoundedIcon />}
+        sx={{ mt: 2 }}
+      >
+        View full schedule
+      </Button>
     </SectionCard>
   );
 }
 
+/**
+ * Phase 9: enriched from a bare "Book a lesson directly with this tutor"
+ * card into a real sticky booking summary — price, trial-lesson info, and
+ * next-available all reuse data/formatting already established elsewhere
+ * on this exact page (`formatToman` in the Hero, `useNextAvailableLabel`
+ * now shared with it) rather than duplicating that logic here. Still just
+ * one "Book Lesson" button underneath — no new interaction.
+ */
 function BookingCallToActionSection({ tutor }: { tutor: TutorDto }) {
+  const nextAvailableLabel = useNextAvailableLabel(tutor.tutorId);
+
   return (
     <SectionCard headingComponent="h2" title="Ready to get started?">
       <Stack spacing={2} alignItems="flex-start">
-        <Typography variant="body2" color="text.secondary">
-          Book a lesson directly with this tutor.
+        <Typography
+          variant="h5"
+          component="p"
+          fontWeight={700}
+          color={tutor.hourlyRate !== null ? "primary.main" : "text.secondary"}
+        >
+          {tutor.hourlyRate !== null ? `${formatToman(tutor.hourlyRate)} Toman/hr` : "Rate not set"}
         </Typography>
+        {tutor.trialLessonAvailable ? (
+          <StatusPill
+            label={
+              tutor.trialLessonPrice != null
+                ? `Trial lesson — ${formatToman(tutor.trialLessonPrice)} Toman`
+                : "Trial lesson available"
+            }
+            tone="success"
+          />
+        ) : null}
+        {nextAvailableLabel ? (
+          <Typography variant="body2" color="text.secondary">
+            Next available {nextAvailableLabel}
+          </Typography>
+        ) : null}
         <Button
           component={RouterLink}
           to={`${paths.scheduling.bookSession}?tutorId=${tutor.tutorId}`}
@@ -347,39 +525,37 @@ function BookingCallToActionSection({ tutor }: { tutor: TutorDto }) {
  */
 function TutorNotFound({ onRetry }: { onRetry: () => void }) {
   return (
-    <Stack spacing={2} alignItems="center" textAlign="center" py={6} maxWidth={480} mx="auto">
-      <Typography variant="h4" component="h1">
-        We couldn&rsquo;t find that tutor
-      </Typography>
-      <Typography variant="body1" color="text.secondary">
-        This profile may have been removed, or the link might be broken.
-      </Typography>
-      <Stack direction="row" spacing={1.5} mt={1}>
-        <Button variant="outlined" onClick={onRetry}>
-          Try again
-        </Button>
-        <Button
-          component={RouterLink}
-          to={paths.discovery.tutorSearch}
-          variant="contained"
-          startIcon={<SearchRoundedIcon />}
-        >
-          Find Tutors
-        </Button>
-      </Stack>
-    </Stack>
+    <UnavailableState
+      title="Tutor unavailable"
+      description="This tutor is no longer available. This profile may have been removed, or the link might be broken."
+      actions={[
+        { label: "Try again", onClick: onRetry },
+        {
+          label: "Find another tutor",
+          to: paths.discovery.tutorSearch,
+          variant: "contained",
+          icon: <SearchRoundedIcon />,
+        },
+      ]}
+    />
   );
 }
 
 /**
  * GET /tutors/{id} (`useTutor`) — the same query hook and route as before.
- * RC2 adds an in-page section nav (jump links, not routes), an Availability
- * preview reusing `useTutorAvailabilitySlots` (the same capability the
- * Booking wizard and Tutor Dashboard already use), and a booking card that
- * stays in view while scrolling on desktop. No review endpoint is queried:
- * there is no review capability in this API version, so that section stays
- * an honest placeholder rather than a fabricated one (Statistics is
- * omitted for the same reason — no such field exists on `TutorDto`).
+ * Phase 4 rebuilt the page around a decision narrative — Hero → About →
+ * Certificates & Experience → Teaching Style → Availability → Learning
+ * Plans → Reviews → FAQ → Related tutors (only rendered when a real,
+ * already-supported "same subject" search actually returns another Tutor)
+ * — rather than a flat list of database-shaped sections. Phase 9 wired
+ * `ExperienceSection`/`TeachingStyleSection`/`WhyLearnSection` to the real
+ * `education`/`certifications`/`yearsOfExperience`/`teachingMethodology`/
+ * `lessonSpecialties`/`biography`/`otherLanguages` fields ADR-024 already
+ * added to `TutorDto` but this page hadn't read yet — each still falls
+ * back to its original honest placeholder when a Tutor hasn't filled that
+ * section in. Reviews and FAQ remain placeholders unchanged: no review or
+ * FAQ endpoint is queried, because there is no such capability in this API
+ * version at all — not silently invented to match the section list.
  */
 export function TutorDetailPage() {
   const { tutorId } = useParams<{ tutorId: string }>();
@@ -402,10 +578,28 @@ export function TutorDetailPage() {
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={3} alignItems="flex-start">
         <Stack flex={2} spacing={3} width="100%">
-          <SubjectsAndLanguagesSection tutor={tutor} />
-          <TeachingInformationSection tutor={tutor} />
+          <WhyLearnSection tutor={tutor} />
+          <ExperienceSection tutor={tutor} />
+          <TeachingStyleSection tutor={tutor} />
           <AvailabilityPreviewSection tutor={tutor} />
-          <ReviewsSection />
+          <LearningPlansSection tutor={tutor} />
+          <ProfilePlaceholderSection
+            id="reviews"
+            title="Reviews"
+            icon={<ReviewsRoundedIcon fontSize="large" aria-hidden="true" />}
+            heading="No reviews yet"
+            description="This tutor hasn't received any reviews yet. Book a lesson to be one of the first to share your experience."
+          />
+          <ProfilePlaceholderSection
+            id="faq"
+            title="FAQ"
+            icon={<HelpOutlineRoundedIcon fontSize="large" aria-hidden="true" />}
+            heading="No frequently asked questions yet"
+            description="Common questions about this tutor's teaching style and Learning Plans will appear here soon."
+          />
+          <Box id="similar-tutors">
+            <RelatedTutorsSection tutor={tutor} />
+          </Box>
         </Stack>
         <Stack
           flex={1}
@@ -418,6 +612,10 @@ export function TutorDetailPage() {
           <BookingCallToActionSection tutor={tutor} />
         </Stack>
       </Stack>
+
+      {/* Reserves space so the fixed mobile booking bar never covers this page's last section. */}
+      <Box sx={{ display: { xs: "block", md: "none" }, height: MOBILE_BOOKING_BAR_HEIGHT }} aria-hidden="true" />
+      <MobileBookingBar tutor={tutor} />
     </Stack>
   );
 }

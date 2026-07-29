@@ -1,4 +1,5 @@
-import { Stack, TablePagination, Typography } from "@mui/material";
+import { Box, Button, Divider, Stack, TablePagination, Typography } from "@mui/material";
+import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
@@ -8,15 +9,18 @@ import {
   type TutorSearchFiltersFormValues,
 } from "@/features/discovery/validation/tutorSearchFiltersSchema";
 import type { SearchTutorsFilters } from "@/features/discovery/api/discoveryService";
-import { SearchHero, type ActiveFilterChip } from "@/features/discovery/components/SearchHero";
+import { SearchHero } from "@/features/discovery/components/SearchHero";
+import { ActiveFiltersBar, type ActiveFilterChip } from "@/features/discovery/components/ActiveFiltersBar";
+import { SearchResultsHeader } from "@/features/discovery/components/SearchResultsHeader";
 import { TutorFilterPanel } from "@/features/discovery/components/TutorFilterPanel";
 import { TutorCard } from "@/features/discovery/components/TutorCard";
 import { TutorCardSkeleton } from "@/features/discovery/components/TutorCardSkeleton";
 import { Form } from "@/shared/components/forms/Form";
 import { FormTextField } from "@/shared/components/forms/FormTextField";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
-import { ErrorState } from "@/shared/components/feedback/ErrorState";
+import { UnavailableState } from "@/shared/components/feedback/UnavailableState";
 import { PageHeader } from "@/shared/components/PageHeader";
+import { paths } from "@/routes/paths";
 import { usePagination } from "@/shared/hooks/usePagination";
 import { fromTehranInput, toTehranDisplay } from "@/shared/time/tehranTime";
 
@@ -112,31 +116,72 @@ export function TutorSearchPage() {
       />
 
       <Form form={form} onSubmit={handleSubmit}>
-        <Stack spacing={2}>
-          <SearchHero
-            resultCount={searchQuery.data?.totalCount}
-            isSearching={searchQuery.isPending}
-            hasActiveFilters={hasActiveFilters}
-            activeFilters={activeFilters}
-            onClearAll={handleClear}
-          />
+        <Stack spacing={2.5}>
+          {/*
+           * Search + Filters-trigger stay sticky just below the fixed
+           * AppHeader while scrolling through results (top:88 matches the
+           * offset TutorDetailPage's own sticky booking rail already uses)
+           * — this is the "sticky search / sticky filter button" mobile
+           * requirement, applied at every viewport rather than only on
+           * mobile, since it's harmless on desktop too.
+           */}
+          <Box
+            sx={{
+              position: "sticky",
+              top: 88,
+              zIndex: 2,
+              bgcolor: "background.default",
+              pt: 0.5,
+              pb: 1.5,
+            }}
+          >
+            <Stack spacing={1.5}>
+              <SearchHero />
+              <Box>
+                <TutorFilterPanel activeFilterCount={activeFilters.length}>
+                  <Box>
+                    <Typography variant="overline" color="text.secondary">
+                      Where &amp; language
+                    </Typography>
+                    <Stack spacing={2} mt={1}>
+                      <FormTextField name="language" label="Language" />
+                      <FormTextField name="location" label="Location" />
+                    </Stack>
+                  </Box>
+                  <Divider />
+                  <Box>
+                    <Typography variant="overline" color="text.secondary">
+                      Availability
+                    </Typography>
+                    <Stack spacing={2} mt={1}>
+                      <FormTextField
+                        name="availableFrom"
+                        label="Available from (Tehran)"
+                        type="datetime-local"
+                        slotProps={{ inputLabel: { shrink: true } }}
+                      />
+                    </Stack>
+                  </Box>
+                </TutorFilterPanel>
+              </Box>
+            </Stack>
+          </Box>
 
-          <TutorFilterPanel activeFilterCount={activeFilters.length}>
-            <FormTextField name="language" label="Language" sx={{ minWidth: 160 }} />
-            <FormTextField name="location" label="Location" sx={{ minWidth: 160 }} />
-            <FormTextField
-              name="availableFrom"
-              label="Available from (Tehran)"
-              type="datetime-local"
-              slotProps={{ inputLabel: { shrink: true } }}
-              sx={{ minWidth: 240 }}
-            />
-          </TutorFilterPanel>
+          <Typography variant="caption" color="text.secondary">
+            Tip: leave a filter blank to widen your results — subject, language, location, and
+            availability all combine together.
+          </Typography>
+
+          {/* Active filters step */}
+          <ActiveFiltersBar activeFilters={activeFilters} onClearAll={handleClear} />
         </Stack>
       </Form>
 
+      {/* Results count step */}
+      <SearchResultsHeader resultCount={searchQuery.data?.totalCount} isSearching={searchQuery.isPending} />
+
       {searchQuery.isPending ? (
-        <Stack direction="row" flexWrap="wrap" gap={2}>
+        <Stack direction="row" flexWrap="wrap" gap={3} alignItems="stretch">
           {Array.from({ length: SKELETON_COUNT }, (_, index) => (
             <TutorCardSkeleton key={index} />
           ))}
@@ -144,7 +189,18 @@ export function TutorSearchPage() {
       ) : null}
 
       {searchQuery.isError ? (
-        <ErrorState error={searchQuery.error} onRetry={() => void searchQuery.refetch()} />
+        <UnavailableState
+          headingComponent="h2"
+          title="We couldn't load Tutors"
+          description="Something went wrong searching for Tutors. You can try again, clear your filters, or head back home."
+          actions={[
+            { label: "Try again", onClick: () => void searchQuery.refetch() },
+            ...(hasActiveFilters
+              ? [{ label: "Clear filters", onClick: handleClear }]
+              : []),
+            { label: "Go Home", to: paths.home, variant: "contained" as const },
+          ]}
+        />
       ) : null}
 
       {searchQuery.isSuccess && tutors.length === 0 ? (
@@ -155,12 +211,20 @@ export function TutorSearchPage() {
               ? "Try broadening or clearing a filter above."
               : "Check back soon — no Tutors are registered yet."
           }
+          icon={<SearchRoundedIcon />}
+          action={
+            hasActiveFilters ? (
+              <Button variant="contained" onClick={handleClear}>
+                Reset Filters
+              </Button>
+            ) : undefined
+          }
         />
       ) : null}
 
       {searchQuery.isSuccess && tutors.length > 0 ? (
         <>
-          <Stack direction="row" flexWrap="wrap" gap={2}>
+          <Stack direction="row" flexWrap="wrap" gap={3} alignItems="stretch">
             {tutors.map((tutor) => (
               <TutorCard key={tutor.tutorId} tutor={tutor} />
             ))}

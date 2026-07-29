@@ -90,10 +90,10 @@ describe("SessionDetailPage", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "We couldn’t load this lesson" }),
+      await screen.findByRole("heading", { name: "Session unavailable" }),
     ).toBeInTheDocument();
     expect(screen.queryByText("404 Not Found")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Go Home" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "My lessons" })).toHaveAttribute("href", "/");
   });
 
   it("shows a session detail skeleton while loading, not an abrupt spinner", () => {

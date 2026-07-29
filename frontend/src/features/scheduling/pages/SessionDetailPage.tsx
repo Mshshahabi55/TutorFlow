@@ -20,11 +20,13 @@ import { SectionCard } from "@/shared/components/SectionCard";
 import { TutorSummaryCard } from "@/features/scheduling/components/TutorSummaryCard";
 import { StudentSummaryCard } from "@/features/scheduling/components/StudentSummaryCard";
 import { SessionDetailSkeleton } from "@/features/scheduling/components/SessionDetailSkeleton";
+import { MeetingCard } from "@/features/meetings/components/MeetingCard";
 import { IdLookupForm } from "@/shared/components/forms/IdLookupForm";
 import { Form } from "@/shared/components/forms/Form";
 import { FormSelect } from "@/shared/components/forms/FormSelect";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
+import { UnavailableState } from "@/shared/components/feedback/UnavailableState";
 import { useNotification } from "@/shared/hooks/useNotification";
 import { toTehranDisplay } from "@/shared/time/tehranTime";
 import { timeSpanToMinutes } from "@/shared/utils/duration";
@@ -100,7 +102,7 @@ function RescheduleSessionForm({
     <Form form={form} onSubmit={handleSubmit}>
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="flex-start">
         <FormSelect name="newAvailabilitySlotId" label="New Availability Slot" options={openSlotOptions} />
-        <Button type="submit" variant="outlined" disabled={rescheduleSession.isPending}>
+        <Button type="submit" variant="contained" disabled={rescheduleSession.isPending}>
           {rescheduleSession.isPending ? "Rescheduling…" : "Reschedule"}
         </Button>
       </Stack>
@@ -150,6 +152,8 @@ function SessionDetailContent({ session }: { session: SessionDto }) {
       <SectionCard title="Timeline">
         <SessionTimeline session={session} />
       </SectionCard>
+
+      <MeetingCard session={session} />
 
       {tutorQuery.isSuccess ? <TutorSummaryCard tutor={tutorQuery.data} /> : null}
       {tutorQuery.isError ? (
@@ -206,29 +210,39 @@ function SessionDetailContent({ session }: { session: SessionDto }) {
   );
 }
 
+/** Where "My lessons" goes for the current viewer — never a bare "Go Home" for a role that has a real lessons list of its own. */
+function myLessonsPathFor(role: ReturnType<typeof useEffectiveRole>): string {
+  if (role === "Student") {
+    return paths.scheduling.studentScheduleBase;
+  }
+  if (role === "Tutor") {
+    return paths.scheduling.tutorScheduleBase;
+  }
+  if (role === "AdminStaff") {
+    return paths.oversight.globalSessions;
+  }
+  return paths.home;
+}
+
 /**
  * A friendly placeholder for "this session's id doesn't resolve" — never
  * the raw backend error text (RC2: no technical wording for a Student/
- * Tutor-facing failure).
+ * Tutor-facing failure). RC4.2: "Go Home" is replaced with a role-aware
+ * link back to the viewer's own lessons list, since that's always a real,
+ * reachable next step rather than a dead end.
  */
 function SessionNotFound({ onRetry }: { onRetry: () => void }) {
+  const role = useEffectiveRole();
+
   return (
-    <Stack spacing={2} alignItems="center" textAlign="center" py={6} maxWidth={480} mx="auto">
-      <Typography variant="h4" component="h1">
-        We couldn&rsquo;t load this lesson
-      </Typography>
-      <Typography variant="body1" color="text.secondary">
-        It may have been removed, or the link might be broken.
-      </Typography>
-      <Stack direction="row" spacing={1.5} mt={1}>
-        <Button variant="outlined" onClick={onRetry}>
-          Try again
-        </Button>
-        <Button component={RouterLink} to={paths.home} variant="contained">
-          Go Home
-        </Button>
-      </Stack>
-    </Stack>
+    <UnavailableState
+      title="Session unavailable"
+      description="This lesson could not be found. It may have been removed, or the link might be broken."
+      actions={[
+        { label: "Try again", onClick: onRetry },
+        { label: "My lessons", to: myLessonsPathFor(role), variant: "contained" },
+      ]}
+    />
   );
 }
 

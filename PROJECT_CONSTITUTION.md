@@ -36,9 +36,13 @@ This mission is deliberately narrow at inception. TutorFlow does not attempt to 
 
 **Explicitly out of scope until deliberately brought in scope:**
 - Payments, billing, and payouts.
-- In-platform communication or content delivery (messaging, video, materials).
+- Learning-materials delivery.
 - Progress tracking, grading, or outcome reporting.
 - Technology stack, hosting, infrastructure, CI/CD, and tooling decisions — these are implementation decisions made later, and must not be assumed by this document or by early planning.
+
+**Brought into scope by explicit business-owner decision, 2026-07-28:**
+- In-platform text-based messaging between the roles already in scope (Student↔Tutor, Parent/Guardian↔Tutor, Admin/Staff↔any user) and system-generated notifications about already-in-scope events (booking, cancellation, availability, relationship confirmation). See `docs/adr/ADR-022-communication-and-notifications-architecture.md` for the full design.
+- Online lesson delivery via pluggable third-party meeting providers (Google Meet, Microsoft Teams, Zoom), orchestrated by TutorFlow for an already-booked Online Session — join/host link generation and the meeting's own lifecycle (create/update/cancel), never TutorFlow's own video/conferencing infrastructure. See `docs/adr/ADR-023-online-lesson-meeting-provider-architecture.md` for the full design. Learning-materials delivery remains out of scope — this decision widens delivery only as far as connecting an already-booked Session to a third-party meeting provider.
 
 Scope changes must be reflected here before being acted on elsewhere.
 

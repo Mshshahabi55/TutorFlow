@@ -6,7 +6,9 @@
 
 ## Status
 
-**Proposed — 2026-07-22.** Sections marked **DECIDED** below restate the owner's own input to this design phase (Phase 5A), verbatim in substance. Sections marked **AWAITING OWNER DECISION** are this ADR's proposals, not yet ratified — see `docs/phases/PHASE-05A-REPORT.md` Section 6 for the complete, numbered list of what requires sign-off before any implementation phase may begin.
+**Proposed — 2026-07-22. Superseded in full by `ADR-021` (Proposed, 2026-07-27)** — the business model moved from pay-per-session to a Learning Plan/Enrollment purchase, replacing this ADR's `Payment`-per-`Session` design with `ADR-021`'s `EnrollmentPayment`-per-`Enrollment` design. This ADR's `IPaymentGateway` port shape, idempotency design, and amount-fixing discipline are carried forward into `ADR-021` by explicit reuse, not lost — see `ADR-021`'s "Relationship to ADR-020" section. This document is retained for its historical reasoning, not as an active proposal.
+
+Sections marked **DECIDED** below restate the owner's own input to this design phase (Phase 5A), verbatim in substance. Sections marked **AWAITING OWNER DECISION** are this ADR's proposals, not yet ratified — see `docs/phases/PHASE-05A-REPORT.md` Section 6 for the complete, numbered list of what requires sign-off before any implementation phase may begin.
 
 ## Governance Note (read first)
 
@@ -147,4 +149,4 @@ See `docs/phases/PHASE-05A-REPORT.md` Section 6 for the complete, numbered list 
 
 ---
 
-*Status: Proposed — 2026-07-22. No section of this ADR is Accepted until the owner resolves `docs/phases/PHASE-05A-REPORT.md` Section 6.*
+*Status: Proposed — 2026-07-22. Superseded in full by `ADR-021` — 2026-07-27. No section of this ADR was ever Accepted.*

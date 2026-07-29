@@ -95,8 +95,8 @@ Each requirement is traceable to the 2026-07-19 business decisions (cited as "De
 
 | ID | Requirement | Priority | Acceptance Criteria | Related Product Goal | Source |
 |---|---|---|---|---|---|
-| SCH-1 | TutorFlow's scope is limited to scheduling and booking. It does not host, facilitate, or deliver the tutoring session itself. | Must | Given a session is booked, when the booking is confirmed, then the platform records the scheduling data only; it provides no mechanism for delivering the session itself. | Goal 2 | Decision B.4 |
-| SCH-2 | A session has a delivery mode of either Online or In-Person, recorded for information purposes; the actual delivery (meeting link, physical logistics) happens outside the platform. | Must | Given a Tutor creates an availability slot or a session is booked, when the session record is created, then it stores a delivery mode of either Online or In-Person. | Goal 1 | Decision B.4 |
+| SCH-1 | TutorFlow's scope is limited to scheduling, booking, and (as of 2026-07-28) orchestrating third-party online-meeting delivery for an already-booked Online Session. It does not build its own video/conferencing infrastructure, host meeting media itself, or deliver any other aspect of the tutoring session (materials, grading, etc.). | Must | Given a Session is booked, when the booking is confirmed, then the platform records the scheduling data and, for an Online Session with a configured meeting provider, can create/update/cancel a third-party meeting and surface its join/host links; it never hosts the video/audio itself. | Goal 2 | Decision B.4; amended 2026-07-28 by `docs/adr/ADR-023-online-lesson-meeting-provider-architecture.md` |
+| SCH-2 | A session has a delivery mode of either Online or In-Person. For Online, the actual video/audio delivery happens via a pluggable third-party meeting provider (Google Meet, Microsoft Teams, Zoom) that TutorFlow orchestrates — see ADR-023 — never TutorFlow's own video/conferencing infrastructure. For In-Person, delivery logistics remain fully outside the platform. | Must | Given a Tutor creates an availability slot or a session is booked, when the session record is created, then it stores a delivery mode of either Online or In-Person; an Online session may subsequently have a Meeting created against it via a configured provider. | Goal 1 | Decision B.4; amended 2026-07-28 by `docs/adr/ADR-023-online-lesson-meeting-provider-architecture.md` |
 | SCH-3 | Each Tutor defines the duration(s) of the sessions they offer. | Must | Given a Tutor sets up their offering, when they define availability, then they specify the session duration(s) they offer. | Goal 3 | Decision B.5 |
 | SCH-4 | Recurring/standing bookings are out of scope for v1. Only discrete, single-session bookings are supported. | Must | Given a Student/Parent books a session, when they complete the booking, then only a single, discrete session is created; no option to create a recurring series is presented. | Goal 2 | Decision B.6 |
 | SCH-5 | A Tutor's declared availability slot is immediately bookable by a Student/Parent; no manual Tutor confirmation step occurs after a booking is made. | Must | Given a Tutor has an available slot, when a Student/Parent books it, then the session is immediately confirmed without requiring further action from the Tutor. | Goal 2 | Decision B.7 |
@@ -137,6 +137,18 @@ Note: the initial launch/target market itself is an Open Question — see Sectio
 |---|---|---|---|---|---|
 | PLAT-1 | v1 is delivered as a web application only; no native mobile application is built for v1. | Must | Given a user accesses TutorFlow, when they do so, then it is available as a web application; no native mobile application is provided in v1. | Goal 7 | Decision F.16 |
 
+### 6.7 Tutor Profile Enrichment (added 2026-07-28)
+
+Resolves Section 10.1 Item 4 and Section 10.3 Item 10 — see `docs/adr/ADR-024-tutor-profile-enrichment-and-onboarding-wizard.md` (Accepted) for full rationale.
+
+| ID | Requirement | Priority | Acceptance Criteria | Related Product Goal | Source |
+|---|---|---|---|---|---|
+| PROF-1 | A Tutor may provide a display name, headline, biography, country, city, additional spoken languages, years of experience, education, certifications, teaching methodology, and lesson specialties — all self-declared free text, not independently verified. | Must | Given a Tutor completes their profile, when they submit these fields, then they are stored and shown on the Tutor's profile without any automated or third-party verification step. | Goal 1, Goal 7 | ADR-024 |
+| PROF-2 | A Tutor may teach more than one subject, optionally at a stated level per subject, in addition to their existing single primary Subject. Discovery's search/filter behavior is unchanged by this — it continues to filter on the primary Subject. | Should | Given a Tutor has multiple subjects, when their profile is viewed, then every declared subject/level is shown; search results are unaffected. | Goal 1 | ADR-024 |
+| PROF-3 | A Tutor may provide a profile photo URL, an introductory video URL, and gallery image URLs — links to externally-hosted content. TutorFlow does not host, store, or validate the linked media, and provides no file-upload capability in v1. | Could | Given a Tutor provides a media URL, when their profile is viewed, then the linked content is referenced (e.g. as an image `src` or a link); no upload workflow exists. | Goal 1 | ADR-024 |
+| PROF-4 | A Tutor may declare trial-lesson availability and a trial-lesson price, in the same single currency (Rial/Toman) as the existing hourly rate. No payment is processed for a trial lesson in v1. | Could | Given a Tutor sets trial-lesson availability/price, when a Student/Parent views the profile, then it is shown; no payment flow is triggered. | Goal 1 | ADR-024; DISC-2 |
+| PROF-5 | A Tutor's profile has a completion state of Draft or Submitted, tracked separately from Admin approval (`IsApproved`/`IsSuspended`, IDR-2/ADM-2, unchanged). Only a Submitted profile enters the existing Admin approval queue. | Must | Given a Tutor has not yet submitted their profile, when they leave the onboarding flow, then their progress is saved and not discoverable; given they submit, then the profile enters the existing approval queue unchanged. | Goal 8 | ADR-024 |
+
 ## 7. Requirements Directly Mandated by the Constitution
 
 These are not new business decisions — they restate binding Constitution principles in product terms, since any v1 feature must satisfy them.
@@ -168,11 +180,14 @@ These are not new business decisions — they restate binding Constitution princ
 Carried forward from the Constitution's Project Scope, plus the 2026-07-19 decisions that narrow v1 further:
 
 - Payments, billing, and payouts (Constitution: Project Scope).
-- In-platform communication or content delivery — messaging, video hosting, materials (Constitution: Project Scope).
+- Learning-materials delivery (Constitution: Project Scope). Text-based in-platform messaging was brought into scope 2026-07-28 (Constitution: Project Scope; `docs/adr/ADR-022-communication-and-notifications-architecture.md`) — see that ADR for the Conversation/Message/Notification model. Online lesson delivery via pluggable third-party meeting providers was also brought into scope 2026-07-28 (Constitution: Project Scope; `docs/adr/ADR-023-online-lesson-meeting-provider-architecture.md`) — see that ADR for the Meeting/IMeetingProvider model. Learning-materials delivery itself remains out of scope.
 - Progress tracking, grading, or outcome reporting (Constitution: Project Scope).
 - Recurring/standing bookings (Decision B.6).
 - Ratings and reviews (Decision C.12).
 - Native mobile applications (Decision F.16).
+- Real file/media upload infrastructure for Tutor profile photo/video/gallery — v1 accepts externally-hosted URLs only (`ADR-024`, added 2026-07-28).
+- Third-party or automated Tutor identity/education/certificate/background-check verification — v1 verification is self-attestation reviewed by the existing Admin approve/suspend gate only (`ADR-024`, added 2026-07-28).
+- Payment for trial lessons, or any payment processing whatsoever — unchanged, still gated behind the unresolved payments question (`ADR-020`/`ADR-021`).
 
 ## 10. Open Questions
 
@@ -182,7 +197,7 @@ Everything below is a genuine gap not covered by the Constitution or the 2026-07
 1. What is the exact age threshold distinguishing an "adult" Student from a "minor" Student in v1?
 2. What is the exact mechanism for the Parent-Student invitation/confirmation flow (e.g., email invite, in-app code, Admin-mediated)?
 3. May a minor Student complete self-registration before any Parent/Guardian relationship is confirmed, and if so, can that account book while unlinked?
-4. What information or credentials does a Tutor submit for Admin approval, and what are the Admin's approval criteria?
+4. ~~What information or credentials does a Tutor submit for Admin approval, and what are the Admin's approval criteria?~~ **Resolved 2026-07-28** — see Section 6.7 (PROF-1 through PROF-5) and `ADR-024`: self-declared free-text fields, reviewed holistically by the existing, unchanged Admin approve/suspend gate. No automated or third-party verification in v1.
 
 ### 10.2 Scheduling & Booking
 5. What are the cancellation/rescheduling notice-period rules, and do they differ by role?
@@ -192,7 +207,7 @@ Everything below is a genuine gap not covered by the Constitution or the 2026-07
 9. Is there any limit on the number of concurrent or future bookings a Student or Tutor may hold?
 
 ### 10.3 Discovery
-10. Is "Subject" a fixed, platform-defined taxonomy, or free text set by each Tutor?
+10. Is "Subject" a fixed, platform-defined taxonomy, or free text set by each Tutor? **Partially resolved 2026-07-28** — a Tutor may declare multiple subjects (`TutorSubjects`, Section 6.7 PROF-2), each free text with an optional free-text level, additive alongside the existing single `Subject` field (`ADR-024`). Whether the *existing* single `Subject` field itself is a fixed taxonomy or free text remains open — `ADR-024` did not revisit it, and Discovery's search/filter behavior is explicitly unchanged.
 11. How are search results ordered/ranked when multiple Tutors match a search?
 12. For in-person tutoring, does "Location" mean a specific address, a city/region, or a travel radius?
 13. Do pagination or result-count limits apply to search results?

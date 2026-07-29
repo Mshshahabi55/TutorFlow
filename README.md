@@ -112,6 +112,26 @@ Parent-Guardian demo accounts share one fixed password
 (`Seed-Password-123!`, in `DevelopmentSeeder.cs`) — they exist only for
 local manual testing, not to hold anything sensitive.
 
+### Meeting providers (online lesson delivery)
+
+`Development` defaults to the Mock provider (`appsettings.Development.json`'s
+`Meeting:DefaultProvider`) — "Start Lesson" works immediately with no setup,
+returning an obviously-fake `mock-meeting.tutorflow.dev` link, never a real
+one (`docs/adr/ADR-023-online-lesson-meeting-provider-architecture.md`).
+
+To exercise a real provider instead, set its own section via user-secrets
+(never `appsettings.json`):
+
+```bash
+dotnet user-secrets set "Meeting:Google:ClientId" "<...>"
+dotnet user-secrets set "Meeting:Google:ClientSecret" "<...>"
+dotnet user-secrets set "Meeting:Google:RefreshToken" "<...>"
+# Microsoft:TenantId/ClientId/ClientSecret/OrganizerUserId, Zoom:AccountId/ClientId/ClientSecret — same pattern
+```
+
+An unconfigured provider never fabricates a meeting link — "Start Lesson"
+fails with an honest "Provider not configured" error instead.
+
 ## Running the frontend
 
 ```bash

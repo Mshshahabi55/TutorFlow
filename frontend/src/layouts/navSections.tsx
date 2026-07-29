@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- this module exports nav data (icons embedded as JSX) and a lookup function, not a component; there is no component state for Fast Refresh to preserve here. */
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import FavoriteRoundedIcon from "@mui/icons-material/FavoriteRounded";

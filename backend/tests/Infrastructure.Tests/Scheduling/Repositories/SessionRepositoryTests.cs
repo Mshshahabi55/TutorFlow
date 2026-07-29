@@ -129,4 +129,38 @@ public class SessionRepositoryTests
         Assert.Equal(3, totalCount);
         Assert.Equal(2, items.Count);
     }
+
+    [Fact]
+    public async Task GetStatusCountsAsync_groups_sessions_by_status()
+    {
+        using var sqlite = new SqliteTestDbContext();
+        var repository = new SessionRepository(sqlite.DbContext);
+
+        var scheduledSlot = DeclareSlot(TutorId.From(Guid.NewGuid()));
+        var completedSlot = DeclareSlot(TutorId.From(Guid.NewGuid()));
+        var cancelledSlot = DeclareSlot(TutorId.From(Guid.NewGuid()));
+        var noShowSlot = DeclareSlot(TutorId.From(Guid.NewGuid()));
+        sqlite.DbContext.AvailabilitySlots.AddRange(scheduledSlot, completedSlot, cancelledSlot, noShowSlot);
+
+        var scheduled = scheduledSlot.Book(StudentId.From(Guid.NewGuid()), null);
+        var completed = completedSlot.Book(StudentId.From(Guid.NewGuid()), null);
+        completed.Complete();
+        var cancelled = cancelledSlot.Book(StudentId.From(Guid.NewGuid()), null);
+        cancelled.Cancel();
+        var noShow = noShowSlot.Book(StudentId.From(Guid.NewGuid()), null);
+        noShow.MarkNoShow();
+
+        await repository.AddAsync(scheduled);
+        await repository.AddAsync(completed);
+        await repository.AddAsync(cancelled);
+        await repository.AddAsync(noShow);
+        await sqlite.DbContext.SaveChangesAsync();
+
+        var counts = await repository.GetStatusCountsAsync();
+
+        Assert.Equal(1, counts[SessionStatus.Scheduled]);
+        Assert.Equal(1, counts[SessionStatus.Completed]);
+        Assert.Equal(1, counts[SessionStatus.Cancelled]);
+        Assert.Equal(1, counts[SessionStatus.NoShow]);
+    }
 }

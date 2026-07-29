@@ -90,4 +90,22 @@ public enum Permission
     // separate — not an invented permission, a named mapping of an
     // already-ratified decision.
     ViewAuditEntries,
+
+    // Communication (docs/adr/ADR-022-communication-and-notifications-architecture.md,
+    // 2026-07-28): every role may participate in messaging once
+    // authenticated — one coarse-grained permission granted to all four
+    // roles, mirroring CancelSession's "every role shares this one"
+    // precedent. Fine-grained enforcement (which two accounts may read/send
+    // within a specific Conversation) lives in the Communication context's
+    // own handlers, not here.
+    UseMessaging,
+
+    // Meetings (docs/adr/ADR-023-online-lesson-meeting-provider-architecture.md,
+    // 2026-07-28): starting a real online-lesson meeting ("Start Lesson").
+    // Tutor-only, per that ADR's Authorization section — a Student/Parent/
+    // Admin never creates one, only reads (GetMeetingBySessionQuery carries
+    // no coarse permission at all, same "N/A (fully fine-grained)" shape
+    // GET /sessions/{id} already has). Fine-grained enforcement (the
+    // Session's own Tutor, specifically) lives in CreateMeetingCommandHandler.
+    ManageMeetings,
 }

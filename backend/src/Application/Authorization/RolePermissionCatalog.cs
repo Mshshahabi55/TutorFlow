@@ -25,6 +25,7 @@ internal static class RolePermissionCatalog
                 Permission.RescheduleSession,
                 Permission.InviteRelationship,
                 Permission.ConfirmRelationship,
+                Permission.UseMessaging,
             ],
             [Role.Tutor] =
             [
@@ -34,6 +35,8 @@ internal static class RolePermissionCatalog
                 Permission.RescheduleSession,
                 Permission.CompleteSession,
                 Permission.MarkSessionNoShow,
+                Permission.UseMessaging,
+                Permission.ManageMeetings,
             ],
             [Role.ParentGuardian] =
             [
@@ -42,6 +45,7 @@ internal static class RolePermissionCatalog
                 Permission.BookSession,
                 Permission.CancelSession,
                 Permission.RescheduleSession,
+                Permission.UseMessaging,
             ],
             // Modeled as one flat role, matching ADR-003's Permission Model
             // table exactly — whether Admin/Staff has internal permission
@@ -60,6 +64,7 @@ internal static class RolePermissionCatalog
                 Permission.CompleteSession,
                 Permission.MarkSessionNoShow,
                 Permission.ViewAuditEntries,
+                Permission.UseMessaging,
             ],
         };
 

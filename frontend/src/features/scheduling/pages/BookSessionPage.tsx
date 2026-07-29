@@ -25,6 +25,7 @@ import { BookingStatusBanner } from "@/features/scheduling/components/BookingSta
 import { BookingPageSkeleton } from "@/features/scheduling/components/BookingPageSkeleton";
 import { MonthCalendarGrid } from "@/features/scheduling/components/MonthCalendarGrid";
 import { addMonths, monthKeyFromDateKey, todayMonthKey } from "@/features/scheduling/utils/monthCalendar";
+import { groupSlotsByTimeOfDay, TIME_OF_DAY_LABELS } from "@/features/scheduling/utils/timeOfDay";
 import { Form } from "@/shared/components/forms/Form";
 import { FormTextField } from "@/shared/components/forms/FormTextField";
 import { FormSelect } from "@/shared/components/forms/FormSelect";
@@ -271,7 +272,12 @@ export function BookSessionPage() {
     return (
       <Stack spacing={3} maxWidth={720}>
         <BookingHeader hasContext={hasContext} />
-        <BookingStatusBanner status="success" session={bookSession.data} tutorId={effectiveTutorId} />
+        <BookingStatusBanner
+          status="success"
+          session={bookSession.data}
+          tutorId={effectiveTutorId}
+          tutorName={tutorQuery.data?.displayName ?? tutorQuery.data?.subject ?? undefined}
+        />
       </Stack>
     );
   }
@@ -527,20 +533,27 @@ export function BookSessionPage() {
               {activeStep === 2 ? (
                 <Stack ref={focusStepRegion} tabIndex={-1} role="group" aria-label={STEPS[2]} spacing={3} sx={{ outline: "none" }}>
                   <SectionCard title="Choose a time">
-                    <Stack spacing={2}>
+                    <Stack spacing={2.5}>
                       <Typography variant="body2" color="text.secondary">
                         All times are shown in Tehran local time.
                       </Typography>
-                      <Stack direction="row" flexWrap="wrap" gap={2}>
-                        {slotsForSelectedDate.map((slot) => (
-                          <AvailabilityCard
-                            key={slot.availabilitySlotId}
-                            slot={slot}
-                            selected={slot.availabilitySlotId === selectedSlotId}
-                            onSelect={handleSelectSlot}
-                          />
-                        ))}
-                      </Stack>
+                      {groupSlotsByTimeOfDay(slotsForSelectedDate).map((group) => (
+                        <Stack key={group.timeOfDay} spacing={1}>
+                          <Typography variant="overline" color="text.secondary">
+                            {TIME_OF_DAY_LABELS[group.timeOfDay]}
+                          </Typography>
+                          <Stack direction="row" flexWrap="wrap" gap={2}>
+                            {group.slots.map((slot) => (
+                              <AvailabilityCard
+                                key={slot.availabilitySlotId}
+                                slot={slot}
+                                selected={slot.availabilitySlotId === selectedSlotId}
+                                onSelect={handleSelectSlot}
+                              />
+                            ))}
+                          </Stack>
+                        </Stack>
+                      ))}
                     </Stack>
                   </SectionCard>
                   <Stack sx={mobileStickyActionsSx}>

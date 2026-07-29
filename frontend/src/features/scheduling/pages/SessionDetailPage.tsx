@@ -21,6 +21,7 @@ import { TutorSummaryCard } from "@/features/scheduling/components/TutorSummaryC
 import { StudentSummaryCard } from "@/features/scheduling/components/StudentSummaryCard";
 import { SessionDetailSkeleton } from "@/features/scheduling/components/SessionDetailSkeleton";
 import { MeetingCard } from "@/features/meetings/components/MeetingCard";
+import { AddToCalendarButton } from "@/features/scheduling/components/AddToCalendarButton";
 import { IdLookupForm } from "@/shared/components/forms/IdLookupForm";
 import { Form } from "@/shared/components/forms/Form";
 import { FormSelect } from "@/shared/components/forms/FormSelect";
@@ -179,6 +180,12 @@ function SessionDetailContent({ session }: { session: SessionDto }) {
         <Stack spacing={2} alignItems="flex-start">
           <SessionActions session={session} />
           <BookAgainAction session={session} />
+          {session.status === SessionStatus.Scheduled ? (
+            <AddToCalendarButton
+              session={session}
+              tutorName={tutorQuery.data?.displayName ?? tutorQuery.data?.subject ?? undefined}
+            />
+          ) : null}
           {session.status === SessionStatus.Scheduled ? (
             <RescheduleSessionForm
               sessionId={session.sessionId}

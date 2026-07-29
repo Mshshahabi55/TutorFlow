@@ -95,6 +95,16 @@ export function toTehranInputValue(utcIsoString: string): string {
 }
 
 /**
+ * A UTC ISO 8601 instant -> its Tehran-local hour of day (0-23). Used by
+ * the booking wizard's "Choose Time" step to group open Availability Slots
+ * into Morning/Afternoon/Evening buckets without any new offset math —
+ * this module's own single-owner rule (see the module comment above).
+ */
+export function tehranHour(utcIsoString: string): number {
+  return toTehranShifted(utcIsoString).getUTCHours();
+}
+
+/**
  * A UTC ISO 8601 instant -> its Tehran-local calendar date, as a stable
  * "YYYY-MM-DD" grouping key (the date portion of `toTehranInputValue`).
  * Used by the booking wizard's "Choose Date" step to group a Tutor's open

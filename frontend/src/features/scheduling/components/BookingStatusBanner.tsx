@@ -5,6 +5,7 @@ import ChatBubbleOutlineRoundedIcon from "@mui/icons-material/ChatBubbleOutlineR
 import CalendarMonthRoundedIcon from "@mui/icons-material/CalendarMonthRounded";
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import { useStartConversation } from "@/features/communication/hooks/useConversationMutations";
+import { AddToCalendarButton } from "@/features/scheduling/components/AddToCalendarButton";
 import { useNotification } from "@/shared/hooks/useNotification";
 import { CopyableId } from "@/shared/components/CopyableId";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
@@ -14,7 +15,7 @@ import { paths } from "@/routes/paths";
 import type { SessionDto } from "@/services/api/dtos";
 
 export type BookingStatusBannerProps =
-  | { status: "success"; session: SessionDto; tutorId?: string }
+  | { status: "success"; session: SessionDto; tutorId?: string; tutorName?: string }
   | {
       status: "error";
       error: unknown;
@@ -120,7 +121,7 @@ export function BookingStatusBanner(props: BookingStatusBannerProps) {
     );
   }
 
-  const { session, tutorId } = props;
+  const { session, tutorId, tutorName } = props;
 
   return (
     <Card variant="outlined" sx={{ borderColor: "success.main" }}>
@@ -153,6 +154,7 @@ export function BookingStatusBanner(props: BookingStatusBannerProps) {
             >
               My Lessons
             </Button>
+            <AddToCalendarButton session={session} tutorName={tutorName} />
             {tutorId ? <MessageTutorAction tutorId={tutorId} /> : null}
             <Button component={RouterLink} to={paths.home} variant="text" startIcon={<HomeRoundedIcon />}>
               Return Home

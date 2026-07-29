@@ -153,6 +153,15 @@ message instead of surfacing as an unhandled exception on whatever request
 happens to touch it first. Same "fail fast" principle already applied to
 a placeholder database connection string.
 
+### Request logging
+
+Every request produces exactly one structured log line — method, path,
+status code, elapsed milliseconds, and a `TraceId` — regardless of outcome
+(success, a rate-limit rejection, or an unhandled exception). The same
+`TraceId` is echoed back as an `X-Trace-Id` response header, so a caller's
+own error report can be correlated to the matching server-side log line.
+5xx responses log at Warning; everything else logs at Information.
+
 ## Running the frontend
 
 ```bash

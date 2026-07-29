@@ -113,6 +113,12 @@ if (corsAllowedOrigins.Length == 0)
         "CORS: no allowed origins configured (Cors:AllowedOrigins); cross-origin browser requests will be rejected.");
 }
 
+// First — wraps every other middleware, so its elapsed-time measurement
+// and final status code are accurate no matter what downstream (rate
+// limiter, exception handler, authorization) actually produced the
+// response.
+app.UseMiddleware<RequestLoggingMiddleware>();
+
 app.UseExceptionHandler();
 
 if (!app.Environment.IsDevelopment())

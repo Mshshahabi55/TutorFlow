@@ -10,6 +10,7 @@ import { deriveStudentRoster } from "@/features/scheduling/utils/studentRoster";
 import { TutorSessionCard } from "@/features/scheduling/components/TutorSessionCard";
 import { StudentRosterCard } from "@/features/scheduling/components/StudentRosterCard";
 import { SessionCardSkeleton } from "@/features/scheduling/components/SessionCardSkeleton";
+import { SessionStatusBreakdownChart } from "@/features/scheduling/components/SessionStatusBreakdownChart";
 import { AvailabilitySummaryCard } from "@/features/scheduling/components/AvailabilitySummaryCard";
 import { AvailabilitySummaryCardSkeleton } from "@/features/scheduling/components/AvailabilitySummaryCardSkeleton";
 import { ProfileCompletionCard } from "@/features/identity/components/ProfileCompletionCard";
@@ -186,6 +187,12 @@ function TeachingOverview({ tutorId, onChooseAgain }: TeachingOverviewProps) {
               <TeachingSummaryStat label="Open time slots" value={openSlots.length} />
             </Stack>
           </SectionCard>
+
+          {sessions.length > 0 ? (
+            <SectionCard title="Lesson History">
+              <SessionStatusBreakdownChart sessions={sessions} />
+            </SectionCard>
+          ) : null}
 
           <RecentConversationsSection />
 

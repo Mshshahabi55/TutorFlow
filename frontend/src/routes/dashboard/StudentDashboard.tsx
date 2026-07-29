@@ -4,6 +4,7 @@ import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import EventRoundedIcon from "@mui/icons-material/EventRounded";
 import { useStudentSchedule } from "@/features/scheduling/hooks/useSessionQueries";
 import { SessionCard } from "@/features/scheduling/components/SessionCard";
+import { SessionStatusBreakdownChart } from "@/features/scheduling/components/SessionStatusBreakdownChart";
 import { SessionCardSkeleton } from "@/features/scheduling/components/SessionCardSkeleton";
 import { byScheduledTimeAscending, byScheduledTimeDescending } from "@/features/scheduling/utils/sessionSort";
 import { PageHeader } from "@/shared/components/PageHeader";
@@ -134,14 +135,19 @@ function RecentActivityContent({
   }
 
   return (
-    <Stack spacing={2}>
-      {recentActivity.map((session) => (
-        <SessionCard
-          key={session.sessionId}
-          session={session}
-          onOpen={(selected) => void navigate(paths.scheduling.sessionDetail(selected.sessionId))}
-        />
-      ))}
+    <Stack spacing={3}>
+      {/* From the Student's full schedule, not just the slice shown below
+          — an honest breakdown, not one skewed by RECENT_ACTIVITY_LIMIT. */}
+      <SessionStatusBreakdownChart sessions={scheduleQuery.data} />
+      <Stack spacing={2}>
+        {recentActivity.map((session) => (
+          <SessionCard
+            key={session.sessionId}
+            session={session}
+            onOpen={(selected) => void navigate(paths.scheduling.sessionDetail(selected.sessionId))}
+          />
+        ))}
+      </Stack>
     </Stack>
   );
 }

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using TutorFlow.Infrastructure;
 using TutorFlow.Infrastructure.Persistence;
@@ -70,6 +71,11 @@ builder.Services.AddHealthChecks().AddDbContextCheck<TutorFlowDbContext>();
 
 builder.Services.AddResponseCompression();
 
+// HTTP-boundary throttling (production readiness) — config-driven, see
+// RateLimitingSettings. Pure Web-layer concern, no Domain/Application
+// involvement.
+builder.Services.AddApiRateLimiting(builder.Configuration);
+
 // OpenAPI document generation only — this describes the already-approved,
 // already-public endpoint surface as-is. It does not decide contract
 // versioning strategy (ARCHITECTURE.md §21 Item 7/ADR-010 OQ3-4, still open)
@@ -118,6 +124,10 @@ app.UseHttpsRedirection();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseResponseCompression();
 app.UseCors("Configured");
+
+// Runs before authentication so an over-quota caller is rejected without
+// spending the cost of resolving/validating a bearer token first.
+app.UseRateLimiter();
 
 // Authentication only — populates ICurrentUserProvider from a bearer token
 // when one is presented and valid; makes no permission decision

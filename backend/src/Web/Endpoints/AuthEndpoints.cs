@@ -1,8 +1,10 @@
+using Microsoft.AspNetCore.RateLimiting;
 using TutorFlow.Application.Authorization;
 using TutorFlow.Application.Identity.Commands;
 using TutorFlow.Application.Identity.DTOs;
 using TutorFlow.Application.Identity.Handlers;
 using TutorFlow.Web.Authorization;
+using TutorFlow.Web.DependencyInjection;
 
 namespace TutorFlow.Web.Endpoints;
 
@@ -24,7 +26,11 @@ public static class AuthEndpoints
             CancellationToken cancellationToken) =>
             (await handler.Handle(command, cancellationToken))
                 .ToApiResult(logger, nameof(LoginCommandHandler)))
-            .WithApiResultMetadata<LoginResultDto>("Login", Tag, "Authenticates with an email and password, returning a bearer token.");
+            .WithApiResultMetadata<LoginResultDto>("Login", Tag, "Authenticates with an email and password, returning a bearer token.")
+            // RateLimitingSettings.Auth — the one anonymous, credential-guessing-shaped
+            // endpoint in this API; enforced in addition to the general
+            // per-IP limit every other endpoint already gets.
+            .RequireRateLimiting(RateLimitingRegistration.AuthPolicyName);
 
         app.MapPost("/auth/logout", async (
             LogoutRequest request,

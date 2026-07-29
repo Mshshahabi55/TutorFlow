@@ -39,6 +39,19 @@ public sealed class TutorFlowWebApplicationFactory : WebApplicationFactory<Progr
             configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Meeting:DefaultProvider"] = "Mock",
+                // Deliberately far above appsettings.json's production
+                // defaults — every Web.Tests class shares one client IP
+                // (the in-memory TestServer's), and many legitimately fire
+                // dozens of requests (including repeated /auth/login calls
+                // via RegisterAndLoginTutorAsync-style helpers) within a
+                // single test class's lifetime. RateLimitingTests.cs is the
+                // one place that needs the real, tight limits — it opts
+                // back into them itself via WithWebHostBuilder rather than
+                // this shared factory ever throttling ordinary test traffic.
+                ["RateLimiting:General:PermitLimit"] = "100000",
+                ["RateLimiting:General:WindowSeconds"] = "10",
+                ["RateLimiting:Auth:PermitLimit"] = "100000",
+                ["RateLimiting:Auth:WindowSeconds"] = "60",
             });
         });
 

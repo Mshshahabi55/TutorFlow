@@ -132,6 +132,17 @@ dotnet user-secrets set "Meeting:Google:RefreshToken" "<...>"
 An unconfigured provider never fabricates a meeting link — "Start Lesson"
 fails with an honest "Provider not configured" error instead.
 
+### Rate limiting
+
+Every request is throttled per client IP (`RateLimiting:General`, default
+100 requests / 10s); `POST /auth/login` additionally requires clearing a
+much tighter `RateLimiting:Auth` budget (default 5 attempts / 60s) — the
+one anonymous, credential-guessing-shaped endpoint in this API. A
+throttled request gets `429 Too Many Requests`, a `Retry-After` header, and
+the same `ApiResponse` envelope every other error uses. Both limits are
+config-driven (`appsettings.json`) so they can be retuned per environment
+without a code change.
+
 ## Running the frontend
 
 ```bash

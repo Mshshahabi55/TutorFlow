@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Link as RouterLink, useParams } from "react-router-dom";
-import { Box, IconButton, Skeleton, Stack, Typography } from "@mui/material";
+import { Avatar, Box, IconButton, Skeleton, Stack, Typography, alpha } from "@mui/material";
+import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import { useMyConversations, useConversationMessages } from "@/features/communication/hooks/useConversationQueries";
 import {
@@ -25,7 +26,9 @@ import { monoFontFamily } from "@/app/theme";
  * GET /tutors/{id} is public (Discovery is Public — no 403 possible), so a
  * non-Tutor id here just resolves to "not found" and falls back to the raw
  * id — never an alarming error banner for what is, for a Tutor/Admin
- * conversation partner, an expected outcome.
+ * conversation partner, an expected outcome. displayName/photoUrl (ADR-024)
+ * take priority over the old subject-as-name stand-in, same preference
+ * order `TutorCard`/`TutorProfileHero`/`ConversationListItem` already use.
  */
 function ConversationHeading({ otherParticipantId }: { otherParticipantId: string }) {
   const tutorQuery = useTutor(otherParticipantId);
@@ -36,9 +39,22 @@ function ConversationHeading({ otherParticipantId }: { otherParticipantId: strin
 
   if (tutorQuery.isSuccess) {
     return (
-      <Typography variant="h5" component="h1">
-        {tutorQuery.data.subject ?? "Tutor"}
-      </Typography>
+      <Stack direction="row" spacing={1.5} alignItems="center">
+        <Avatar
+          src={tutorQuery.data.photoUrl ?? undefined}
+          sx={{
+            width: 40,
+            height: 40,
+            bgcolor: (t) => alpha(t.palette.primary.main, t.palette.mode === "dark" ? 0.22 : 0.12),
+            color: "primary.main",
+          }}
+        >
+          <PersonRoundedIcon fontSize="small" aria-hidden="true" />
+        </Avatar>
+        <Typography variant="h5" component="h1">
+          {tutorQuery.data.displayName ?? tutorQuery.data.subject ?? "Tutor"}
+        </Typography>
+      </Stack>
     );
   }
 

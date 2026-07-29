@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ConversationListItem } from "@/features/communication/components/ConversationListItem";
-import type { ConversationDto } from "@/services/api/dtos";
+import type { ConversationDto, TutorDto } from "@/services/api/dtos";
 
 const CONVERSATION: ConversationDto = {
   conversationId: "c1",
@@ -47,5 +47,25 @@ describe("ConversationListItem", () => {
     await userEvent.click(screen.getByText("t1"));
 
     expect(onOpen).toHaveBeenCalledWith(CONVERSATION);
+  });
+
+  it("shows the resolved Tutor's name and photo instead of the raw id when one is given", () => {
+    const tutor: TutorDto = {
+      tutorId: "t1",
+      isApproved: true,
+      isSuspended: false,
+      isDiscoverable: true,
+      hourlyRate: 500_000,
+      subject: "Mathematics",
+      language: "English",
+      location: "Remote",
+      offeredDurations: [],
+      displayName: "Jane Doe",
+    };
+
+    render(<ConversationListItem conversation={CONVERSATION} onOpen={() => {}} otherParticipantTutor={tutor} />);
+
+    expect(screen.getByText("Jane Doe")).toBeInTheDocument();
+    expect(screen.queryByText("t1")).not.toBeInTheDocument();
   });
 });

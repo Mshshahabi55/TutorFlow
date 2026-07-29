@@ -115,6 +115,19 @@ describe("MeetingCard", () => {
     expect(screen.queryByRole("link", { name: "Join Lesson" })).not.toBeInTheDocument();
   });
 
+  it("shows an ended message and no join action once the meeting's own end time has passed", async () => {
+    vi.spyOn(meetingService, "fetchMeetingBySession").mockResolvedValue({
+      ...MEETING,
+      startsAtUtc: "2020-01-01T14:00:00Z",
+      endsAtUtc: "2020-01-01T15:00:00Z",
+    });
+
+    renderWithProviders(<MeetingCard session={ONLINE_SESSION} />, { authUser: authUser("Student") });
+
+    expect(await screen.findByText("This lesson has ended.")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Join Lesson" })).not.toBeInTheDocument();
+  });
+
   it("shows an honest Provider not configured message instead of a generic error", async () => {
     vi.spyOn(meetingService, "fetchMeetingBySession").mockRejectedValue(
       new ApiRequestError({ code: "GetMeetingBySessionQuery.NotFound", message: "not found", type: ErrorType.Domain }, 404),

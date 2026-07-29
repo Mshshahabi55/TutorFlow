@@ -4,7 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/renderWithProviders";
 import { InboxPage } from "@/features/communication/pages/InboxPage";
 import * as communicationService from "@/features/communication/api/communicationService";
-import type { ConversationDto } from "@/services/api/dtos";
+import * as identityService from "@/features/identity/api/identityService";
+import type { ConversationDto, TutorDto } from "@/services/api/dtos";
 
 const AUTH_USER = {
   token: "t",
@@ -85,5 +86,59 @@ describe("InboxPage", () => {
     renderWithProviders(<InboxPage />, { authUser: AUTH_USER });
 
     expect(await screen.findByText("Network down")).toBeInTheDocument();
+  });
+
+  it("shows the resolved Tutor's name once the other participant resolves as a Tutor", async () => {
+    vi.spyOn(communicationService, "fetchMyConversations").mockResolvedValue(CONVERSATIONS);
+    vi.spyOn(identityService, "fetchTutorById").mockImplementation((id: string) =>
+      id === "t1"
+        ? Promise.resolve({
+            tutorId: "t1",
+            isApproved: true,
+            isSuspended: false,
+            isDiscoverable: true,
+            hourlyRate: 500_000,
+            subject: "Mathematics",
+            language: "English",
+            location: "Remote",
+            offeredDurations: [],
+            displayName: "Jane Doe",
+          } as TutorDto)
+        : Promise.reject(new Error("not a tutor")),
+    );
+
+    renderWithProviders(<InboxPage />, { authUser: AUTH_USER });
+
+    expect(await screen.findByText("Jane Doe")).toBeInTheDocument();
+    // t2 never resolves as a Tutor — its row keeps the raw-id fallback.
+    expect(screen.getByText("t2")).toBeInTheDocument();
+  });
+
+  it("matches search against a resolved Tutor's name, not only message text", async () => {
+    vi.spyOn(communicationService, "fetchMyConversations").mockResolvedValue(CONVERSATIONS);
+    vi.spyOn(identityService, "fetchTutorById").mockImplementation((id: string) =>
+      id === "t1"
+        ? Promise.resolve({
+            tutorId: "t1",
+            isApproved: true,
+            isSuspended: false,
+            isDiscoverable: true,
+            hourlyRate: 500_000,
+            subject: "Mathematics",
+            language: "English",
+            location: "Remote",
+            offeredDurations: [],
+            displayName: "Jane Doe",
+          } as TutorDto)
+        : Promise.reject(new Error("not a tutor")),
+    );
+
+    renderWithProviders(<InboxPage />, { authUser: AUTH_USER });
+    await screen.findByText("Jane Doe");
+
+    await userEvent.type(screen.getByLabelText("Search messages"), "Jane");
+
+    expect(screen.getByText("Jane Doe")).toBeInTheDocument();
+    expect(screen.queryByText("t2")).not.toBeInTheDocument();
   });
 });

@@ -115,6 +115,14 @@ function MeetingCardContent({ session }: { session: SessionDto }) {
         <Typography variant="body2" color="text.secondary">
           This lesson&rsquo;s online meeting was cancelled.
         </Typography>
+      ) : timing.phase === "ended" ? (
+        // deriveMeetingTiming's own doc comment: "derives the Join/Start
+        // button's live state" — this is that state actually being read,
+        // matching JoinLessonBanner's own "hide once ended" behavior
+        // rather than leaving a join link clickable indefinitely.
+        <Typography variant="body2" color="text.secondary">
+          This lesson has ended.
+        </Typography>
       ) : role === "AdminStaff" ? null : (
         <Button
           component="a"

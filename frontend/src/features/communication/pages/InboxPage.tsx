@@ -3,30 +3,42 @@ import { useNavigate } from "react-router-dom";
 import { InputAdornment, Stack, TextField, Typography } from "@mui/material";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import { useMyConversations } from "@/features/communication/hooks/useConversationQueries";
+import { useTutorsByIds } from "@/features/identity/hooks/useTutorQueries";
 import { ConversationListItem } from "@/features/communication/components/ConversationListItem";
 import { ConversationListItemSkeleton } from "@/features/communication/components/ConversationListItemSkeleton";
 import { PageHeader } from "@/shared/components/PageHeader";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ErrorState } from "@/shared/components/feedback/ErrorState";
 import { paths } from "@/routes/paths";
-import type { ConversationDto } from "@/services/api/dtos";
+import type { ConversationDto, TutorDto } from "@/services/api/dtos";
 
 /**
- * No name/subject exists per Conversation to search by (ConversationDto
- * carries only ids — see ConversationListItem's own comment) — the one
- * honest, real field to filter on is the last message's own text, so
- * "Search" (RC5.1 Step 2) filters by `lastMessagePreview`, not a fabricated
- * participant name.
+ * `ConversationDto` itself carries only ids, no name — filters on the last
+ * message's own text always, plus the other participant's resolved Tutor
+ * name/headline when one was found (`tutorById`, see `ConversationListItem`'s
+ * own comment on why that lookup is best-effort/Tutor-only). A Conversation
+ * whose other participant never resolved to a Tutor still filters correctly
+ * by message text alone — this never regresses to matching nothing.
  */
-function filterConversations(conversations: ConversationDto[], query: string): ConversationDto[] {
+function filterConversations(
+  conversations: ConversationDto[],
+  query: string,
+  tutorById: Map<string, TutorDto>,
+): ConversationDto[] {
   const normalized = query.trim().toLowerCase();
   if (!normalized) {
     return conversations;
   }
 
-  return conversations.filter((conversation) =>
-    conversation.lastMessagePreview?.toLowerCase().includes(normalized),
-  );
+  return conversations.filter((conversation) => {
+    if (conversation.lastMessagePreview?.toLowerCase().includes(normalized)) {
+      return true;
+    }
+    const tutor = tutorById.get(conversation.otherParticipantId);
+    return Boolean(
+      tutor && [tutor.displayName, tutor.headline, tutor.subject].some((field) => field?.toLowerCase().includes(normalized)),
+    );
+  });
 }
 
 export function InboxPage() {
@@ -34,9 +46,34 @@ export function InboxPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const conversationsQuery = useMyConversations();
 
+  // Best-effort enrichment, not authoritative: an id that doesn't resolve
+  // to a Tutor (a Student/Parent-Guardian/Admin-Staff participant, or one
+  // simply still loading) just leaves that row on the existing raw-id
+  // fallback — see ConversationListItem's own comment on why this is a
+  // batched, bounded lookup rather than N per-row fetches.
+  const otherParticipantIds = useMemo(
+    () => [...new Set((conversationsQuery.data ?? []).map((c) => c.otherParticipantId))],
+    [conversationsQuery.data],
+  );
+  const tutorQueries = useTutorsByIds(otherParticipantIds);
+  const tutorById = useMemo(() => {
+    const map = new Map<string, TutorDto>();
+    otherParticipantIds.forEach((id, index) => {
+      const query = tutorQueries[index];
+      if (query?.isSuccess && query.data) {
+        map.set(id, query.data);
+      }
+    });
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otherParticipantIds, tutorQueries.map((q) => q.dataUpdatedAt).join(",")]);
+
   const filtered = useMemo(
-    () => (conversationsQuery.isSuccess ? filterConversations(conversationsQuery.data, searchQuery) : []),
-    [conversationsQuery.isSuccess, conversationsQuery.data, searchQuery],
+    () =>
+      conversationsQuery.isSuccess
+        ? filterConversations(conversationsQuery.data, searchQuery, tutorById)
+        : [],
+    [conversationsQuery.isSuccess, conversationsQuery.data, searchQuery, tutorById],
   );
 
   function openConversation(conversation: ConversationDto) {
@@ -56,7 +93,7 @@ export function InboxPage() {
 
       {conversationsQuery.isSuccess && conversationsQuery.data.length > 0 ? (
         <TextField
-          placeholder="Search messages…"
+          placeholder="Search messages or tutor names…"
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
           size="small"
@@ -105,6 +142,7 @@ export function InboxPage() {
               key={conversation.conversationId}
               conversation={conversation}
               onOpen={openConversation}
+              otherParticipantTutor={tutorById.get(conversation.otherParticipantId)}
             />
           ))}
         </Stack>

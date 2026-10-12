@@ -30,6 +30,9 @@ namespace TutorFlow.Modules.Search.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset?>("AvailabilitySignalOccurredAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<decimal>("AverageRating")
                         .HasColumnType("numeric");
 

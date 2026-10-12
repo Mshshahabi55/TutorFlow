@@ -1,0 +1,95 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TutorFlow.Host/TutorFlow.Host.csproj" />
+    <Project Path="src/TutorFlow.Shared/TutorFlow.Shared.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Availability/">
+    <Project Path="src/Modules/Availability/TutorFlow.Modules.Availability/TutorFlow.Modules.Availability.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Bookings/">
+    <Project Path="src/Modules/Bookings/TutorFlow.Modules.Bookings/TutorFlow.Modules.Bookings.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/">
+    <Project Path="src/Modules/Identity/TutorFlow.Modules.Identity/TutorFlow.Modules.Identity.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Learning/">
+    <Project Path="src/Modules/Learning/TutorFlow.Modules.Learning/TutorFlow.Modules.Learning.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Lessons/">
+    <Project Path="src/Modules/Lessons/TutorFlow.Modules.Lessons/TutorFlow.Modules.Lessons.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Messaging/">
+    <Project Path="src/Modules/Messaging/TutorFlow.Modules.Messaging/TutorFlow.Modules.Messaging.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Notifications/">
+    <Project Path="src/Modules/Notifications/TutorFlow.Modules.Notifications/TutorFlow.Modules.Notifications.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Payments/">
+    <Project Path="src/Modules/Payments/TutorFlow.Modules.Payments/TutorFlow.Modules.Payments.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Reviews/">
+    <Project Path="src/Modules/Reviews/TutorFlow.Modules.Reviews/TutorFlow.Modules.Reviews.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Search/">
+    <Project Path="src/Modules/Search/TutorFlow.Modules.Search/TutorFlow.Modules.Search.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Students/">
+    <Project Path="src/Modules/Students/TutorFlow.Modules.Students/TutorFlow.Modules.Students.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Subjects/">
+    <Project Path="src/Modules/Subjects/TutorFlow.Modules.Subjects/TutorFlow.Modules.Subjects.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Subscriptions/">
+    <Project Path="src/Modules/Subscriptions/TutorFlow.Modules.Subscriptions/TutorFlow.Modules.Subscriptions.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Tutors/">
+    <Project Path="src/Modules/Tutors/TutorFlow.Modules.Tutors/TutorFlow.Modules.Tutors.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TutorFlow.Host.Tests/TutorFlow.Host.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/" />
+  <Folder Name="/tests/Modules/Availability/">
+    <Project Path="tests/Modules/Availability/TutorFlow.Modules.Availability.Tests/TutorFlow.Modules.Availability.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/Bookings/">
+    <Project Path="tests/Modules/Bookings/TutorFlow.Modules.Bookings.Tests/TutorFlow.Modules.Bookings.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/Identity/">
+    <Project Path="tests/Modules/Identity/TutorFlow.Modules.Identity.Tests/TutorFlow.Modules.Identity.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/Learning/">
+    <Project Path="tests/Modules/Learning/TutorFlow.Modules.Learning.Tests/TutorFlow.Modules.Learning.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/Lessons/">
+    <Project Path="tests/Modules/Lessons/TutorFlow.Modules.Lessons.Tests/TutorFlow.Modules.Lessons.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/Messaging/">
+    <Project Path="tests/Modules/Messaging/TutorFlow.Modules.Messaging.Tests/TutorFlow.Modules.Messaging.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/Notifications/">
+    <Project Path="tests/Modules/Notifications/TutorFlow.Modules.Notifications.Tests/TutorFlow.Modules.Notifications.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/Payments/">
+    <Project Path="tests/Modules/Payments/TutorFlow.Modules.Payments.Tests/TutorFlow.Modules.Payments.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/Reviews/">
+    <Project Path="tests/Modules/Reviews/TutorFlow.Modules.Reviews.Tests/TutorFlow.Modules.Reviews.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/Search/">
+    <Project Path="tests/Modules/Search/TutorFlow.Modules.Search.Tests/TutorFlow.Modules.Search.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/Students/">
+    <Project Path="tests/Modules/Students/TutorFlow.Modules.Students.Tests/TutorFlow.Modules.Students.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/Subjects/">
+    <Project Path="tests/Modules/Subjects/TutorFlow.Modules.Subjects.Tests/TutorFlow.Modules.Subjects.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/Subscriptions/">
+    <Project Path="tests/Modules/Subscriptions/TutorFlow.Modules.Subscriptions.Tests/TutorFlow.Modules.Subscriptions.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/Tutors/">
+    <Project Path="tests/Modules/Tutors/TutorFlow.Modules.Tutors.Tests/TutorFlow.Modules.Tutors.Tests.csproj" />
+  </Folder>
+</Solution>

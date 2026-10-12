@@ -1,0 +1,21 @@
+.root {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+}
+
+.stars {
+  display: inline-flex;
+  color: var(--color-warning-fg);
+  letter-spacing: 1px;
+}
+
+.value {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.count {
+  color: var(--color-text-secondary);
+}

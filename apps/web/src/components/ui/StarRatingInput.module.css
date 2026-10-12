@@ -1,0 +1,30 @@
+.root {
+  display: inline-flex;
+  gap: var(--space-1, 0.25rem);
+}
+
+.star {
+  position: relative;
+  cursor: pointer;
+  font-size: 1.75rem;
+  line-height: 1;
+  color: var(--color-border, #d1d5db);
+}
+
+.star[data-filled='true'] {
+  color: var(--color-warning, #f5a623);
+}
+
+.input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.input:focus-visible + span {
+  outline: 2px solid var(--color-focus, #2563eb);
+  outline-offset: 2px;
+  border-radius: 2px;
+}

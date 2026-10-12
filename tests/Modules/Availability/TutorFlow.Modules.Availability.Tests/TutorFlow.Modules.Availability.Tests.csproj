@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+    <IsPackable>false</IsPackable>
+    <!-- Overrides the solution-wide InvariantGlobalization=true for this test host only: IANA
+         timezone IDs (e.g. "Europe/Berlin") need ICU to resolve on Windows. Linux (the real
+         deployment target) resolves them natively without ICU, so this only affects local/CI
+         test runs on Windows, never shipped code. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.mtp-v2" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../../src/Modules/Availability/TutorFlow.Modules.Availability/TutorFlow.Modules.Availability.csproj" />
+    <ProjectReference Include="../../../../src/TutorFlow.Host/TutorFlow.Host.csproj" />
+  </ItemGroup>
+
+</Project>

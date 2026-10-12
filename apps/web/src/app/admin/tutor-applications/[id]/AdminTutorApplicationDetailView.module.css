@@ -1,0 +1,106 @@
+.page {
+  padding: var(--space-6) var(--space-4);
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.backLink {
+  align-self: flex-start;
+  padding-left: 0;
+}
+
+.headerCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.headerMain {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.name {
+  margin: 0;
+}
+
+.headline {
+  margin: 0;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.detailCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.detailGrid dt {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #6b7280);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.detailGrid dd {
+  margin: 0;
+  font-weight: 500;
+}
+
+.about dt {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #6b7280);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-bottom: var(--space-1);
+}
+
+.about p {
+  margin: 0;
+}
+
+.actionsCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.actionRow {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.reasonForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.reasonLabel {
+  font-weight: 500;
+}
+
+.fieldError {
+  margin: 0;
+  color: var(--color-danger, #dc2626);
+  font-size: 0.875rem;
+}
+
+.reasonActions {
+  display: flex;
+  gap: var(--space-2);
+}

@@ -1,0 +1,20 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  padding-block: var(--space-4);
+  border: none;
+  border-bottom: var(--border-width-thin) solid var(--color-border);
+}
+
+.section:last-child {
+  border-bottom: none;
+}
+
+.title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}

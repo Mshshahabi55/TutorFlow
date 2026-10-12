@@ -1,0 +1,62 @@
+.viewport {
+  position: fixed;
+  bottom: var(--space-4);
+  right: var(--space-4);
+  left: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  z-index: var(--z-toast);
+  pointer-events: none;
+}
+
+@media (min-width: 768px) {
+  .viewport {
+    left: auto;
+    width: 22rem;
+  }
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-neutral-900);
+  color: var(--color-neutral-0);
+  font-size: var(--font-size-sm);
+  box-shadow: var(--shadow-lg);
+  animation: slideIn var(--motion-duration-base) var(--motion-easing-standard);
+}
+
+.toast.error {
+  background: var(--color-error-fg);
+}
+
+.toast.success {
+  background: var(--color-success-fg);
+}
+
+.closeButton {
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(0.5rem);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+}

@@ -1,0 +1,51 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--border-width-thin) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.price {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.priceUnit {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-secondary);
+}
+
+.secondaryActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* Desktop: panel sticks alongside the scrolling content, matching the existing component
+   inventory's own note ("persistent price + Book trial CTA... sticky on desktop"). */
+@media (min-width: 768px) {
+  .panel {
+    position: sticky;
+    top: var(--space-4);
+  }
+}
+
+/* Mobile: anchored action bar at the bottom of the viewport, a common marketplace pattern for
+   this control density — our own reasonable design, not a verified copy of Preply's unobserved
+   mobile-web layout (PREPLY_TUTOR_PROFILE_PARITY_SPEC.md §1.17). */
+@media (max-width: 767px) {
+  .panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-radius: 0;
+    border-bottom: none;
+    z-index: var(--z-header);
+  }
+}

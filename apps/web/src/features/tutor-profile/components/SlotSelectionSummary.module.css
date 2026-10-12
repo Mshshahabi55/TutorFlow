@@ -1,0 +1,9 @@
+.summary {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: var(--space-3) 0 0;
+}
+
+.summary strong {
+  color: var(--color-text-primary);
+}

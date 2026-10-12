@@ -1,0 +1,47 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 0.75rem);
+  padding: var(--space-3, 0.75rem);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 8px;
+  max-width: 480px;
+}
+
+.heading {
+  font-weight: 600;
+  margin: 0;
+}
+
+.optional {
+  font-weight: 400;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.dimensions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 0.75rem);
+}
+
+.dimension {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3, 0.75rem);
+  flex-wrap: wrap;
+}
+
+.dimensionLabel {
+  display: flex;
+  flex-direction: column;
+}
+
+.dimensionName {
+  font-weight: 600;
+}
+
+.dimensionDescription {
+  font-size: 0.875rem;
+  color: var(--color-text-muted, #6b7280);
+}

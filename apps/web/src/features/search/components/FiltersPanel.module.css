@@ -1,0 +1,19 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.priceRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.priceRow > * {
+  flex: 1;
+}
+
+.priceSeparator {
+  color: var(--color-text-secondary);
+  flex: none;
+}

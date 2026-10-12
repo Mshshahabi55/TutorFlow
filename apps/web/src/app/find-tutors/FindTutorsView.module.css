@@ -1,0 +1,52 @@
+.page {
+  padding-block: var(--space-6) var(--space-16);
+}
+
+.searchRow {
+  margin-bottom: var(--space-5);
+  max-width: 32rem;
+}
+
+.toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.chipsWrapper {
+  flex: 1;
+  min-width: 0;
+}
+
+.mobileFiltersButton {
+  flex-shrink: 0;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-8);
+}
+
+.desktopFilters {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .layout {
+    grid-template-columns: 17rem 1fr;
+    align-items: start;
+  }
+
+  .desktopFilters {
+    display: block;
+    position: sticky;
+    top: calc(4rem + var(--space-6));
+  }
+
+  .mobileFiltersButton {
+    display: none;
+  }
+}

@@ -1,0 +1,97 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 18, 16, 0.5);
+  z-index: var(--z-drawer);
+  animation: fadeIn var(--motion-duration-base) var(--motion-easing-standard);
+}
+
+.content {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 85vh;
+  overflow-y: auto;
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-5);
+  padding-bottom: calc(var(--space-5) + env(safe-area-inset-bottom));
+  z-index: var(--z-drawer);
+  animation: slideUp var(--motion-duration-base) var(--motion-easing-standard);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.closeButton {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: var(--font-size-md);
+  color: var(--color-text-secondary);
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+  min-width: var(--size-touch-target-min);
+  min-height: var(--size-touch-target-min);
+}
+
+.footer {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: var(--border-width-thin) solid var(--color-border);
+  position: sticky;
+  bottom: 0;
+  background: var(--color-bg-surface);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .content {
+    animation: none;
+  }
+}
+
+/* From tablet up, the filter sheet behaves as a right-side drawer instead of a bottom sheet —
+   matches the desktop convention of a side panel rather than a mobile bottom sheet. */
+@media (min-width: 768px) {
+  .content {
+    left: auto;
+    top: 0;
+    bottom: 0;
+    width: min(26rem, 90vw);
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  @keyframes slideUp {
+    from {
+      transform: translateX(100%);
+    }
+  }
+}

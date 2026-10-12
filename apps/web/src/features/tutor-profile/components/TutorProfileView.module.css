@@ -1,0 +1,58 @@
+.layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding-block: var(--space-6);
+}
+
+.breadcrumb {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.breadcrumb a {
+  color: var(--color-text-link);
+}
+
+.grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+@media (min-width: 768px) {
+  .grid {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .main {
+    flex: 1;
+  }
+
+  .sidebar {
+    width: 20rem;
+    flex-shrink: 0;
+  }
+
+  /* The booking panel is fixed-to-viewport on mobile (see BookingPanel.module.css); on desktop
+     it needs room in the flow instead, plus bottom padding isn't needed since it's no longer
+     docked to the bottom edge. */
+  .layout {
+    padding-bottom: var(--space-6);
+  }
+}
+
+@media (max-width: 767px) {
+  /* Leaves room so content isn't hidden behind the fixed mobile booking bar. */
+  .layout {
+    padding-bottom: 6rem;
+  }
+}

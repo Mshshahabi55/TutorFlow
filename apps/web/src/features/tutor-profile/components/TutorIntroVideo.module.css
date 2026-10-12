@@ -1,0 +1,6 @@
+.video {
+  width: 100%;
+  max-width: 480px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+}

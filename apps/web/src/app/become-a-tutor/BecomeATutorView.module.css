@@ -1,0 +1,27 @@
+.intro {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-8) var(--space-4);
+}
+
+.card {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.error {
+  color: var(--color-danger, #c0392b);
+  margin: 0;
+}
+
+.wizardPage {
+  max-width: 720px;
+}

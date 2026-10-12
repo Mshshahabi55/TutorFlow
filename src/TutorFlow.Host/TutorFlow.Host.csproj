@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web"><PropertyGroup>  <UserSecretsId>bd37bdc7-877d-4528-8288-990bd219bed8</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="WolverineFx" />
+    <PackageReference Include="WolverineFx.RuntimeCompilation" />
+    <ProjectReference Include="..\TutorFlow.Shared\TutorFlow.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Modules\Identity\TutorFlow.Modules.Identity\TutorFlow.Modules.Identity.csproj" />
+    <ProjectReference Include="..\Modules\Students\TutorFlow.Modules.Students\TutorFlow.Modules.Students.csproj" />
+    <ProjectReference Include="..\Modules\Tutors\TutorFlow.Modules.Tutors\TutorFlow.Modules.Tutors.csproj" />
+    <ProjectReference Include="..\Modules\Subjects\TutorFlow.Modules.Subjects\TutorFlow.Modules.Subjects.csproj" />
+    <ProjectReference Include="..\Modules\Search\TutorFlow.Modules.Search\TutorFlow.Modules.Search.csproj" />
+    <ProjectReference Include="..\Modules\Availability\TutorFlow.Modules.Availability\TutorFlow.Modules.Availability.csproj" />
+    <ProjectReference Include="..\Modules\Bookings\TutorFlow.Modules.Bookings\TutorFlow.Modules.Bookings.csproj" />
+    <ProjectReference Include="..\Modules\Lessons\TutorFlow.Modules.Lessons\TutorFlow.Modules.Lessons.csproj" />
+    <ProjectReference Include="..\Modules\Subscriptions\TutorFlow.Modules.Subscriptions\TutorFlow.Modules.Subscriptions.csproj" />
+    <ProjectReference Include="..\Modules\Payments\TutorFlow.Modules.Payments\TutorFlow.Modules.Payments.csproj" />
+    <ProjectReference Include="..\Modules\Messaging\TutorFlow.Modules.Messaging\TutorFlow.Modules.Messaging.csproj" />
+    <ProjectReference Include="..\Modules\Reviews\TutorFlow.Modules.Reviews\TutorFlow.Modules.Reviews.csproj" />
+    <ProjectReference Include="..\Modules\Notifications\TutorFlow.Modules.Notifications\TutorFlow.Modules.Notifications.csproj" />
+    <ProjectReference Include="..\Modules\Learning\TutorFlow.Modules.Learning\TutorFlow.Modules.Learning.csproj" />
+  </ItemGroup>
+
+</Project>

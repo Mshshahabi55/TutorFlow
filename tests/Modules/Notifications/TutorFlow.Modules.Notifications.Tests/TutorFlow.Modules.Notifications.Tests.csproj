@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.mtp-v2" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../../src/Modules/Notifications/TutorFlow.Modules.Notifications/TutorFlow.Modules.Notifications.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Identity/TutorFlow.Modules.Identity/TutorFlow.Modules.Identity.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Tutors/TutorFlow.Modules.Tutors/TutorFlow.Modules.Tutors.csproj" />
+    <ProjectReference Include="../../../../src/TutorFlow.Host/TutorFlow.Host.csproj" />
+  </ItemGroup>
+
+</Project>

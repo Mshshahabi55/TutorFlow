@@ -3,6 +3,7 @@ using FluentValidation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -79,12 +80,14 @@ public static class IdentityModule
             .WithName("RegisterUser")
             .WithSummary("Register a new account with the default Student role.")
             .AddEndpointFilter<ValidationFilter<RegisterFeature.Command>>()
+            .RequireRateLimiting("auth-register")
             .AllowAnonymous();
 
         group.MapPost("/login", LoginAsync)
             .WithName("LoginUser")
             .WithSummary("Authenticate and receive a JWT access token.")
             .AddEndpointFilter<ValidationFilter<LoginFeature.Command>>()
+            .RequireRateLimiting("auth-login")
             .AllowAnonymous();
 
         group.MapGet("/me", GetMe)

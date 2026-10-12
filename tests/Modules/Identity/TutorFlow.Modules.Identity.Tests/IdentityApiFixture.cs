@@ -26,7 +26,16 @@ public sealed class IdentityApiFixture : WebApplicationFactory<Program>, IAsyncL
                 ["Jwt:Issuer"] = JwtIssuer,
                 ["Jwt:Audience"] = JwtAudience,
                 ["Jwt:Key"] = JwtKey,
-                ["Jwt:ExpirationMinutes"] = "60"
+                ["Jwt:ExpirationMinutes"] = "60",
+                // This fixture's many register/login calls across IdentityEndpointsTests all
+                // share one TestServer connection (same loopback RemoteIpAddress, same rate
+                // limiter partition) — raised well above the production default so none of those
+                // functional tests trip the limiter. Dedicated low-limit coverage of the
+                // limiter itself lives in AuthRateLimitingApiFixture/AuthRateLimitingTests.
+                ["RateLimiting:Register:PermitLimit"] = "1000",
+                ["RateLimiting:Register:WindowSeconds"] = "60",
+                ["RateLimiting:Login:PermitLimit"] = "1000",
+                ["RateLimiting:Login:WindowSeconds"] = "60"
             });
         });
     }

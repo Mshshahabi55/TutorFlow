@@ -3,6 +3,7 @@ import './globals.css';
 import { Providers } from './providers';
 import { SiteHeader } from '@/components/layout/SiteHeader';
 import { SiteFooter } from '@/components/layout/SiteFooter';
+import { HeaderVariantProvider } from '@/components/layout/HeaderVariantContext';
 import { TooltipProvider } from '@/components/ui/Tooltip';
 import { ToastProvider } from '@/components/ui/Toast';
 
@@ -21,8 +22,10 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
         <Providers>
           <TooltipProvider>
             <ToastProvider>
-              <SiteHeader />
-              <main id="main-content">{children}</main>
+              <HeaderVariantProvider>
+                <SiteHeader />
+                <main id="main-content">{children}</main>
+              </HeaderVariantProvider>
               <SiteFooter />
             </ToastProvider>
           </TooltipProvider>

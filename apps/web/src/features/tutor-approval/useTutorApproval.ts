@@ -7,8 +7,10 @@ import {
   getPendingTutorApplications,
   getTutorApplicationForAdmin,
   publishTutorApplication,
+  rejectCertificate,
   rejectTutorApplication,
   suspendTutorApplication,
+  verifyCertificate,
 } from './api';
 import { TutorApplicationStatus } from './types';
 
@@ -74,4 +76,21 @@ export function usePublishTutorApplication(id: string) {
 export function useSuspendTutorApplication(id: string) {
   const invalidate = useInvalidateAfterMutation(id);
   return useMutation({ mutationFn: (reason: string) => suspendTutorApplication(id, reason), onSuccess: invalidate });
+}
+
+export function useVerifyCertificate(applicationId: string) {
+  const invalidate = useInvalidateAfterMutation(applicationId);
+  return useMutation({
+    mutationFn: (certificateId: string) => verifyCertificate(applicationId, certificateId),
+    onSuccess: invalidate,
+  });
+}
+
+export function useRejectCertificate(applicationId: string) {
+  const invalidate = useInvalidateAfterMutation(applicationId);
+  return useMutation({
+    mutationFn: ({ certificateId, reason }: { certificateId: string; reason: string }) =>
+      rejectCertificate(applicationId, certificateId, reason),
+    onSuccess: invalidate,
+  });
 }

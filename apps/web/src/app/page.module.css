@@ -1,32 +1,337 @@
+/* Full-bleed pink hero, matching the real Preply homepage's header+hero band (same accent token
+   as SiteHeader's `.headerHome`, so the two visually merge into one continuous band). */
 .hero {
-  padding-block: var(--space-12) var(--space-16);
-  text-align: center;
+  background: var(--color-accent-500);
+}
+
+.heroInner {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-5);
+  gap: var(--space-8);
+  padding-block: var(--space-8) var(--space-10);
+}
+
+.heroText {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-6);
+  width: 100%;
 }
 
 .title {
-  font-size: var(--font-size-2xl);
-  max-width: 36rem;
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  color: var(--color-neutral-900);
+  margin: 0;
 }
 
-.subtitle {
-  color: var(--color-text-secondary);
-  max-width: 32rem;
-  font-size: var(--font-size-md);
+/* Black on pink, not the site's usual pink-on-white primary button — matches the real Preply
+   hero CTA's contrast logic (dark button on a colored background, accent button on white). */
+.heroCta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--color-neutral-900);
+  color: var(--color-text-inverse);
 }
 
-.actions {
-  display: flex;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-  justify-content: center;
+.heroCta:hover {
+  background: var(--color-neutral-800);
+}
+
+/* Three real photos, layered — matches the real Preply hero's stacked-card composition (a large
+   main photo, a smaller inset "video call" photo overlapping its corner, and another card
+   peeking out from behind). All three images are kept within this box's own bounds (nothing
+   positioned past 0%/100%) except the inset, which pokes out by exactly the PageContainer's own
+   horizontal padding — proven not to cause horizontal overflow at any viewport (verified in
+   screenshots down to 390px). An explicit aspect-ratio gives the container real dimensions since
+   every image inside is absolutely positioned for precise layering. */
+.heroImage {
+  position: relative;
+  width: 100%;
+  max-width: 24rem;
+  aspect-ratio: 4 / 5;
+}
+
+.heroImageLayer {
+  position: absolute;
+  top: 10%;
+  left: 10%;
+  width: 86%;
+  height: 86%;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+  transform: rotate(5deg);
+  box-shadow: var(--shadow-md);
+  z-index: 1;
+}
+
+.heroImageMain {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 92%;
+  height: 92%;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+  display: block;
+  box-shadow: var(--shadow-lg);
+  z-index: 2;
+}
+
+.heroImageInset {
+  position: absolute;
+  top: -1rem;
+  left: -1rem;
+  width: 30%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  border: 3px solid var(--color-neutral-0);
+  box-shadow: var(--shadow-md);
+  z-index: 3;
 }
 
 @media (min-width: 768px) {
+  .heroInner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-10);
+    padding-block: var(--space-16);
+  }
+
+  .heroText {
+    width: auto;
+    max-width: 26rem;
+  }
+
   .title {
-    font-size: var(--font-size-3xl);
+    font-size: var(--font-size-4xl);
+  }
+
+  .heroImage {
+    flex-shrink: 0;
+    max-width: 26rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .title {
+    font-size: 3.5rem;
+  }
+}
+
+/* Trust row — five qualitative statements, not fabricated metrics (see TRUST_ITEMS comment in
+   page.tsx). Wraps to two columns on mobile, one row of five from tablet up. */
+.trust {
+  background: var(--color-bg-surface);
+  border-bottom: var(--border-width-thin) solid var(--color-border);
+}
+
+.trustInner {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-6) var(--space-4);
+  padding-block: var(--space-8);
+}
+
+.trustItem {
+  text-align: center;
+}
+
+.trustTitle {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  margin: 0 0 var(--space-1);
+}
+
+.trustLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+@media (min-width: 768px) {
+  .trustInner {
+    grid-template-columns: repeat(5, 1fr);
+    padding-block: var(--space-10);
+  }
+
+  .trustTitle {
+    font-size: var(--font-size-lg);
+  }
+}
+
+.sectionTitle {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--space-6);
+}
+
+/* Subject grid — real catalog data, card-icon-chevron structure matching the real Preply
+   homepage's language grid. */
+.subjects {
+  background: var(--color-bg-surface);
+  padding-block: var(--space-10);
+}
+
+.subjectGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.subjectCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--border-width-thin) solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: border-color var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+.subjectCard:hover {
+  border-color: var(--color-border-strong);
+}
+
+.subjectIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-muted);
+  color: var(--color-text-primary);
+}
+
+.subjectName {
+  flex: 1;
+  font-weight: var(--font-weight-bold);
+}
+
+.subjectChevron {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-lg);
+}
+
+@media (min-width: 640px) {
+  .subjectGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .subjectGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* How it works — muted background for rhythm/separation from the white sections above/below. */
+.howItWorks {
+  background: var(--color-bg-muted);
+  padding-block: var(--space-10);
+}
+
+.stepsGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.stepCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.stepNumber {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-full);
+  background: var(--color-neutral-900);
+  color: var(--color-text-inverse);
+  font-weight: var(--font-weight-bold);
+}
+
+.stepTitle {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  margin: 0;
+}
+
+.stepBody {
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+@media (min-width: 768px) {
+  .stepsGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Trial-lesson / refund-policy section — truthful, centered. */
+.trial {
+  background: var(--color-bg-surface);
+  padding-block: var(--space-10);
+}
+
+.trialInner {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+  max-width: 36rem;
+}
+
+.trialBody {
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+/* Become-a-tutor teaser — a dark band for visual rhythm (mirrors the real Preply homepage's own
+   "Become a tutor" section getting distinct visual treatment from the sections around it). */
+.becomeTutor {
+  background: var(--color-neutral-900);
+  color: var(--color-text-inverse);
+  padding-block: var(--space-10);
+}
+
+.becomeTutor .sectionTitle,
+.becomeTutor .trialBody {
+  color: var(--color-text-inverse);
+}
+
+.becomeTutorInner {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-6);
+}
+
+@media (min-width: 768px) {
+  .becomeTutorInner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-8);
   }
 }

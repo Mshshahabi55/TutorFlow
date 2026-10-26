@@ -11,16 +11,18 @@ import { Alert } from '@/components/ui/Alert';
 import { Avatar } from '@/components/ui/Avatar';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { ApiError } from '@/lib/api/client';
+import { API_BASE_URL, ApiError } from '@/lib/api/client';
 import { resolveMediaUrl } from '@/features/tutor-profile/mediaUrl';
 import { RequireAdmin } from '@/features/tutor-approval/components/RequireAdmin';
 import {
   useApproveTutorApplication,
   useBeginReviewTutorApplication,
   usePublishTutorApplication,
+  useRejectCertificate,
   useRejectTutorApplication,
   useSuspendTutorApplication,
   useTutorApplicationForAdmin,
+  useVerifyCertificate,
 } from '@/features/tutor-approval/useTutorApproval';
 import { AdminTutorApplicationDetail, TutorApplicationStatus } from '@/features/tutor-approval/types';
 import styles from './AdminTutorApplicationDetailView.module.css';
@@ -118,16 +120,33 @@ function ReasonForm({
   );
 }
 
+function certificateStatusBadge(status: AdminTutorApplicationDetail['certificateEntries'][number]['verificationStatus']): { variant: BadgeVariant; label: string } {
+  switch (status) {
+    case 'Verified':
+      return { variant: 'success', label: 'Verified' };
+    case 'PendingReview':
+      return { variant: 'warning', label: 'Pending review' };
+    case 'Rejected':
+      return { variant: 'neutral', label: 'Rejected' };
+    case 'None':
+    default:
+      return { variant: 'neutral', label: 'No document' };
+  }
+}
+
 export function AdminTutorApplicationDetailView({ id }: { id: string }) {
   const { data: application, isLoading, isError, refetch } = useTutorApplicationForAdmin(id, true);
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [showSuspendForm, setShowSuspendForm] = useState(false);
+  const [rejectingCertificateId, setRejectingCertificateId] = useState<string | null>(null);
 
   const beginReview = useBeginReviewTutorApplication(id);
   const approve = useApproveTutorApplication(id);
   const reject = useRejectTutorApplication(id);
   const publish = usePublishTutorApplication(id);
   const suspend = useSuspendTutorApplication(id);
+  const verifyCert = useVerifyCertificate(id);
+  const rejectCert = useRejectCertificate(id);
 
   return (
     <RequireAdmin>
@@ -184,10 +203,6 @@ export function AdminTutorApplicationDetailView({ id }: { id: string }) {
                   <dd>{application.educationEntries.length}</dd>
                 </div>
                 <div>
-                  <dt>Certificates</dt>
-                  <dd>{application.certificateEntries.length}</dd>
-                </div>
-                <div>
                   <dt>Availability configured</dt>
                   <dd>{application.availabilitySettingsConfigured ? 'Yes' : 'No'}</dd>
                 </div>
@@ -203,6 +218,77 @@ export function AdminTutorApplicationDetailView({ id }: { id: string }) {
                 </div>
               )}
             </Card>
+
+            {application.certificateEntries.length > 0 && (
+              <Card className={styles.detailCard}>
+                <h2 className={styles.name}>Certificates</h2>
+                {application.certificateEntries.map((cert) => {
+                  const badge = certificateStatusBadge(cert.verificationStatus);
+                  const documentUrl = `${API_BASE_URL}/api/tutors/admin/applications/${application.id}/certificates/${cert.id}/document`;
+                  return (
+                    <div key={cert.id} className={styles.detailGrid}>
+                      <div>
+                        <dt>{cert.name}</dt>
+                        <dd>{cert.issuingOrganization}</dd>
+                      </div>
+                      <div>
+                        <dt>Status</dt>
+                        <dd>
+                          <Badge variant={badge.variant}>{badge.label}</Badge>
+                        </dd>
+                      </div>
+                      {cert.verificationStatus === 'Rejected' && cert.rejectionReason && (
+                        <div>
+                          <dt>Rejection reason</dt>
+                          <dd>{cert.rejectionReason}</dd>
+                        </div>
+                      )}
+                      {cert.verificationStatus === 'PendingReview' && rejectingCertificateId !== cert.id && (
+                        <div className={styles.actionRow}>
+                          <a href={documentUrl} target="_blank" rel="noreferrer">
+                            View document
+                          </a>
+                          <Button
+                            size="sm"
+                            onClick={() => verifyCert.mutate(cert.id)}
+                            loading={verifyCert.isPending}
+                          >
+                            Verify certificate
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() => setRejectingCertificateId(cert.id)}
+                          >
+                            Reject certificate
+                          </Button>
+                        </div>
+                      )}
+                      {verifyCert.isError && verifyCert.variables === cert.id && (
+                        <Alert variant="error" title="Couldn't verify">
+                          {errorMessage(verifyCert.error)}
+                        </Alert>
+                      )}
+                      {rejectingCertificateId === cert.id && (
+                        <ReasonForm
+                          label="Reason for rejection"
+                          submitLabel="Reject certificate"
+                          isPending={rejectCert.isPending}
+                          error={rejectCert.isError ? errorMessage(rejectCert.error) : null}
+                          onSubmit={(reason) =>
+                            rejectCert.mutate(
+                              { certificateId: cert.id, reason },
+                              { onSuccess: () => setRejectingCertificateId(null) },
+                            )
+                          }
+                          onCancel={() => setRejectingCertificateId(null)}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </Card>
+            )}
 
             {application.status === 'Rejected' && (
               <Alert variant="warning" title="Rejected">

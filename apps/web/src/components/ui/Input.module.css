@@ -1,5 +1,5 @@
 .input {
-  min-height: var(--size-touch-target-min);
+  min-height: var(--size-control-field);
   padding: 0 var(--space-3);
   border-radius: var(--radius-md);
   border: var(--border-width-thin) solid var(--color-border-strong);

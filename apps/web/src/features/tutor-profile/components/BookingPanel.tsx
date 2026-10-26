@@ -7,6 +7,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/features/auth/useAuth';
 import { useAvailabilityPreview, useFavoriteMutations, useFavoriteStatus, useTrialEligibility } from '../useTutorProfile';
 import { TutorPublicProfile } from '../types';
+import { MessageTutorButton } from './MessageTutorButton';
 import styles from './BookingPanel.module.css';
 
 function formatPrice(minorUnits: number, currency: string): string {
@@ -117,15 +118,11 @@ export function BookingPanel({ profile, onRequireAuth }: BookingPanelProps) {
       )}
 
       <div className={styles.secondaryActions}>
-        {isStudent ? (
-          <ButtonLink href="/messages" variant="secondary" fullWidth>
-            Message
-          </ButtonLink>
-        ) : (
-          <Button variant="secondary" fullWidth onClick={() => onRequireAuth('message this tutor')}>
-            Message
-          </Button>
-        )}
+        <MessageTutorButton
+          tutorUserId={profile.tutorUserId}
+          isAuthenticatedStudent={isStudent}
+          onRequireAuth={onRequireAuth}
+        />
 
         <Button
           variant="ghost"

@@ -56,10 +56,18 @@ export interface AdminTutorApplicationDetail {
     endYear: number | null;
   }[];
   certificateEntries: {
+    id: string;
     name: string;
     issuingOrganization: string;
-    issueYear: number | null;
-    fileReference: string | null;
+    description: string | null;
+    subjectId: string | null;
+    startYear: number | null;
+    endYear: number | null;
+    // No raw storage filename here (audit finding F3) — "View document" addresses the document
+    // by certificate id through the dedicated streaming endpoint, never by filename.
+    hasDocument: boolean;
+    verificationStatus: 'None' | 'PendingReview' | 'Verified' | 'Rejected';
+    rejectionReason: string | null;
   }[];
   hourlyRateAmountMinorUnits: number | null;
   hourlyRateCurrency: string | null;

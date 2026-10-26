@@ -1,31 +1,39 @@
 /*
   TutorFlow design tokens.
 
-  Own visual system, inspired by the structural patterns observed in the Preply UI/UX audit
-  (docs/design/PREPLY_UI_UX_AUDIT.md) — card-based marketplace layout, calm neutral base so
-  tutor photos/video stay the visual focus, one confident accent reserved for primary CTAs.
-  No literal Preply colors/type/spacing are reused (none were reliably observable anyway).
-  Accent is deliberately NOT green — green reads as Preply's own brand color.
+  Accent is now derived directly from real pixel evidence of Preply's actual tutor-onboarding
+  wizard (docs/product/preply-reverse-engineering/evidence/tutor.zip, a real authenticated
+  session's screenshots — not the old UI/UX audit's assumption that Preply's brand reads green;
+  the real wizard's primary CTA is a pink/magenta button with black text). TutorFlow keeps its own
+  brand name/copy/assets — only the *color value and usage pattern* (one confident, saturated
+  accent reserved for primary CTAs and focus states) is evidence-derived, reproducing the
+  observable pattern rather than copying any proprietary asset. Checkboxes, the stepper's
+  current/complete indicators, and body-copy links are deliberately kept dark/neutral rather than
+  accent-colored — the same screenshots show those elements in black, not the CTA color; accent is
+  reserved for primary action only, matching what was actually observed.
 */
 
 :root {
-  /* Accent — deep indigo-blue: trustworthy/premium/European, reserved for primary CTAs and
-     selected/active states. Never used as a large background fill. */
-  --color-accent-50: #eef1fd;
-  --color-accent-100: #d7defa;
-  --color-accent-200: #aebdf4;
-  --color-accent-300: #869bee;
-  --color-accent-400: #5d7ae8;
-  --color-accent-500: #3659dd;
-  --color-accent-600: #2843b8;
-  --color-accent-700: #1f3390;
-  --color-accent-700-rgb: 31, 51, 144;
-  --color-accent-800: #172568;
-  --color-accent-900: #0f1840;
+  /* Accent — pink/magenta primary-action color, matching the real Preply wizard's "Save and
+     continue" / "Complete registration" buttons (SS06, SS10, SS13). Reserved for primary CTAs
+     and focus states only — never a large background fill, never checkboxes/stepper/links (those
+     are dark neutral in the same evidence). accent-600 (#f8488e) on black text measures ~6.3:1
+     contrast (WCAG AA); accent-700 hover ~4.6:1. */
+  --color-accent-50: #fff0f6;
+  --color-accent-100: #fedcea;
+  --color-accent-200: #fbb8d3;
+  --color-accent-300: #fa8ebb;
+  --color-accent-400: #f96aa3;
+  --color-accent-500: #f84f95;
+  --color-accent-600: #f8488e;
+  --color-accent-700: #d43876;
+  --color-accent-700-rgb: 212, 56, 118;
+  --color-accent-800: #a82a5d;
+  --color-accent-900: #7a1f44;
 
   /* Neutral — warm-tinted gray scale, the dominant surface/text palette */
   --color-neutral-0: #ffffff;
-  --color-neutral-50: #f8f8f7;
+  --color-neutral-50: #f7f6f3;
   --color-neutral-100: #f0efed;
   --color-neutral-200: #e2e0dc;
   --color-neutral-300: #cac7c1;
@@ -37,9 +45,11 @@
   --color-neutral-900: #211d1a;
   --color-neutral-950: #141210;
 
-  /* Semantic — conventional hues (users read success-as-green regardless of brand accent) */
-  --color-success-bg: #e8f6ee;
-  --color-success-fg: #1b7a43;
+  /* Semantic — conventional hues (users read success-as-green regardless of brand accent).
+     Success is tuned toward a soft sage rather than a bright kelly green, matching the Nordic
+     brief; warning/error are left as conventional amber/red for unambiguous recognition. */
+  --color-success-bg: #eaf2ea;
+  --color-success-fg: #3f6b4a;
   --color-warning-bg: #fdf3e3;
   --color-warning-fg: #93610a;
   --color-error-bg: #fcebea;
@@ -74,6 +84,7 @@
   --font-size-xl: 1.375rem; /* 22px */
   --font-size-2xl: 1.75rem; /* 28px */
   --font-size-3xl: 2.25rem; /* 36px */
+  --font-size-4xl: 3rem; /* 48px — large marketing headlines (homepage hero) */
 
   --line-height-tight: 1.2;
   --line-height-normal: 1.5;
@@ -118,6 +129,10 @@
   --size-control-md: 2.5rem; /* 40px — meets 44px touch target with padding */
   --size-control-lg: 3rem; /* 48px */
   --size-touch-target-min: 2.75rem; /* 44px, WCAG 2.2 target-size minimum */
+  /* Text input/select field height — taller than the 44px touch-target floor, matching the real
+     Preply wizard's field proportions (docs/product/preply-reverse-engineering/evidence/tutor.zip
+     SS01/SS03/SS10 inputs read noticeably taller than a bare touch target). */
+  --size-control-field: 3.25rem; /* 52px */
 
   /* Breakpoints (reference values — see src/lib/breakpoints.ts for the JS-side source of truth
      used by useMediaQuery; CSS custom properties cannot be interpolated into @media queries) */

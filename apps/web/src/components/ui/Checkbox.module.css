@@ -10,9 +10,12 @@
   justify-content: center;
 }
 
+/* Dark neutral when checked, not the accent color — matches the real Preply wizard's checkboxes
+   (SS01/SS03 "Remember me" / "I don't have a teaching certificate"), which fill solid black with
+   a white checkmark, reserving accent/pink for primary CTA buttons only. */
 .root[data-state='checked'] {
-  background: var(--color-accent-600);
-  border-color: var(--color-accent-600);
+  background: var(--color-neutral-900);
+  border-color: var(--color-neutral-900);
 }
 
 .root:disabled {

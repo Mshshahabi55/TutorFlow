@@ -11,7 +11,10 @@
  * later never touches a component.
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:5148';
+// Exported so the external (Google/Facebook) login links can build a full-page-navigation href
+// to the backend's OAuth challenge endpoints (ADR-0031) — those are real redirects, not fetch
+// calls, so they live outside the apiGet/apiPost helpers below but still need this same origin.
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:5148';
 
 export interface ProblemDetails {
   type?: string;
@@ -130,4 +133,30 @@ export function apiPatch<TResponse, TBody = unknown>(
   options?: ApiMutationOptions,
 ): Promise<TResponse> {
   return sendJson<TResponse>('PATCH', path, body, options);
+}
+
+/**
+ * For multipart/form-data bodies (file uploads) — deliberately does not set a Content-Type
+ * header; the browser sets it itself with the correct multipart boundary, which `sendJson`'s
+ * fixed `application/json` header can't express.
+ */
+export async function apiPostFormData<TResponse>(
+  path: string,
+  formData: FormData,
+  options?: ApiMutationOptions,
+): Promise<TResponse> {
+  const response = await fetch(new URL(path, API_BASE_URL), {
+    method: 'POST',
+    headers: { Accept: 'application/json' },
+    credentials: 'include',
+    body: formData,
+    signal: options?.signal,
+  });
+
+  if (!response.ok) {
+    const problem: ProblemDetails = await response.json().catch(() => ({}));
+    throw new ApiError(response.status, problem);
+  }
+
+  return (await response.json()) as TResponse;
 }

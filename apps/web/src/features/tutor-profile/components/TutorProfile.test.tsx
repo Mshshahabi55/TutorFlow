@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { axe } from 'vitest-axe';
 import { TutorProfileHero } from './TutorProfileHero';
 import { TutorAbout } from './TutorAbout';
@@ -16,6 +16,11 @@ vi.mock('@/features/catalog/useCatalog', () => ({
   useSubjects: () => ({ data: [{ id: 's1', code: 'english', displayName: 'English' }], isLoading: false }),
   useSpecialties: () => ({ data: [], isLoading: false }),
   useLanguages: () => ({ data: [{ code: 'en', displayName: 'English' }], isLoading: false }),
+}));
+
+const mockUseTutorReviewSummary = vi.fn();
+vi.mock('@/features/reviews/useReviews', () => ({
+  useTutorReviewSummary: (tutorUserId: string) => mockUseTutorReviewSummary(tutorUserId),
 }));
 
 function renderWithProviders(ui: ReactElement) {
@@ -47,16 +52,67 @@ const sampleProfile: TutorPublicProfile = {
 };
 
 describe('TutorProfileHero', () => {
+  beforeEach(() => {
+    mockUseTutorReviewSummary.mockReset();
+  });
+
   it('renders name, headline, and both trust badges', () => {
+    mockUseTutorReviewSummary.mockReturnValue({
+      data: { overallRating: 4.8, reviewCount: 12, subRatings: null, reviews: [] },
+      isLoading: false,
+    });
     renderWithProviders(<TutorProfileHero profile={sampleProfile} />);
     expect(screen.getByRole('heading', { name: 'Jane Dev' })).toBeInTheDocument();
     expect(screen.getByText('Friendly conversational English tutor')).toBeInTheDocument();
     expect(screen.getByText('Super Tutor')).toBeInTheDocument();
     expect(screen.getByText('Professional Tutor')).toBeInTheDocument();
+  });
+
+  it('shows the real, non-zero rating and review count from the shared review-summary query', () => {
+    mockUseTutorReviewSummary.mockReturnValue({
+      data: { overallRating: 4.8, reviewCount: 12, subRatings: null, reviews: [] },
+      isLoading: false,
+    });
+    renderWithProviders(<TutorProfileHero profile={sampleProfile} />);
+
+    expect(screen.getByText('4.8')).toBeInTheDocument();
+    expect(screen.getByText('(12 reviews)')).toBeInTheDocument();
+    expect(screen.queryByText('No reviews yet')).not.toBeInTheDocument();
+  });
+
+  it('shows "No reviews yet" only once the query has actually confirmed a zero count', () => {
+    mockUseTutorReviewSummary.mockReturnValue({
+      data: { overallRating: 0, reviewCount: 0, subRatings: null, reviews: [] },
+      isLoading: false,
+    });
+    renderWithProviders(<TutorProfileHero profile={sampleProfile} />);
+
     expect(screen.getByText('No reviews yet')).toBeInTheDocument();
   });
 
+  it('never presents a confirmed zero while the review summary is still loading', () => {
+    mockUseTutorReviewSummary.mockReturnValue({ data: undefined, isLoading: true });
+    renderWithProviders(<TutorProfileHero profile={sampleProfile} />);
+
+    expect(screen.queryByText('No reviews yet')).not.toBeInTheDocument();
+    expect(screen.queryByText('0.0')).not.toBeInTheDocument();
+  });
+
+  it('never presents a confirmed zero when the review summary failed to load', () => {
+    mockUseTutorReviewSummary.mockReturnValue({ data: undefined, isLoading: false });
+    renderWithProviders(<TutorProfileHero profile={sampleProfile} />);
+
+    expect(screen.queryByText('No reviews yet')).not.toBeInTheDocument();
+    expect(screen.queryByText('0.0')).not.toBeInTheDocument();
+    // The rest of the hero's own data still renders — a failed review summary never blocks it.
+    expect(screen.getByRole('heading', { name: 'Jane Dev' })).toBeInTheDocument();
+  });
+
   it('has no detectable axe violations', async () => {
+    mockUseTutorReviewSummary.mockReturnValue({
+      data: { overallRating: 4.8, reviewCount: 12, subRatings: null, reviews: [] },
+      isLoading: false,
+    });
     const { container } = renderWithProviders(<TutorProfileHero profile={sampleProfile} />);
     expect((await axe(container)).violations).toEqual([]);
   });

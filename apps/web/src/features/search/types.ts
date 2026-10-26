@@ -56,7 +56,9 @@ export const DEFAULT_FILTERS: SearchFilters = {
 
 export interface SpokenLanguageDto {
   languageCode: string;
-  proficiency: 'Basic' | 'Conversational' | 'Fluent' | 'Native';
+  // CEFR scale + Native, matching the Tutors-module backend's LanguageProficiency
+  // (docs/product/preply-reverse-engineering/24-about-stage-live-evidence-2026-10-18.md §2 item 6).
+  proficiency: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2' | 'Native';
 }
 
 export interface TutorSearchResult {

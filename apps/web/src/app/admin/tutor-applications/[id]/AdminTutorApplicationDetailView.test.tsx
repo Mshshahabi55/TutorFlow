@@ -13,6 +13,8 @@ const mockApprove = vi.fn();
 const mockReject = vi.fn();
 const mockPublish = vi.fn();
 const mockSuspend = vi.fn();
+const mockVerifyCertificate = vi.fn();
+const mockRejectCertificate = vi.fn();
 
 vi.mock('@/features/tutor-approval/useTutorApproval', () => ({
   useTutorApplicationForAdmin: () => mockUseTutorApplicationForAdmin(),
@@ -21,6 +23,8 @@ vi.mock('@/features/tutor-approval/useTutorApproval', () => ({
   useRejectTutorApplication: () => mockReject(),
   usePublishTutorApplication: () => mockPublish(),
   useSuspendTutorApplication: () => mockSuspend(),
+  useVerifyCertificate: () => mockVerifyCertificate(),
+  useRejectCertificate: () => mockRejectCertificate(),
 }));
 
 function baseApplication(overrides: Partial<AdminTutorApplicationDetail> = {}): AdminTutorApplicationDetail {
@@ -67,6 +71,8 @@ describe('AdminTutorApplicationDetailView', () => {
     mockReject.mockReturnValue({ mutate: vi.fn(), isPending: false, isError: false });
     mockPublish.mockReturnValue({ mutate: vi.fn(), isPending: false, isError: false });
     mockSuspend.mockReturnValue({ mutate: vi.fn(), isPending: false, isError: false });
+    mockVerifyCertificate.mockReturnValue({ mutate: vi.fn(), isPending: false, isError: false, variables: undefined });
+    mockRejectCertificate.mockReturnValue({ mutate: vi.fn(), isPending: false, isError: false });
   });
 
   it('unauthenticated: never calls the detail endpoint\'s data into view, shows sign-in prompt', () => {
@@ -189,5 +195,108 @@ describe('AdminTutorApplicationDetailView', () => {
     const { container } = render(<AdminTutorApplicationDetailView id="app-1" />);
 
     expect((await axe(container)).violations).toEqual([]);
+  });
+
+  describe('certificate review', () => {
+    function certificate(overrides: Partial<AdminTutorApplicationDetail['certificateEntries'][number]> = {}) {
+      return {
+        id: 'cert-1',
+        name: 'TEFL Certificate',
+        issuingOrganization: 'ITA',
+        description: null,
+        subjectId: null,
+        startYear: null,
+        endYear: null,
+        hasDocument: true,
+        verificationStatus: 'PendingReview' as const,
+        rejectionReason: null,
+        ...overrides,
+      };
+    }
+
+    it('a PendingReview certificate shows a document link and Verify/Reject actions', () => {
+      mockUseTutorApplicationForAdmin.mockReturnValue({
+        data: baseApplication({ certificateEntries: [certificate()] }),
+        isLoading: false,
+        isError: false,
+        refetch: vi.fn(),
+      });
+
+      render(<AdminTutorApplicationDetailView id="app-1" />);
+
+      expect(screen.getByRole('link', { name: 'View document' })).toHaveAttribute(
+        'href',
+        expect.stringContaining('/api/tutors/admin/applications/app-1/certificates/cert-1/document'),
+      );
+      expect(screen.getByRole('button', { name: 'Verify certificate' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Reject certificate' })).toBeInTheDocument();
+    });
+
+    it('clicking Verify certificate calls the verify mutation with the certificate id', () => {
+      const mutate = vi.fn();
+      mockVerifyCertificate.mockReturnValue({ mutate, isPending: false, isError: false, variables: undefined });
+      mockUseTutorApplicationForAdmin.mockReturnValue({
+        data: baseApplication({ certificateEntries: [certificate()] }),
+        isLoading: false,
+        isError: false,
+        refetch: vi.fn(),
+      });
+
+      render(<AdminTutorApplicationDetailView id="app-1" />);
+      fireEvent.click(screen.getByRole('button', { name: 'Verify certificate' }));
+
+      expect(mutate).toHaveBeenCalledWith('cert-1');
+    });
+
+    it('rejecting a certificate requires a reason and submits it to the mutation', () => {
+      const mutate = vi.fn();
+      mockRejectCertificate.mockReturnValue({ mutate, isPending: false, isError: false });
+      mockUseTutorApplicationForAdmin.mockReturnValue({
+        data: baseApplication({ certificateEntries: [certificate()] }),
+        isLoading: false,
+        isError: false,
+        refetch: vi.fn(),
+      });
+
+      render(<AdminTutorApplicationDetailView id="app-1" />);
+      fireEvent.click(screen.getByRole('button', { name: 'Reject certificate' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Reject certificate' }));
+      expect(mutate).not.toHaveBeenCalled();
+
+      fireEvent.change(screen.getByLabelText('Reason for rejection'), { target: { value: 'Illegible scan' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Reject certificate' }));
+
+      expect(mutate).toHaveBeenCalledWith({ certificateId: 'cert-1', reason: 'Illegible scan' }, expect.anything());
+    });
+
+    it('a Verified certificate shows the badge with no action buttons', () => {
+      mockUseTutorApplicationForAdmin.mockReturnValue({
+        data: baseApplication({ certificateEntries: [certificate({ verificationStatus: 'Verified' })] }),
+        isLoading: false,
+        isError: false,
+        refetch: vi.fn(),
+      });
+
+      render(<AdminTutorApplicationDetailView id="app-1" />);
+
+      expect(screen.getByText('Verified')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Verify certificate' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'View document' })).not.toBeInTheDocument();
+    });
+
+    it('a Rejected certificate shows its recorded reason', () => {
+      mockUseTutorApplicationForAdmin.mockReturnValue({
+        data: baseApplication({
+          certificateEntries: [certificate({ verificationStatus: 'Rejected', rejectionReason: 'Blurry image' })],
+        }),
+        isLoading: false,
+        isError: false,
+        refetch: vi.fn(),
+      });
+
+      render(<AdminTutorApplicationDetailView id="app-1" />);
+
+      expect(screen.getByText('Blurry image')).toBeInTheDocument();
+    });
   });
 });

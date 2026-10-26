@@ -24,9 +24,11 @@
   opacity: 0.55;
 }
 
+/* Black text on the pink accent — matches the real Preply wizard's CTA buttons (SS06 "Save and
+   continue", SS13 "Complete registration"), not white-on-accent. */
 .primary {
   background: var(--color-accent-600);
-  color: var(--color-text-inverse);
+  color: var(--color-neutral-900);
 }
 .primary:hover:not(:disabled) {
   background: var(--color-accent-700);

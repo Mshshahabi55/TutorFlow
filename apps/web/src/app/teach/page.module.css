@@ -1,0 +1,197 @@
+/* White background, dark typography, generous whitespace — matches the real Preply recruitment
+   landing page's restrained style (SS53), deliberately not reusing the homepage's pink hero band:
+   this page is its own, calmer entry point, not another brand moment. */
+.hero {
+  background: var(--color-bg-surface);
+}
+
+.heroInner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding-block: var(--space-8) var(--space-10);
+}
+
+.heroText {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-8);
+  width: 100%;
+}
+
+/* Constrained width + balanced wrap, matching the reference's two-line desktop headline
+   (SS53) rather than a fixed manual break, which only held true at one exact viewport. */
+.title {
+  max-width: 24rem;
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+  margin: 0;
+  text-wrap: balance;
+}
+
+.stepsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.stepItem {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  position: relative;
+}
+
+/* Square, slightly-rounded markers — matches the reference's step badges (SS53) rather than a
+   circular stepper dot. Inactive (steps 2–3) read as a muted outline; the first step reads solid
+   dark, matching the reference's own light/dark contrast between step 1 and the rest. This is
+   purely illustrative (the page has no real "current step" state to track), not a functional
+   stepper. */
+.stepNumber {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-muted);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-bold);
+  flex-shrink: 0;
+}
+
+.stepNumberActive {
+  background: var(--color-neutral-900);
+  color: var(--color-text-inverse);
+}
+
+.stepTitle {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  margin: 0;
+}
+
+.stepBody {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+  max-width: 13rem;
+}
+
+.cta {
+  margin-top: var(--space-2);
+}
+
+/* One dominant rectangular photo with two supporting cards fanned out behind its left edge —
+   matches the reference's stacked-photo composition (SS53: a single large straight-edged portrait
+   with thin slivers of two more photos peeking out to its left, not a rotated corner-peek card).
+   Reuses the same three existing licensed assets as the homepage hero, repositioned; no new asset
+   was added. */
+.heroImage {
+  position: relative;
+  width: 100%;
+  max-width: 22rem;
+  aspect-ratio: 3 / 4;
+  align-self: center;
+}
+
+.heroImageBack2 {
+  position: absolute;
+  top: 6%;
+  left: 0;
+  width: 76%;
+  height: 86%;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  z-index: 1;
+}
+
+.heroImageBack1 {
+  position: absolute;
+  top: 3%;
+  left: 7%;
+  width: 79%;
+  height: 90%;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  z-index: 2;
+}
+
+.heroImageMain {
+  position: absolute;
+  top: 0;
+  left: 15%;
+  width: 85%;
+  height: 94%;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+  display: block;
+  box-shadow: var(--shadow-lg);
+  z-index: 3;
+}
+
+@media (min-width: 768px) {
+  .heroInner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-10);
+    padding-block: var(--space-16);
+  }
+
+  .heroText {
+    width: auto;
+    max-width: 42rem;
+  }
+
+  .title {
+    max-width: 40rem;
+    font-size: var(--font-size-4xl);
+  }
+
+  .stepsList {
+    flex-direction: row;
+    gap: 0;
+  }
+
+  .stepItem {
+    flex: 1;
+    padding-right: var(--space-6);
+  }
+
+  /* Thin connecting line between step markers — drawn from the right edge of each marker to the
+     right edge of its own column, so the next column's marker (at its own left: 0) continues the
+     line visually, matching the reference's horizontal stepper without needing cross-item math.
+     Offsets match the 2.5rem square marker (not the old 2.25rem circle). */
+  .stepItem:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 1.25rem;
+    left: 2.5rem;
+    right: 0;
+    height: var(--border-width-thick);
+    background: var(--color-border-strong);
+  }
+
+  .heroImage {
+    flex-shrink: 0;
+    max-width: 20rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .heroImage {
+    max-width: 26rem;
+  }
+}

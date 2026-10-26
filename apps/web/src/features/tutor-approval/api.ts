@@ -35,3 +35,14 @@ export function publishTutorApplication(id: string): Promise<AdminTutorApplicati
 export function suspendTutorApplication(id: string, reason: string): Promise<void> {
   return apiPost<void, { reason: string }>(`/api/tutors/admin/applications/${id}/suspend`, { reason });
 }
+
+export function verifyCertificate(applicationId: string, certificateId: string): Promise<void> {
+  return apiPost<void>(`/api/tutors/admin/applications/${applicationId}/certificates/${certificateId}/verify`);
+}
+
+export function rejectCertificate(applicationId: string, certificateId: string, reason: string): Promise<void> {
+  return apiPost<void, { reason: string }>(
+    `/api/tutors/admin/applications/${applicationId}/certificates/${certificateId}/reject`,
+    { reason },
+  );
+}

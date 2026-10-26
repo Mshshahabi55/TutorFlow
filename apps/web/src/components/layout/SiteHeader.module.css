@@ -15,10 +15,89 @@
 }
 
 .logo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
   color: var(--color-accent-700);
   flex-shrink: 0;
+}
+
+/* No bottom border — matches the real Preply wizard's minimal header (same evidence as above),
+   which has no visible separator between the header and page content. */
+.headerMinimal {
+  border-bottom: none;
+}
+
+/* Dark announcement strip above the home header — matches the real Preply homepage's dismissible
+   banner band. Homepage-only. */
+.announcement {
+  background: var(--color-neutral-900);
+  color: var(--color-text-inverse);
+}
+
+.announcementBar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.25rem;
+  font-size: var(--font-size-xs);
+  text-align: center;
+}
+
+.announcementBar p {
+  margin: 0;
+}
+
+.announcementClose {
+  position: absolute;
+  right: var(--space-2);
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--color-text-inverse);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  cursor: pointer;
+  padding: var(--space-2);
+}
+
+/* Pink nav that visually continues into the hero below it — matches the real Preply homepage,
+   where the header and hero share one continuous colored band (not a global header change; this
+   variant only applies on the homepage, see HeaderVariantContext). */
+.headerHome {
+  background: var(--color-accent-500);
+  border-bottom: none;
+}
+
+.headerHome .logo,
+.headerHome .navLink,
+.headerHome .accountEmail,
+.headerHome .mobileMenuButton {
+  color: var(--color-neutral-900);
+}
+
+.headerHome .navLinkActive {
+  border-bottom-color: var(--color-neutral-900);
+}
+
+/* Taller than the public header (4rem) — matches the real Preply wizard's minimal header
+   proportions (docs/product/preply-reverse-engineering/evidence/tutor.zip SS06/SS10/SS13: a
+   plain bar noticeably taller than a typical site header). */
+.minimalBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 6rem;
+}
+
+.minimalActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
 }
 
 .desktopNav {
@@ -49,6 +128,12 @@
   align-items: center;
   gap: var(--space-3);
   flex-shrink: 0;
+}
+
+.accountNav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
 }
 
 .mobileMenuButton {

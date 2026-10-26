@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { axe } from 'vitest-axe';
@@ -7,11 +8,24 @@ import { BookingPanel } from './BookingPanel';
 import { TutorPublicProfile } from '../types';
 
 function renderWithProviders(ui: ReactElement) {
-  return render(<TooltipProvider>{ui}</TooltipProvider>);
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>{ui}</TooltipProvider>
+    </QueryClientProvider>,
+  );
 }
 
 const mockUseAuth = vi.fn();
 vi.mock('@/features/auth/useAuth', () => ({ useAuth: () => mockUseAuth() }));
+
+const mockPush = vi.fn();
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mockPush }) }));
+
+const mockCreateOrGetConversation = vi.fn();
+vi.mock('@/features/messaging/api', () => ({
+  createOrGetConversation: (tutorUserId: string) => mockCreateOrGetConversation(tutorUserId),
+}));
 
 const mockAvailability = vi.fn();
 const mockFavoriteStatus = vi.fn();
@@ -57,6 +71,8 @@ describe('BookingPanel', () => {
     mockTrialEligibility.mockReturnValue({ data: { hasUsedTrial: false }, isLoading: false });
     mockAdd.mockClear();
     mockRemove.mockClear();
+    mockPush.mockClear();
+    mockCreateOrGetConversation.mockReset();
   });
 
   it('guest: clicking Book a trial lesson opens the auth gate instead of navigating', () => {
@@ -90,11 +106,22 @@ describe('BookingPanel', () => {
     expect(mockAdd).not.toHaveBeenCalled();
   });
 
-  it('authenticated student: Message is a real link to /messages, no auth gate', () => {
+  it('authenticated student: clicking Message starts/gets a conversation and navigates to its thread, no auth gate', async () => {
     mockUseAuth.mockReturnValue({ isAuthenticated: true, userId: 's1', roles: ['Student'] });
-    renderWithProviders(<BookingPanel profile={profile} onRequireAuth={vi.fn()} />);
+    mockCreateOrGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      studentUserId: 's1',
+      tutorUserId: 't1',
+      createdAtUtc: '2024-01-01T00:00:00Z',
+    });
+    const onRequireAuth = vi.fn();
+    renderWithProviders(<BookingPanel profile={profile} onRequireAuth={onRequireAuth} />);
 
-    expect(screen.getByRole('link', { name: 'Message' })).toHaveAttribute('href', '/messages');
+    fireEvent.click(screen.getByRole('button', { name: 'Message' }));
+
+    await waitFor(() => expect(mockCreateOrGetConversation).toHaveBeenCalledWith('t1'));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/messages/conv-1'));
+    expect(onRequireAuth).not.toHaveBeenCalled();
   });
 
   it('authenticated student: not accepting new students disables the CTA with the right label', () => {
@@ -133,7 +160,7 @@ describe('BookingPanel', () => {
     mockUseAuth.mockReturnValue({ isAuthenticated: true, userId: 'dual1', roles: ['Student', 'Tutor'] });
     renderWithProviders(<BookingPanel profile={profile} onRequireAuth={vi.fn()} />);
 
-    expect(screen.getByRole('link', { name: 'Message' })).toHaveAttribute('href', '/messages');
+    expect(screen.getByRole('button', { name: 'Message' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Book a trial lesson' })).toBeInTheDocument();
   });
 

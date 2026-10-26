@@ -1,23 +1,17 @@
+'use client';
+
 import { Avatar } from '@/components/ui/Avatar';
+import { FlagIcon } from '@/components/ui/FlagIcon';
 import { Rating } from '@/components/ui/Rating';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { useTutorReviewSummary } from '@/features/reviews/useReviews';
 import { TutorTrustBadges } from './TutorTrustBadges';
 import { TutorPublicProfile } from '../types';
 import { resolveMediaUrl } from '../mediaUrl';
 import styles from './TutorProfileHero.module.css';
 
-function countryFlagEmoji(countryCode: string): string | null {
-  if (!/^[a-zA-Z]{2}$/.test(countryCode)) {
-    return null;
-  }
-  const codePoints = countryCode
-    .toUpperCase()
-    .split('')
-    .map((char) => 127397 + char.charCodeAt(0));
-  return String.fromCodePoint(...codePoints);
-}
-
 export function TutorProfileHero({ profile }: { profile: TutorPublicProfile }) {
-  const flag = profile.countryOfBirthCode ? countryFlagEmoji(profile.countryOfBirthCode) : null;
+  const reviewSummary = useTutorReviewSummary(profile.tutorUserId);
 
   return (
     <div className={styles.root}>
@@ -25,16 +19,22 @@ export function TutorProfileHero({ profile }: { profile: TutorPublicProfile }) {
       <div className={styles.identity}>
         <h1 className={styles.name}>{profile.displayName}</h1>
         {profile.headline && <p className={styles.headline}>{profile.headline}</p>}
-        {flag && (
+        {profile.countryOfBirthCode && (
           <p className={styles.origin}>
-            <span aria-hidden="true">{flag}</span>{' '}
+            <FlagIcon code={profile.countryOfBirthCode} />{' '}
             <span className="visually-hidden">Country of birth: </span>
             {profile.countryOfBirthCode}
           </p>
         )}
-        {/* No reviews pipeline exists yet (Reviews module is a stub) — Rating already renders
-            "No reviews yet" for a zero count, the same honest empty state the search card uses. */}
-        <Rating value={0} reviewCount={0} />
+        {/* Shares the same authoritative summary TutorReviews renders further down this page
+            (useTutorReviewSummary) — never a locally-invented value. While it's in flight, a
+            skeleton stands in; on failure, the line is simply omitted rather than asserting a
+            confirmed "No reviews yet" the data never actually confirmed. */}
+        {reviewSummary.isLoading ? (
+          <Skeleton width="8rem" />
+        ) : (
+          reviewSummary.data && <Rating value={reviewSummary.data.overallRating} reviewCount={reviewSummary.data.reviewCount} />
+        )}
         <div className={styles.badgeRow}>
           <TutorTrustBadges isSuperTutor={profile.isSuperTutor} isProfessionalTutor={profile.isProfessionalTutor} />
         </div>

@@ -8,6 +8,8 @@ using TutorFlow.Modules.Search.Persistence;
 using TutorFlow.Modules.Tutors.Domain;
 using TutorFlow.Modules.Tutors.Persistence;
 using TutorFlow.Shared;
+using Wolverine;
+using GetCurrentApplicationFeature = TutorFlow.Modules.Tutors.Features.GetCurrentApplication.GetCurrentApplication;
 using PublishApplicationFeature = TutorFlow.Modules.Tutors.Features.PublishApplication.PublishApplication;
 using ReplaceWeeklyRulesFeature = TutorFlow.Modules.Availability.Features.ReplaceWeeklyRules.ReplaceWeeklyRules;
 using SuspendApplicationFeature = TutorFlow.Modules.Tutors.Features.SuspendApplication.SuspendApplication;
@@ -63,8 +65,9 @@ public sealed class TutorPublishedPipelineTests(TutorPublishedPipelineFixture fi
 
         using (var scope = fixture.Services.CreateScope())
         {
-            var handler = scope.ServiceProvider.GetRequiredService<PublishApplicationFeature.Handler>();
-            var result = await handler.HandleAsync(applicationId, TestContext.Current.CancellationToken);
+            var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+            var result = await bus.InvokeAsync<TutorFlow.Modules.Tutors.Domain.Result<GetCurrentApplicationFeature.Response>>(
+                new PublishApplicationFeature.Command(applicationId), TestContext.Current.CancellationToken);
             Assert.True(result.IsSuccess);
         }
 
@@ -129,8 +132,9 @@ public sealed class TutorPublishedPipelineTests(TutorPublishedPipelineFixture fi
 
         using (var scope = fixture.Services.CreateScope())
         {
-            var handler = scope.ServiceProvider.GetRequiredService<PublishApplicationFeature.Handler>();
-            var result = await handler.HandleAsync(applicationId, TestContext.Current.CancellationToken);
+            var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+            var result = await bus.InvokeAsync<TutorFlow.Modules.Tutors.Domain.Result<GetCurrentApplicationFeature.Response>>(
+                new PublishApplicationFeature.Command(applicationId), TestContext.Current.CancellationToken);
             Assert.True(result.IsSuccess);
         }
 
@@ -182,8 +186,9 @@ public sealed class TutorPublishedPipelineTests(TutorPublishedPipelineFixture fi
 
         using (var scope = fixture.Services.CreateScope())
         {
-            var handler = scope.ServiceProvider.GetRequiredService<PublishApplicationFeature.Handler>();
-            await handler.HandleAsync(applicationId, TestContext.Current.CancellationToken);
+            var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+            await bus.InvokeAsync<TutorFlow.Modules.Tutors.Domain.Result<GetCurrentApplicationFeature.Response>>(
+                new PublishApplicationFeature.Command(applicationId), TestContext.Current.CancellationToken);
         }
 
         await PollForSearchDocumentAsync(userId);
@@ -245,8 +250,9 @@ public sealed class TutorPublishedPipelineTests(TutorPublishedPipelineFixture fi
 
         using (var scope = fixture.Services.CreateScope())
         {
-            var publishHandler = scope.ServiceProvider.GetRequiredService<PublishApplicationFeature.Handler>();
-            await publishHandler.HandleAsync(applicationId, TestContext.Current.CancellationToken);
+            var publishBus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+            await publishBus.InvokeAsync<TutorFlow.Modules.Tutors.Domain.Result<GetCurrentApplicationFeature.Response>>(
+                new PublishApplicationFeature.Command(applicationId), TestContext.Current.CancellationToken);
         }
 
         var published = await PollForSearchDocumentAsync(userId);
@@ -273,8 +279,9 @@ public sealed class TutorPublishedPipelineTests(TutorPublishedPipelineFixture fi
 
         using (var scope = fixture.Services.CreateScope())
         {
-            var suspendHandler = scope.ServiceProvider.GetRequiredService<SuspendApplicationFeature.Handler>();
-            var result = await suspendHandler.HandleAsync(applicationId, "Policy violation", Guid.NewGuid(), TestContext.Current.CancellationToken);
+            var suspendBus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+            var result = await suspendBus.InvokeAsync<TutorFlow.Modules.Tutors.Domain.Result>(
+                new SuspendApplicationFeature.Command(applicationId, "Policy violation", Guid.NewGuid()), TestContext.Current.CancellationToken);
             Assert.True(result.IsSuccess);
         }
 
@@ -343,8 +350,9 @@ public sealed class TutorPublishedPipelineTests(TutorPublishedPipelineFixture fi
 
         using (var scope = fixture.Services.CreateScope())
         {
-            var handler = scope.ServiceProvider.GetRequiredService<PublishApplicationFeature.Handler>();
-            await handler.HandleAsync(applicationId, TestContext.Current.CancellationToken);
+            var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+            await bus.InvokeAsync<TutorFlow.Modules.Tutors.Domain.Result<GetCurrentApplicationFeature.Response>>(
+                new PublishApplicationFeature.Command(applicationId), TestContext.Current.CancellationToken);
         }
 
         await PollForSearchDocumentAsync(userId);
@@ -425,8 +433,9 @@ public sealed class TutorPublishedPipelineTests(TutorPublishedPipelineFixture fi
 
         using (var scope = fixture.Services.CreateScope())
         {
-            var handler = scope.ServiceProvider.GetRequiredService<PublishApplicationFeature.Handler>();
-            await handler.HandleAsync(applicationId, TestContext.Current.CancellationToken);
+            var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+            await bus.InvokeAsync<TutorFlow.Modules.Tutors.Domain.Result<GetCurrentApplicationFeature.Response>>(
+                new PublishApplicationFeature.Command(applicationId), TestContext.Current.CancellationToken);
         }
 
         await PollForSearchDocumentAsync(userId);
@@ -442,8 +451,9 @@ public sealed class TutorPublishedPipelineTests(TutorPublishedPipelineFixture fi
 
         using (var scope = fixture.Services.CreateScope())
         {
-            var suspendHandler = scope.ServiceProvider.GetRequiredService<SuspendApplicationFeature.Handler>();
-            var result = await suspendHandler.HandleAsync(applicationId, "Policy violation", Guid.NewGuid(), TestContext.Current.CancellationToken);
+            var suspendBus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+            var result = await suspendBus.InvokeAsync<TutorFlow.Modules.Tutors.Domain.Result>(
+                new SuspendApplicationFeature.Command(applicationId, "Policy violation", Guid.NewGuid()), TestContext.Current.CancellationToken);
             Assert.True(result.IsSuccess);
         }
 

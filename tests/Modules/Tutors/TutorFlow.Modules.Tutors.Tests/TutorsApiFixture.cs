@@ -42,6 +42,10 @@ public sealed class TutorsApiFixture : WebApplicationFactory<Program>, IAsyncLif
 
     private IDisposable? _wolverineConnectionStrings;
 
+    // A44 #105: exposed so tests can query tutors.wolverine_outgoing_envelopes directly to prove
+    // a rollback leaves no misleading outgoing event, without needing a second DbContext scope.
+    public string TutorsConnectionString => _postgres.GetConnectionString();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.ConfigureAppConfiguration((_, configBuilder) =>

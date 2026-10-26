@@ -19,6 +19,7 @@ using CreatePaymentIntentResponse = TutorFlow.Modules.Payments.Features.CreatePa
 
 namespace TutorFlow.Modules.Payments.Tests;
 
+[Collection(PaymentsHostCollection.Name)]
 public class PaymentsEndpointsTests(PaymentsApiFixture fixture) : IClassFixture<PaymentsApiFixture>
 {
     private HttpClient CreateAuthenticatedClient(Guid userId, params string[] roles)

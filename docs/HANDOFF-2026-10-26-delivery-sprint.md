@@ -142,3 +142,33 @@ claims, and a review of the Certification/Education Preply-parity gaps. Findings
   signup flow for this session's live reproduction, consistent with this engagement's established
   practice of using throwaway `.local` accounts for local-only testing; no cleanup action taken
   since it's harmless local dev data, same as every other test account already in this database.
+
+## Addendum (2026-10-26, later same day): naming collision resolved; A44 tracker #103-#107 reconciled
+
+**`WolverineDb`/`MessagingDb` naming collision — resolved, no live collision existed.** Verified
+across every config source (code, user-secrets, docker-compose, test fixtures): `MessagingDb` had
+never been configured anywhere outside isolated Testcontainers, so there was no live runtime
+collision today — only a future provisioning risk if `MessagingDb` were ever set up following the
+existing per-module naming convention (which would also produce `tutorflow_messaging`). Resolved
+by renaming the local Wolverine database (`ALTER DATABASE tutorflow_messaging RENAME TO
+tutorflow_wolverine`, no data lost — all 8 `wolverine_*`/node tables confirmed intact afterward)
+and provisioning `tutorflow_messaging` for the `Messaging` module's own data (its rightful name).
+Verified the durable outbox still starts all 5 message-store agents correctly post-rename. Commit
+`d5bbb13`; full details in `docs/DEVELOPMENT_DATABASE.md` §1.
+
+**A44 tracker #103-#107 — reconciled against actual code, not assumed:**
+
+| Item | Disposition | Evidence |
+|---|---|---|
+| #103 migrate 8 publish sites | **Confirmed still incomplete** — genuine, live gap, not a stale checkbox | Of 9 actual `bus.PublishAsync` call sites, only `ConfirmBooking`'s (invoked solely via `PaymentSucceededConsumer`, a true Wolverine `[Transactional(Lightweight)]` handler) is atomic with its business write. Six are plain-DI/HTTP-endpoint-invoked with **no Wolverine transactional coverage at all** — `PublishApplication`→`TutorPublished`, `SuspendApplication`→`TutorUnpublished`, `RejectCertificate`→`TutorCertificateRejected`, `ProcessStripeWebhook`→`PaymentSucceeded`/`PaymentFailed`, `BookingHoldExpirySweepService`→`BookingHoldExpired` (a timer-driven `BackgroundService`, never Wolverine-dispatched). `AvailabilitySignalPublisher`→`TutorAvailabilitySignalChanged` is **partially** covered: safe when triggered from `TutorPublishedConsumer`/`TutorUnpublishedConsumer` (Wolverine handlers), exposed when triggered from the tutor's own self-service `ReplaceWeeklyRules`/booking-settings updates (also plain-DI). A crash between the business `SaveChangesAsync` and the following `PublishAsync` on any of these six+one-partial sites silently and permanently drops the event — no compensating redelivery exists for a message that was never durably created in the first place. **Not fixed here**: the correct mechanism (routing each handler through Wolverine's local command dispatch so `AutoApplyTransactions()` applies, vs. a different outbox-write pattern) is a design choice affecting ~6 files and needs explicit sign-off, not a "smallest safe fix." |
+| #104 fix `SuspendApplication` adminUserId | **Fixed** | `SuspendApplicationAsync` extracted `adminUserId` (for the existing self-dealing guard) but never passed it to the handler — unlike `RejectCertificate`'s identical pattern. Added the parameter + structured log, matching `RejectCertificate` exactly. Commit `88b13e8`. Verified: Tutors module 119/119, Host.Tests 20/20 (including the two direct-handler test call sites that needed updating for the new parameter). |
+| #105 integration tests | **Blocked on #103** | No integration test exists that proves atomicity for any of the six uncovered publish sites (the existing `TutorPublishedPipelineTests` cover the happy path and *consumer-side* redelivery only — confirmed by reading every test in the file). Writing a meaningful test requires the mechanism in #103 to exist first. |
+| #106 migrations + deployment doc | **Confirmed incomplete, both halves** | No deployment doc exists anywhere in the repo (confirmed by search — matches the README's own "no production deployment target yet" statement). No EF migration exists for `WolverineMessagingDbContext` either (`src/TutorFlow.Host/Migrations/` doesn't exist) — Wolverine's envelope tables are created only by each test fixture's own manual DDL (`WolverineTestConnectionStrings.ProvisionEnvelopeTablesAsync`) or by hand locally; nothing automates this for a fresh non-test environment. |
+| #107 full verification + completion report | **Blocked on #103-#106** | Cannot close until the above are resolved or explicitly descoped by the architect. |
+
+**Architect decisions needed to close #103/#105/#106**: (1) how to make the six uncovered publish
+sites atomic — route each through Wolverine's local command dispatch (`bus.InvokeAsync`) so
+`AutoApplyTransactions()` covers them, or a different pattern; (2) whether a deployment doc is
+in scope before any real deployment target exists, or deferred until one does; (3) whether
+Wolverine's envelope-storage schema needs a real EF migration or a documented manual/CLI
+provisioning step (`dotnet run -- storage setup`) is acceptable going forward.

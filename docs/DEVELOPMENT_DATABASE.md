@@ -28,19 +28,25 @@ which:
   `Attributes` column is empty, i.e. no `SUPERUSER`/`CREATEDB`/`CREATEROLE`)
 - creates databases — `tutorflow_identity`, `tutorflow_tutors`, `tutorflow_availability`,
   `tutorflow_bookings`, `tutorflow_search`, `tutorflow_subjects`, `tutorflow_students`,
-  `tutorflow_payments`, `tutorflow_lessons`, `tutorflow_reviews`, `tutorflow_notifications` — each
+  `tutorflow_payments`, `tutorflow_lessons`, `tutorflow_reviews`, `tutorflow_notifications`,
+  `tutorflow_messaging` (the `Messaging` module's own conversations/messages database) — each
   **owned by** `tutorflow_app`
 
-**Not provisioned here, by design — resolve before relying on them locally:**
-- **`WolverineDb`** (the A44 Host-owned Main envelope store, `Program.cs`) needs its own database
-  — not any module's own database, per that call site's own comment ("rather than piggybacking on
-  a business module"). One was created ad hoc as `tutorflow_messaging` during a prior debugging
-  session (`docs/product/preply-reverse-engineering/27-phase3-audit-completion-2026-10-25.md` §0).
-- **`MessagingDb`** (the `Messaging` module's own conversations/messages database) has never been
-  provisioned anywhere, and — because this project's existing per-module convention would also
-  name it `tutorflow_messaging` — **cannot simply reuse that same ad hoc name** without colliding
-  with the Main store above. `[OPEN — Architect]`: pick a non-colliding name for one of the two
-  (e.g. rename the Main store to `tutorflow_wolverine`) before adding this to the init script.
+**Not provisioned here — needs its own database, resolved separately:**
+- **`WolverineDb`** (the A44 Host-owned Main envelope store, `Program.cs`/`WolverineMessagingDbContext.cs`)
+  needs a database of its own — not any module's own database, per that call site's own comment
+  ("rather than piggybacking on a business module"). **Resolved (2026-10-26):** named
+  `tutorflow_wolverine`, distinct from `tutorflow_messaging` above. An earlier debugging session
+  (`docs/product/preply-reverse-engineering/27-phase3-audit-completion-2026-10-25.md` §0) had
+  named it `tutorflow_messaging` ad hoc, which collided with the `Messaging` module's own rightful
+  name under this project's per-module convention — the local database was renamed
+  (`ALTER DATABASE tutorflow_messaging RENAME TO tutorflow_wolverine;`, no data lost; verified by
+  confirming all 8 `wolverine_*`/`messaging` schema tables survived the rename) and the
+  `WolverineDb` user-secret updated to match. `01-create-app-role.sh` does not provision
+  `tutorflow_wolverine` — it's Host infrastructure, not a per-module database, and only ever needed
+  locally for manual `dotnet run`/debugging (automated tests always get a fresh Testcontainers
+  instance via `WolverineTestConnectionStrings`). Create it by hand the same way as
+  `tutorflow_messaging` above if you need to run the Host locally.
 
 `TUTORFLOW_DB_ADMIN_USER`/`TUTORFLOW_DB_ADMIN_PASSWORD` are a bootstrap role docker's own
 entrypoint requires to initialize the instance — the application never authenticates as it.
@@ -105,10 +111,18 @@ dotnet user-secrets set "ConnectionStrings:PaymentsDb" \
 dotnet user-secrets set "ConnectionStrings:NotificationsDb" \
   "Host=localhost;Port=${TUTORFLOW_DB_PORT:-5432};Database=tutorflow_notifications;Username=${TUTORFLOW_DB_APP_USER};Password=${TUTORFLOW_DB_APP_PASSWORD}" \
   --project src/TutorFlow.Host
+
+dotnet user-secrets set "ConnectionStrings:MessagingDb" \
+  "Host=localhost;Port=${TUTORFLOW_DB_PORT:-5432};Database=tutorflow_messaging;Username=${TUTORFLOW_DB_APP_USER};Password=${TUTORFLOW_DB_APP_PASSWORD}" \
+  --project src/TutorFlow.Host
+
+dotnet user-secrets set "ConnectionStrings:WolverineDb" \
+  "Host=localhost;Port=${TUTORFLOW_DB_PORT:-5432};Database=tutorflow_wolverine;Username=${TUTORFLOW_DB_APP_USER};Password=${TUTORFLOW_DB_APP_PASSWORD}" \
+  --project src/TutorFlow.Host
 ```
 
-`WolverineDb` and `MessagingDb` are deliberately not included above — see the open naming
-question in §1.
+`tutorflow_wolverine` isn't created by `01-create-app-role.sh` (§1) — create it by hand first:
+`docker exec tutorflow-postgres psql -U tutorflow_admin -d postgres -c "CREATE DATABASE tutorflow_wolverine OWNER tutorflow_app;"`.
 
 (`dotnet user-secrets list --project src/TutorFlow.Host` to confirm — secrets live outside the
 repo, under your user profile, never in source control.)

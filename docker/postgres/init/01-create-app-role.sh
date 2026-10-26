@@ -22,6 +22,13 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres <<-EOSQL
     CREATE DATABASE tutorflow_lessons OWNER "${TUTORFLOW_APP_USER}";
     CREATE DATABASE tutorflow_reviews OWNER "${TUTORFLOW_APP_USER}";
     CREATE DATABASE tutorflow_notifications OWNER "${TUTORFLOW_APP_USER}";
+    -- tutorflow_messaging is the Messaging MODULE's own conversations/messages database
+    -- (MessagingDb). It is NOT the A44 Wolverine Main envelope store (WolverineDb, named
+    -- tutorflow_wolverine) — the two share the schema name "messaging" by coincidence of
+    -- terminology (see WolverineMessagingDbContext.cs's own doc comment) but must stay separate
+    -- physical databases; tutorflow_wolverine is Host infrastructure, created by hand locally,
+    -- not by this script (see docs/DEVELOPMENT_DATABASE.md §1).
+    CREATE DATABASE tutorflow_messaging OWNER "${TUTORFLOW_APP_USER}";
 EOSQL
 
 # tutorflow_app owns each database above, so it already has the privilege to install "trusted"

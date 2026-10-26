@@ -1,0 +1,59 @@
+name: Frontend CI
+
+# Validates apps/web (Next.js 16 / React 19): install, lint, type-check, test, production build.
+# No secrets are referenced anywhere in this workflow.
+
+on:
+  push:
+    branches: [master, upgrade/dotnet-10-csharp-14]
+  pull_request:
+    branches: [master, upgrade/dotnet-10-csharp-14]
+  workflow_dispatch:
+
+concurrency:
+  group: frontend-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: apps/web
+
+jobs:
+  install-lint-test-build:
+    name: Install, Lint, Type-check, Test, Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Setup Node.js
+        # No Node version is pinned anywhere in this repo (no .nvmrc, no package.json
+        # "engines" field) — 22 is this workflow's own choice (current Active LTS at
+        # time of writing), not a value declared by the repository. Confirm or add an
+        # explicit repo-level pin if a different version is actually required.
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies (uses the committed lockfile)
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check
+        # No dedicated "typecheck" script exists in apps/web/package.json. Running the
+        # underlying command directly against the existing tsconfig.json (strict: true,
+        # noEmit: true) rather than inventing a script that isn't there.
+        run: npx tsc --noEmit
+
+      - name: Test
+        run: npm run test
+
+      - name: Production build
+        run: npm run build

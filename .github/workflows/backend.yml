@@ -1,0 +1,136 @@
+name: Backend CI
+
+# Validates the .NET backend (TutorFlow.slnx): restore, build, format, and test.
+# SDK version comes from global.json — never hardcoded here.
+#
+# No secrets are referenced anywhere in this workflow. Backend tests need none: every
+# tests/Modules/*/*ApiFixture.cs injects its own in-memory, test-only JWT signing key and
+# config at startup, and Payments/Notifications use TestPaymentProviderClient/TestEmailSender
+# instead of calling real Stripe/Postmark. Integration tests use Testcontainers.PostgreSql,
+# which needs only the Docker daemon already pre-installed on ubuntu-latest runners.
+
+on:
+  push:
+    branches: [master, upgrade/dotnet-10-csharp-14]
+  pull_request:
+    branches: [master, upgrade/dotnet-10-csharp-14]
+  workflow_dispatch:
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_NOLOGO: true
+
+jobs:
+  build-and-test:
+    name: Restore, Build, Format, Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Setup .NET SDK (version pinned by global.json)
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('Directory.Packages.props') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore TutorFlow.slnx
+
+      - name: Build (Release)
+        # Directory.Build.props already sets TreatWarningsAsErrors=true and
+        # EnforceCodeStyleInBuild=true for every project — this build fails on any
+        # analyzer warning without any extra flag here. Nothing in this workflow
+        # weakens that policy.
+        run: dotnet build TutorFlow.slnx --no-restore --configuration Release
+
+      - name: Format check
+        # Matches the command already documented in CLAUDE.md's own Commands section.
+        run: dotnet format TutorFlow.slnx --verify-no-changes --no-restore
+
+      - name: Verify Wolverine static codegen is not stale (F6)
+        # TutorFlow.Host runs Wolverine in TypeLoadMode.Static — every message-handler chain is
+        # compiled once, ahead of time, into ordinary committed C# under
+        # src/TutorFlow.Host/Internal/Generated/WolverineHandlers/, not at runtime. Wolverine has
+        # no built-in way to detect that this output is stale relative to handler source
+        # (confirmed: no such check exists in the installed version's docs or source), so this
+        # step is the only thing that catches a handler change that was never followed by
+        # re-running `codegen write` and committing the result.
+        #
+        # Regenerates into a deleted-first directory (not a diff against whatever happens to
+        # already be on disk) so this catches all three ways the committed output can be wrong,
+        # not just "changed": modified (a handler's dependencies changed), missing (a handler was
+        # added but never regenerated — git status reports it as untracked, exactly like a
+        # modified-and-uncommitted file would), and orphaned (a handler was removed but its old
+        # generated file was left behind — deleting first means regeneration never recreates it,
+        # so git status reports it as a pending deletion). `git status --porcelain`, not `git
+        # diff`, is what makes the untracked/orphaned cases visible at all — a plain `git diff`
+        # only ever compares already-tracked files against the index and stays silent about files
+        # that were never committed in the first place.
+        #
+        # Never stages or commits anything — a non-empty status after regeneration just fails the
+        # job with the exact diff, the same "developer must fix and push" contract as the Format
+        # check step above.
+        run: |
+          rm -rf src/TutorFlow.Host/Internal/Generated
+          dotnet run --project src/TutorFlow.Host --configuration Release --no-restore -- codegen write
+          if [ -n "$(git status --porcelain -- src/TutorFlow.Host/Internal/Generated)" ]; then
+            echo "::error::Generated Wolverine handler code is stale, missing, or has orphaned files that were never committed. Run 'dotnet run --project src/TutorFlow.Host -- codegen write' locally and commit the result."
+            git status --porcelain -- src/TutorFlow.Host/Internal/Generated
+            git diff -- src/TutorFlow.Host/Internal/Generated
+            exit 1
+          fi
+          echo "Wolverine static codegen is up to date."
+
+      - name: Test
+        # IMPORTANT: `dotnet test` (solution- or project-level) reports "Zero tests ran"
+        # (exit code 5) against this repo's xunit.v3.mtp-v2 / Microsoft.Testing.Platform
+        # test projects — confirmed by local verification, not assumed. Each test project
+        # builds as a native Microsoft.Testing.Platform executable
+        # (TestingPlatformDotnetTestSupport=true), and the only invocation confirmed to
+        # actually discover and run tests is `dotnet exec <built .dll>` directly. Using
+        # `dotnet exec` rather than the platform-specific native apphost path (.exe on
+        # Windows, no extension on Linux) so this works the same on ubuntu-latest as it
+        # did in local verification on Windows.
+        run: |
+          mkdir -p TestResults
+          status=0
+          while IFS= read -r dll; do
+            name=$(basename "$dll" .dll)
+            echo "::group::$name"
+            dotnet exec "$dll" -result-trx "TestResults/${name}.trx" || status=1
+            echo "::endgroup::"
+          done < <(find tests -iname "*.Tests.dll" -path "*/bin/Release/net10.0/*" | sort)
+          exit $status
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: backend-test-results
+          path: TestResults/**/*.trx
+          retention-days: 7
+
+      - name: Validate docker-compose.yml syntax
+        # Parses and resolves the compose file without starting any container. The two
+        # required vars below are throwaway CI-only placeholders — never real secrets,
+        # never read from the gitignored local .env file (which isn't checked out here).
+        env:
+          TUTORFLOW_DB_ADMIN_PASSWORD: ci-validation-placeholder-unused
+          TUTORFLOW_DB_APP_PASSWORD: ci-validation-placeholder-unused
+        run: docker compose config --quiet

@@ -497,3 +497,14 @@ _reference/
 # protection holds on any other machine or CI runner that clones
 # this repository without that global config present.
 .claude/settings.local.json
+
+# Claude Code / Playwright MCP browser-automation output (snapshots, screenshots,
+# console logs) — session tooling scratch, not project source or evidence.
+.playwright-mcp/
+
+# Root-level screenshots of unconfirmed provenance (pre-release audit,
+# 2026-10-26) — appear to predate the become-a-tutor landing page redesign and
+# are not referenced by any doc or evidence index. Excluded from publication
+# rather than deleted; reclassify here if their origin is later confirmed.
+/become-a-tutor-desktop-1440x900.png
+/become-a-tutor-mobile-390x844.png

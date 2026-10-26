@@ -1,0 +1,120 @@
+{
+  "captureDate": "2026-10-18",
+  "capturedByTool": "Playwright MCP (mcp__playwright__browser_* tools)",
+  "browserConfiguration": {
+    "engine": "Chromium (Playwright-managed browser, via MCP server)",
+    "authenticationState": "anonymous — no Preply account, no stored cookies/storageState, no CDP-attached real user session",
+    "viewports": [
+      { "name": "desktop", "width": 1440, "height": 900 },
+      { "name": "mobile", "width": 390, "height": 844 }
+    ]
+  },
+  "entryUrl": "https://preply.com/en/teach",
+  "screenshots": [
+    {
+      "filename": "SS53_teach_landing_desktop.png",
+      "stage": "Public marketing landing page",
+      "state": "initial load",
+      "sourceUrl": "https://preply.com/en/teach",
+      "captureTimeLocal": "2026-10-18T19:37",
+      "viewport": "desktop",
+      "directlyObserved": true
+    },
+    {
+      "filename": "SS54_teach_signup_desktop_initial.png",
+      "stage": "Registration (email/password + OAuth gate)",
+      "state": "initial, pre-interaction",
+      "sourceUrl": "https://preply.com/en/teach/signup",
+      "captureTimeLocal": "2026-10-18T19:40",
+      "viewport": "desktop",
+      "directlyObserved": true
+    },
+    {
+      "filename": "SS55_teach_signup_desktop_validation.png",
+      "stage": "Registration (email/password + OAuth gate)",
+      "state": "required-field validation, triggered by clicking Get started with both fields blank — not submitted with any data",
+      "sourceUrl": "https://preply.com/en/teach/signup",
+      "captureTimeLocal": "2026-10-18T19:40",
+      "viewport": "desktop",
+      "directlyObserved": true
+    },
+    {
+      "filename": "SS56_teach_signup_mobile_validation.png",
+      "stage": "Registration (email/password + OAuth gate)",
+      "state": "required-field validation (same trigger as SS55), mobile layout",
+      "sourceUrl": "https://preply.com/en/teach/signup",
+      "captureTimeLocal": "2026-10-18T19:40",
+      "viewport": "mobile",
+      "directlyObserved": true
+    },
+    {
+      "filename": "SS57_teach_signup_mobile_initial.png",
+      "stage": "Registration (email/password + OAuth gate)",
+      "state": "initial, pre-interaction, mobile layout",
+      "sourceUrl": "https://preply.com/en/teach/signup",
+      "captureTimeLocal": "2026-10-18T19:40",
+      "viewport": "mobile",
+      "directlyObserved": true
+    },
+    {
+      "filename": "SS58_teach_landing_mobile.png",
+      "stage": "Public marketing landing page",
+      "state": "initial load, mobile layout",
+      "sourceUrl": "https://preply.com/en/teach",
+      "captureTimeLocal": "2026-10-18T19:40",
+      "viewport": "mobile",
+      "directlyObserved": true
+    },
+    {
+      "filename": "SS59_tutor-signup_redirect_desktop.png",
+      "stage": "Authenticated 8-section application wizard (blocked entry point)",
+      "state": "result of directly requesting the authenticated wizard URL as an anonymous visitor — browser lands back on the public landing page",
+      "sourceUrl": "requested https://preply.com/en/tutor-signup; resolved to https://preply.com/en/teach",
+      "captureTimeLocal": "2026-10-18T19:41",
+      "viewport": "desktop",
+      "directlyObserved": true,
+      "note": "This documents the redirect itself, not any wizard content. The wizard is a single-URL SPA (preply.com/en/tutor-signup per 18-screenshot-evidence.md line 7), not per-stage routes — confirmed there is no way to reach an individual stage by URL."
+    },
+    {
+      "filename": "SS60_oauth_google_redirect_desktop.png",
+      "stage": "Registration — Google OAuth sign-up path",
+      "state": "Google's generic 'Sign in' account chooser page, reached by clicking 'Sign up with Google'. No Google account was selected and no credentials were entered.",
+      "sourceUrl": "accounts.google.com (OAuth authorization endpoint; redirect_uri=https://preply.com/complete/google-oauth2/)",
+      "captureTimeLocal": "2026-10-18T19:51",
+      "viewport": "desktop",
+      "directlyObserved": true,
+      "note": "Confirms Preply's backend uses a python-social-auth-style '/complete/<provider>/' OAuth callback convention. Navigated back immediately after the screenshot without authenticating."
+    },
+    {
+      "filename": "SS61_oauth_facebook_redirect_desktop.png",
+      "stage": "Registration — Facebook OAuth sign-up path",
+      "state": "Facebook's generic login page, reached by clicking 'Sign up with Facebook'. No Facebook account was used and no credentials were entered.",
+      "sourceUrl": "facebook.com/login.php (redirect_uri=https://preply.com/complete/facebook/)",
+      "captureTimeLocal": "2026-10-18T19:51",
+      "viewport": "desktop",
+      "directlyObserved": true,
+      "note": "Same OAuth callback convention as Google. Navigated back immediately after the screenshot without authenticating."
+    },
+    {
+      "filename": "SS62_teach_signup_desktop_email_format_typed.png",
+      "stage": "Registration (email/password + OAuth gate)",
+      "state": "Email field filled with a syntactically invalid value ('not-an-email'), then blurred by clicking into the Password field. No inline/on-blur validation message appeared. Form was never submitted.",
+      "sourceUrl": "https://preply.com/en/teach/signup",
+      "captureTimeLocal": "2026-10-18T19:52",
+      "viewport": "desktop",
+      "directlyObserved": true,
+      "note": "Establishes that this form validates only on submit attempt (see SS55/SS56), not on blur. Malformed-email submit-time validation remains untested — submitting would risk a real account-creation attempt and was out of scope."
+    }
+  ],
+  "stagesNotCaptured": [
+    "About (wizard section 1)",
+    "Photo (wizard section 2)",
+    "Certification (wizard section 3)",
+    "Education (wizard section 4)",
+    "Description (wizard section 5)",
+    "Video (wizard section 6)",
+    "Availability (wizard section 7)",
+    "Pricing (wizard section 8)"
+  ],
+  "stagesNotCapturedReason": "All 8 sections live behind the single authenticated URL https://preply.com/en/tutor-signup, which redirects anonymous visitors to https://preply.com/en/teach (SS59). No Preply account exists for this project; creating one is out of scope per docs/product/preply-reverse-engineering/00-scope-and-methodology.md and this task's explicit instructions."
+}

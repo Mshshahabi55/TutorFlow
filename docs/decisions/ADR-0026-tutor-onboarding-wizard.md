@@ -59,6 +59,48 @@ Matches the benchmarked 8-section Preply order, mapped onto fields the aggregate
 
 The sourced-but-never-identified "8th section" is **not invented** — TutorFlow ships 7 real steps plus an explicit final Review step (recommended best practice, not Preply-confirmed, called out as such in `PREPLY_WIZARD_COMPONENT_INVENTORY.md`).
 
+**Addendum (2026-10-19) — Continue-button gating relaxed; step structure consolidated:**
+
+1. **Structure.** Display name, Country of birth, Subject, and Languages+proficiency moved out of
+   the original Basics/Teaching steps into a new, consolidated `about` step, matching Preply's own
+   evidenced About stage — a single step on the real site, previously split across two TutorFlow
+   steps with no equivalent on Preply's side
+   (`docs/product/preply-reverse-engineering/24-about-stage-live-evidence-2026-10-18.md`,
+   `26-about-stage-implementation-plan-2026-10-18.md` §1/§4). Headline/About-you
+   (`basics`) and Specialties/Years-of-experience/Experience-summary (`teaching`) remain on their
+   own steps — this is a scoped consolidation of only the fields actually evidenced on Preply's
+   About stage, not a full wizard redesign. First name, Last name (Identity-owned — see
+   `ApplicationUser.cs`), and a read-only Email redisplay were added to the new `about` step as new,
+   previously-uncollected fields; Phone number (optional, no format validation — the only field on
+   Preply's evidenced About stage carrying an explicit optionality marker) was added as a new field
+   on `TutorApplication`.
+
+2. **Continue-button gating.** The frontend's disabled-until-valid Continue button (the original
+   §3 decision, above) is **relaxed to always-enabled** on every step, matching Preply's own
+   About-stage Continue button, which the account holder directly confirmed is never disabled by
+   field state (user-confirmed, not independently screenshot-proven — `24-...md` §2). The
+   **backend-required-field list in `GetSubmissionReadinessErrors` is unchanged** — Display name,
+   Headline, Profile photo, Subjects, Languages, Hourly rate, and Intro video remain exactly as
+   required as before. That backend check was always the real gate; the frontend button never
+   enforced anything the backend didn't already enforce independently. Missing fields are reported
+   at the existing Review step (`ReviewStep.tsx`), unchanged, rather than via a new per-step
+   inline-validation surface — no new validation UI was invented for this.
+
+3. **Proficiency scale.** `LanguageProficiency` changed from a 4-value, non-CEFR scale
+   (`Basic`/`Conversational`/`Fluent`/`Native`) to the CEFR scale Preply's own Level dropdown
+   evidences (`A1`/`A2`/`B1`/`B2`/`C1`/`C2`/`Native` — `24-...md` §2 item 6). A pre-existing
+   serialization bug (the enum had no explicit `HasConversion<string>()` inside its owned-JSON
+   mapping, unlike `Status`) was fixed and a one-time data backfill applied; see
+   `26-...md` §0 for the full root-cause investigation.
+
+4. **Subject selection.** Changed from multi-select to single-select, matching every piece of
+   Preply evidence gathered across two independent passes (historical and fresh), neither of which
+   ever showed more than one subject selectable on the About stage.
+
+None of this is a reversal of this ADR's underlying intent (benchmark-sourced, not invented
+behavior) — it is the same standard applied to new, stronger evidence than was available when §3
+was first written.
+
 ### 4. Draft persistence: the existing aggregate, not a second mechanism
 
 "Save progress / navigate back / close and resume" is already fully solved by `PATCH /api/tutors/applications/me` + `GET /api/tutors/applications/me` — every section save is a normal partial-update call; there is no separate local/session draft store, and the wizard never buffers unsaved cross-section state beyond the field(s) actively being edited. **Which step the UI currently shows is not persisted anywhere** (not local storage, not the URL) — on every load, the wizard derives its starting step fresh from the returned application data (first section with a missing required field, or the Review step if none). This avoids both a second persistence mechanism and URL-state duplication for something that loses nothing by resetting (only the *view*, never the *data*, resets on refresh).
@@ -87,3 +129,53 @@ Confirmed via `apps/web/src/features/tutor-profile/mediaUrl.ts`'s own existing c
 - `docs/design/PREPLY_SEARCH_PARITY_MATRIX.md` is stale relative to `ADR-0024` (flagged previously, still not corrected — out of this phase's direct scope, revisited only if the onboarding audit itself touches Search, which it does not).
 - Real object/media storage remains an open architectural gap (`mediaUrl.ts`'s own comment, restated in `OPEN_QUESTIONS.md`).
 - `Approve`/`Reject`/`BeginReview`/`Publish`/`Suspend` remain uncallable via any HTTP endpoint (no `Admin` role exists yet, `OPEN_QUESTIONS.md` A35) — unchanged by this phase, consistent with the already-accepted precedent for `Publish`/`Suspend`.
+
+## Addendum — 2026-10-19: wizard reordered to the 8 evidenced Preply steps
+
+A critical parity audit (`docs/product/preply-reverse-engineering/18-screenshot-evidence.md`,
+`07-wizard-inventory.md`) confirmed, via a 13-screenshot real-session evidence pack, that Preply's
+actual tutor-application wizard has exactly 8 steps in this order: **About, Photo, Certification,
+Education, Description, Video, Availability, Pricing** — with no separate review/summary step
+(Pricing's own Continue action is the final submit, "Complete registration").
+
+TutorFlow's wizard previously had 9 steps: `about, basics, photo, teaching, credentials, video,
+availability, rate, review`. Three concrete, evidence-backed problems, not a redesign preference:
+
+1. **`basics`** (Headline/About you) sat at position 2, but its content is a 1:1 match for
+   Preply's **Description** step at position 5 — a position error, not a duplication of `about`
+   (zero overlapping fields between the two).
+2. **`credentials`** merged Preply's two confirmed-separate steps (Certification, Education) into
+   one TutorFlow step.
+3. **`teaching`** (Specialties/Years of experience/Experience summary) and **`review`** both have
+   zero Preply evidence as distinct steps — `teaching`'s own code comment already admitted this;
+   `review` was already an open, unresolved question (item 11 below).
+
+**Resolution applied:**
+- `WIZARD_STEPS` is now exactly Preply's 8: `about, photo, certification, education, description,
+  video, availability, pricing`.
+- `basics` → renamed/repositioned to `DescriptionStep.tsx`, moved to position 5.
+- `credentials` → split into `CertificationStep.tsx` (position 3) and `EducationStep.tsx`
+  (position 4).
+- `rate` → renamed to `PricingStep.tsx`; its own Continue action now also triggers
+  `submitTutorApplication` (save-then-submit), since Pricing is the final step. The frontend
+  "missing fields" checklist `ReviewStep.tsx` used to show is **not replaced** — the backend's
+  `GetSubmissionReadinessErrors()` remains the sole authoritative check (unchanged), and its
+  specific error messages now surface directly on Pricing via the same `problem.errors`-reading
+  pattern already established in `features/auth/errorMessage.ts`.
+- `review` → **removed**, resolving `16-product-decisions-and-open-questions.md` item 11 ("keep as
+  a deliberate improvement, or drop to match Preply exactly") in favor of dropping it, per this
+  audit's explicit approval.
+- `teaching` → removed from `WIZARD_STEPS` and from `OnboardingWizard`'s render tree, but
+  **`TeachingStep.tsx` is not deleted** — its backend fields/schema/API contract are completely
+  unchanged, and any application that already saved specialties/years/experience-summary keeps
+  that data. It is simply no longer reachable through the wizard UI. **Open product question,
+  not resolved here:** should this data be exposed elsewhere, stay permanently dormant, or be
+  formally deprecated? See `TeachingStep.tsx`'s own updated doc comment.
+- `firstIncompleteStep()` was rewritten for the new positional order and now also checks
+  `introVideoReference` — a pre-existing gap (this check never existed before), now closed because
+  removing `review` removes the only other place a missing intro video was ever flagged before
+  submission.
+
+No backend field semantics, validation rules, persistence contracts, or module boundaries changed
+as part of this reordering — only step grouping, position, and the frontend-only error-surfacing
+helper.

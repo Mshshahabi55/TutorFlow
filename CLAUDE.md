@@ -12,9 +12,9 @@ Don't apply DDD ceremony to a module before it has an invariant that needs prote
 
 ### Current state
 
-11 of 14 modules are substantially implemented (domain models, EF Core persistence, and feature handlers): Availability, Bookings, Identity, Lessons, Notifications, Payments, Reviews, Search, Students, Subjects, Tutors. Of these, 10 also expose HTTP endpoints; Notifications is event-driven only — it consumes integration events via Wolverine and sends email, registering no routes by design.
+12 of 14 modules are substantially implemented (domain models, EF Core persistence, and feature handlers): Availability, Bookings, Identity, Lessons, Messaging, Notifications, Payments, Reviews, Search, Students, Subjects, Tutors. Of these, 11 also expose HTTP endpoints; Notifications is event-driven only — it consumes integration events via Wolverine and sends email, registering no routes by design.
 
-Three modules remain empty stubs — a classlib with only `<Name>Module.cs` exposing `Add<Name>Module()` / `Map<Name>Module()`, referenced by the Host, with one passing smoke test and no persistence, feature handlers, or endpoints: Learning, Messaging, Subscriptions. Build out a stub module's first real feature via `/scaffold` when there's an actual requirement driving it, not speculatively.
+Two modules remain empty stubs — a classlib with only `<Name>Module.cs` exposing `Add<Name>Module()` / `Map<Name>Module()`, referenced by the Host, with one passing smoke test and no persistence, feature handlers, or endpoints: Learning, Subscriptions. Build out a stub module's first real feature via `/scaffold` when there's an actual requirement driving it, not speculatively.
 
 ## Tech Stack
 

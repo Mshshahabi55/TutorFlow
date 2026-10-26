@@ -118,3 +118,72 @@ requires no API or frontend change.
 - This does not widen `ADR-0014`'s read-only query-contract pattern — the new cross-module
   mechanism here is an integration event (Wolverine), the sanctioned mechanism for anything with
   a side effect, consistent with `ADR-0001`.
+
+## Addendum (F6 production reliability fix — static codegen implemented)
+
+§4 flagged two gaps as "not silently accepted as final": no durable transactional outbox, and no
+static codegen. This addendum closes the second; the first remains open — see `OPEN_QUESTIONS.md`
+A44, now split accordingly.
+
+**Root cause, confirmed with evidence, not assumption:** `TypeLoadMode.Dynamic` compiles each
+message type's handler chain lazily, via Roslyn, on its first dispatch. Two different message
+types' first-ever compilation racing concurrently corrupts JasperFx's internal frame-arranging
+state — a known upstream bug class (JasperFx/wolverine#1734). Reproduced independently against
+two unrelated pipelines (`TutorCertificateRejected`, and separately `TutorPublished`/
+`TutorAvailabilitySignalChanged` in `TutorPublishedPipelineTests`) under repeated full-suite runs,
+confirming this was never specific to one handler — it was a property of Dynamic mode itself,
+affecting the whole messaging pipeline.
+
+**Fix:** `opts.CodeGeneration.TypeLoadMode = TypeLoadMode.Static`, applied unconditionally in
+every environment (including tests) — not gated behind `IsProduction()`, so the code the test
+suite exercises is the code that ships. Handler dispatch code for all 8 integration-event types
+is pre-generated via `dotnet run --project src/TutorFlow.Host -- codegen write` into
+`src/TutorFlow.Host/Internal/Generated/WolverineHandlers/`, committed as ordinary C# (not
+hand-authored or hand-patched), and verified for drift in CI (`backend.yml`).
+
+**Two follow-on fixes `codegen write`'s ahead-of-time, every-discovered-type pass surfaced, that
+Dynamic mode's lazy, only-on-actual-dispatch compilation had never exercised:**
+1. Wolverine's default "type name ends with Handler" discovery convention was matching every
+   ordinary CQRS feature `Handler` class across every module (not just the 10 real `*Consumer`
+   classes), misreading each one's first method parameter as "the message type." Fixed via
+   `opts.Discovery.CustomizeHandlerDiscovery(query => query.Excludes.WithNameSuffix("Handler"))`
+   — every real consumer already matches the still-active "Consumer" suffix rule, so this is a
+   pure subtraction of a false-positive match, not a narrowing of real coverage. All 10 real
+   consumers are additionally marked `[WolverineHandler]` as the documented "more deliberate
+   selection" marker.
+2. `RunJasperFxCommands(args)` (required to replace `app.Run()` so the `codegen write` verb is
+   reachable at all) exercises Wolverine's automatic "extension assembly" discovery
+   (`WolverineOptions.DiscoverAndApplyExtensions`) for the first time, which throws
+   `CultureNotFoundException` under this project's `InvariantGlobalization=true` when it
+   encounters culture-named satellite-resource folders in the build output (present in every test
+   project's own output, from the test framework itself) — a version-specific bug in the
+   installed JasperFx 2.79.1 (upstream's current main branch already special-cases this). Fixed
+   via `ExtensionDiscovery.ManualOnly` on `UseWolverine` — correct regardless of the upstream bug,
+   since this app has zero real Wolverine-extension NuGet packages to auto-discover in the first
+   place.
+
+**Verified, not merely asserted:** 10 consecutive clean full-suite runs of
+`TutorFlow.Modules.Tutors.Tests` (119 tests each), 5 of `TutorFlow.Host.Tests` (18 tests each,
+including the previously-flaky `TutorPublishedPipelineTests`), 3 of
+`TutorFlow.Modules.Notifications.Tests` (44 tests each) — zero recurrences of the race, zero
+`MissingPreBuiltTypesException`, zero `CultureNotFoundException`. Cross-checked against Bookings/
+Lessons/Payments/Search/Availability too; no new Static-mode-related failures in any of them (and
+Search's own long-standing, unrelated Serilog `ReloadableLogger` flake measurably improved —
+7/28 failing versus a previously-confirmed 20/28 — a side effect of no longer paying Roslyn's
+startup cost, not something this fix targeted or can claim credit for by design).
+
+**`WolverineFx.RuntimeCompilation` removed** from `TutorFlow.Host.csproj` — confirmed via
+repository-wide search to have zero direct code references anywhere (it only ever provided the
+Roslyn compiler Dynamic mode needed); full solution build and all of the above test runs succeed
+without it.
+
+**Known limitation, not fixed here and out of scope for F6:** Wolverine's local transport remains
+at-least-once, not exactly-once, regardless of TypeLoadMode — confirmed by observing a single
+`TutorCertificateRejected` HTTP call produce two identical notification sends in one live run,
+and a `BookingHoldExpired`-driven duplicate-delivery-triggered error-queue entry in Bookings'
+test suite (pre-existing behavior, not introduced by this change — `SendAbandonedCheckoutRecoveryEmail`
+already has its own claim/lease idempotency guard for exactly this reason; `SendCertificateRejectedEmail`
+deliberately does not, by prior design decision). No idempotency mechanism or delivery-semantics
+change was added as part of this fix, per explicit instruction — the durable outbox
+(`WolverineFx.EntityFrameworkCore`) remains the documented path to close this gap, tracked
+separately in `OPEN_QUESTIONS.md` A44.

@@ -204,6 +204,38 @@ try
             builder.Configuration.GetConnectionString("WolverineDb") ?? string.Empty,
             "messaging",
             MessageStoreRole.Main);
+        // A44 #103 follow-up — store-resolution investigation (bounded fallback, see
+        // docs/OPEN_QUESTIONS.md's A44 entry for the full writeup): Wolverine.Postgresql's
+        // PostgresqlBackedPersistence.Enroll<T>() is the SUPPORTED, type-safe way to associate an
+        // Ancillary store with its owning DbContext type (it registers an AncillaryMessageStore
+        // keyed by that type into IWolverineRuntime.Stores, which AutoApplyTransactions consults
+        // via HasAncillaryStoreFor(type) to insert ApplyAncillaryStoreFrame<T> — the frame whose
+        // AncillaryMessageStoreApplication<T>.Apply(context) pins MessageContext.Storage by type,
+        // not by registration order). It was tried here and confirmed to work for its own stated
+        // purpose: every outgoing envelope was empirically order-independent afterward. It was
+        // REVERTED anyway, because it has a confirmed, reproducible side effect on OTHER,
+        // already-correct cross-module Lightweight consumers (PaymentSucceededConsumer and
+        // PaymentFailedConsumer, both in Bookings): the generated chain still runs
+        // EnlistInOutboxAsync/EnrollDbContextInTransaction BEFORE ApplyAncillaryStoreFrame<T>'s
+        // own Apply(context) call (confirmed directly from the generated `codegen write` output,
+        // not inferred) — so the very first delivery of a message type that Enroll<T>() newly
+        // started tracking, through the SAME store-pinning machinery this fix needed, durably
+        // persisted its incoming envelope using a stale/default store reference and 42P01'd
+        // against the wrong schema, landing 2 dead letters before a later, independently-
+        // recovered attempt succeeded. Existing replay-safety (ConfirmBooking's
+        // PaymentReferenceId-gated AlreadyConfirmed path) absorbed this cleanly with no wrong
+        // business outcome in every run observed, but dead-lettering on first delivery is a real,
+        // unintended regression on paths this task was not scoped to touch — not shipped.
+        // [Storage(typeof(X))] and an explicit [Transactional(typeof(X))] argument were also
+        // tried on both consumers and did not change the outcome, confirming this is Wolverine
+        // 6.45.0's own EF Core transaction-middleware codegen ordering, not an application-level
+        // attribute gap — patching it would mean forking/wrapping Wolverine's own codegen, a
+        // broader architecture change outside this task's bound. Falling back, as explicitly
+        // authorized: the current registration order (Payments last) is the load-bearing
+        // invariant ProcessStripeWebhook's own envelope targeting depends on — do not reorder
+        // these four calls without re-running ProcessStripeWebhookTopologyTests (genuinely
+        // separate per-store containers; it will fail loudly with a "relation ... does not exist"
+        // error if Payments stops being last) and re-evaluating this decision.
         opts.PersistMessagesWithPostgresql(
             builder.Configuration.GetConnectionString("BookingsDb") ?? string.Empty,
             "bookings",

@@ -274,7 +274,7 @@ public sealed class TutorPublishedPipelineTests(TutorPublishedPipelineFixture fi
         using (var scope = fixture.Services.CreateScope())
         {
             var suspendHandler = scope.ServiceProvider.GetRequiredService<SuspendApplicationFeature.Handler>();
-            var result = await suspendHandler.HandleAsync(applicationId, "Policy violation", TestContext.Current.CancellationToken);
+            var result = await suspendHandler.HandleAsync(applicationId, "Policy violation", Guid.NewGuid(), TestContext.Current.CancellationToken);
             Assert.True(result.IsSuccess);
         }
 
@@ -443,7 +443,7 @@ public sealed class TutorPublishedPipelineTests(TutorPublishedPipelineFixture fi
         using (var scope = fixture.Services.CreateScope())
         {
             var suspendHandler = scope.ServiceProvider.GetRequiredService<SuspendApplicationFeature.Handler>();
-            var result = await suspendHandler.HandleAsync(applicationId, "Policy violation", TestContext.Current.CancellationToken);
+            var result = await suspendHandler.HandleAsync(applicationId, "Policy violation", Guid.NewGuid(), TestContext.Current.CancellationToken);
             Assert.True(result.IsSuccess);
         }
 

@@ -1,5 +1,6 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TutorFlow.Modules.Tutors.Domain;
 using TutorFlow.Modules.Tutors.Persistence;
 using TutorFlow.Shared;
@@ -27,9 +28,9 @@ public static class SuspendApplication
         }
     }
 
-    internal sealed class Handler(TutorsDbContext db, IMessageBus bus, TimeProvider clock)
+    internal sealed class Handler(TutorsDbContext db, IMessageBus bus, TimeProvider clock, ILogger<Handler> logger)
     {
-        public async Task<Result> HandleAsync(Guid applicationId, string reason, CancellationToken ct)
+        public async Task<Result> HandleAsync(Guid applicationId, string reason, Guid adminUserId, CancellationToken ct)
         {
             var application = await db.TutorApplications.FirstOrDefaultAsync(a => a.Id == applicationId, ct);
             if (application is null)
@@ -44,6 +45,10 @@ public static class SuspendApplication
             }
 
             await db.SaveChangesAsync(ct);
+
+            logger.LogInformation(
+                "Tutor application {ApplicationId} suspended by admin {AdminUserId}",
+                applicationId, adminUserId);
 
             await bus.PublishAsync(new TutorUnpublished(application.UserId, clock.GetUtcNow()));
 

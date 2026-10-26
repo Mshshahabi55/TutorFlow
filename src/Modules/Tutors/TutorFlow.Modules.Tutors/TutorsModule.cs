@@ -554,7 +554,7 @@ public static class TutorsModule
             return TypedResults.Problem(title: "Cannot act on your own tutor application.", statusCode: StatusCodes.Status403Forbidden);
         }
 
-        var result = await handler.HandleAsync(id, request.Reason, ct);
+        var result = await handler.HandleAsync(id, request.Reason, adminUserId, ct);
         return result.IsSuccess
             ? TypedResults.Ok()
             : result.ToProblemDetails(StatusCodes.Status400BadRequest);

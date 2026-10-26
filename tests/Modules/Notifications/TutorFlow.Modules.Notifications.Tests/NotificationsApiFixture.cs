@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Testcontainers.PostgreSql;
+using TutorFlow.Host;
 using TutorFlow.Modules.Identity.Persistence;
 using TutorFlow.Modules.Notifications.Infrastructure;
 using TutorFlow.Modules.Notifications.Persistence;
@@ -30,6 +31,8 @@ public sealed class NotificationsApiFixture : WebApplicationFactory<Program>, IA
     private readonly PostgreSqlContainer _notificationsPostgres = new PostgreSqlBuilder("postgres:18").Build();
     private readonly PostgreSqlContainer _identityPostgres = new PostgreSqlBuilder("postgres:18").Build();
     private readonly PostgreSqlContainer _tutorsPostgres = new PostgreSqlBuilder("postgres:18").Build();
+
+    private IDisposable? _wolverineConnectionStrings;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -61,6 +64,10 @@ public sealed class NotificationsApiFixture : WebApplicationFactory<Program>, IA
             _identityPostgres.StartAsync(),
             _tutorsPostgres.StartAsync());
 
+        _wolverineConnectionStrings = WolverineTestConnectionStrings.Configure(
+            _notificationsPostgres.GetConnectionString(),
+            tutorsDb: _tutorsPostgres.GetConnectionString());
+
         using var scope = Services.CreateScope();
         await scope.ServiceProvider.GetRequiredService<NotificationsDbContext>().Database.MigrateAsync();
         await scope.ServiceProvider.GetRequiredService<IdentityDbContext>().Database.MigrateAsync();
@@ -74,5 +81,6 @@ public sealed class NotificationsApiFixture : WebApplicationFactory<Program>, IA
             _identityPostgres.DisposeAsync().AsTask(),
             _tutorsPostgres.DisposeAsync().AsTask());
         await base.DisposeAsync();
+        _wolverineConnectionStrings?.Dispose();
     }
 }

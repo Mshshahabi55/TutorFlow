@@ -16,10 +16,16 @@
 
   <ItemGroup>
     <PackageReference Include="xunit.v3.mtp-v2" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../../../../src/Modules/Messaging/TutorFlow.Modules.Messaging/TutorFlow.Modules.Messaging.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Availability/TutorFlow.Modules.Availability/TutorFlow.Modules.Availability.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Tutors/TutorFlow.Modules.Tutors/TutorFlow.Modules.Tutors.csproj" />
+    <ProjectReference Include="../../../../src/TutorFlow.Host/TutorFlow.Host.csproj" />
   </ItemGroup>
 
 </Project>

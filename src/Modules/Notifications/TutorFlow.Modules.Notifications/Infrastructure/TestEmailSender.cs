@@ -21,6 +21,6 @@ internal sealed class TestEmailSender : IEmailSender
     public Task<EmailSendResult> SendAsync(EmailMessage message, CancellationToken ct)
     {
         SentMessages.Add(message);
-        return Task.FromResult(EmailSendResult.Success());
+        return Task.FromResult(EmailSendResult.Sent());
     }
 }

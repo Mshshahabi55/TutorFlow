@@ -12,6 +12,12 @@ internal sealed class SentAbandonedCheckoutEmailConfiguration : IEntityTypeConfi
 
         builder.HasIndex(e => e.BookingId).IsUnique();
 
+        // Supports AbandonedCheckoutClaimReconciliationService's bounded scan for stale,
+        // unresolved claims — a partial index so resolved rows (the overwhelming majority over
+        // time) never need to be scanned.
+        builder.HasIndex(e => e.OwnedUntilUtc)
+            .HasFilter("\"WasSent\" = false AND \"SkippedReason\" IS NULL");
+
         builder.Property(e => e.SkippedReason).HasMaxLength(500);
     }
 }

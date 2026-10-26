@@ -35,12 +35,21 @@ namespace TutorFlow.Modules.Notifications.Migrations
                     b.Property<DateTimeOffset>("ClaimedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTimeOffset>("OwnedUntilUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OwnerToken")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTimeOffset?>("SentAtUtc")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("SkippedReason")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<DateTimeOffset>("StartUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("StudentUserId")
                         .HasColumnType("uuid");
@@ -55,6 +64,9 @@ namespace TutorFlow.Modules.Notifications.Migrations
 
                     b.HasIndex("BookingId")
                         .IsUnique();
+
+                    b.HasIndex("OwnedUntilUtc")
+                        .HasFilter("\"WasSent\" = false AND \"SkippedReason\" IS NULL");
 
                     b.ToTable("SentAbandonedCheckoutEmails", "notifications");
                 });

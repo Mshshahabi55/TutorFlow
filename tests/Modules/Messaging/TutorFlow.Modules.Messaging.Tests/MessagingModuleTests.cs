@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using TutorFlow.Modules.Messaging;
 
@@ -9,7 +10,13 @@ public class MessagingModuleTests
     public void AddMessagingModule_RegistersWithoutThrowing()
     {
         var services = new ServiceCollection();
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:MessagingDb"] = "Host=localhost;Database=unused-for-this-smoke-test"
+            })
+            .Build();
 
-        services.AddMessagingModule();
+        services.AddMessagingModule(config);
     }
 }

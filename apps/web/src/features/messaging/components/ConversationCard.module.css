@@ -1,0 +1,29 @@
+.link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timestamp {
+  color: var(--color-text-muted, #6b7280);
+  font-size: var(--font-size-sm, 0.875rem);
+}

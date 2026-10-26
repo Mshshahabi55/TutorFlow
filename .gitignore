@@ -508,3 +508,11 @@ _reference/
 # rather than deleted; reclassify here if their origin is later confirmed.
 /become-a-tutor-desktop-1440x900.png
 /become-a-tutor-mobile-390x844.png
+
+# Tutor profile photo uploads — TutorPhotoStorage.cs's own doc comment confirms this is local-disk
+# storage only until a real deployment target exists; CertificateDocumentStorage.cs deliberately
+# stores elsewhere, outside wwwroot, so this is the only upload destination under wwwroot and
+# nothing else is ever written here. The two files found here (2026-10-26) were confirmed as real
+# runtime uploads — filenames are hex-encoded Guids matching UploadProfilePhoto's own naming
+# scheme, one tied to a local test tutor account's user ID — not static assets or seed data.
+src/TutorFlow.Host/wwwroot/uploads/

@@ -16,6 +16,7 @@ using DraftUpdate = TutorFlow.Modules.Tutors.Domain.DraftUpdate;
 using TutorSpokenLanguage = TutorFlow.Modules.Tutors.Domain.TutorSpokenLanguage;
 using LanguageProficiency = TutorFlow.Modules.Tutors.Domain.LanguageProficiency;
 using TutorFlow.Shared;
+using Wolverine;
 using Wolverine.Tracking;
 
 namespace TutorFlow.Host.Tests;
@@ -114,5 +115,126 @@ public sealed class BookingHoldExpiryNotificationPipelineTests(BookingHoldExpiry
         var sender = (TestEmailSender)fixture.Services.GetRequiredService<IEmailSender>();
         var sent = Assert.Single(sender.SentMessages, m => m.ToEmail == studentEmail);
         Assert.Contains(tutorDisplayName, sent.Subject);
+    }
+
+    /// <summary>
+    /// A44 #103 architectural verification: <c>BookingHoldExpirySweepService</c>'s dispatch phase
+    /// has no claim/lock of its own on the "not yet dispatched" read — only the claim phase's
+    /// conditional UPDATE and the intent table's unique-on-BookingId index are guarded, and
+    /// neither applies to dispatch at all. Genuinely concurrent <c>Task.WhenAll</c> calls to
+    /// <c>SweepOnceAsync</c> turned out to be a timing-dependent, flaky way to prove this (the two
+    /// calls do not reliably interleave before either writes <c>DispatchedAtUtc</c> — observed
+    /// passing with 2 sends in isolation and with only 1 send under full-suite load). This test
+    /// instead reproduces the exact query-then-publish-then-mark sequence
+    /// <c>DispatchPendingIntentsAsync</c> runs, across two independent scopes with the ordering
+    /// explicitly controlled (both reads happen before either write) — a deterministic
+    /// reproduction of the real race's necessary condition, not a re-implementation of unrelated
+    /// logic: the method under test has no claim/lock to bypass, so two readers both seeing one
+    /// pending row before either marks it is the entire vulnerability, and is exactly what is
+    /// constructed here. The real consumer
+    /// (<c>SendAbandonedCheckoutRecoveryEmail.Handler</c>) is then proven genuinely idempotent
+    /// against the resulting duplicate delivery — both sends succeed, neither errors, and exactly
+    /// one <c>SentAbandonedCheckoutEmail</c> claim row survives.
+    /// </summary>
+    [Fact]
+    public async Task TwoReadersObservingTheSamePendingIntentBeforeEitherDispatches_BothPublish_ButTheRealConsumerStaysIdempotent()
+    {
+        var clock = TimeProvider.System;
+        Guid bookingId;
+        Guid studentUserId, tutorUserId;
+        DateTimeOffset startUtc, endUtc;
+        int durationMinutes;
+        bool isTrial;
+
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var bookingsDb = scope.ServiceProvider.GetRequiredService<BookingsDbContext>();
+            var now = clock.GetUtcNow();
+            var bookingResult = Booking.CreateHeld(
+                Guid.NewGuid(), Guid.NewGuid(), 25, now.AddDays(1), now.AddMinutes(-5),
+                new BookingMoney(2500, "EUR"), clock, isTrial: true);
+            Assert.True(bookingResult.IsSuccess);
+            var booking = bookingResult.Value;
+            bookingsDb.Bookings.Add(booking);
+            await bookingsDb.SaveChangesAsync(TestContext.Current.CancellationToken);
+            bookingId = booking.Id;
+            studentUserId = booking.StudentUserId;
+            tutorUserId = booking.TutorUserId;
+            startUtc = booking.StartUtc;
+            endUtc = booking.EndUtc;
+            durationMinutes = booking.DurationMinutes;
+            isTrial = booking.IsTrial;
+
+            // Simulates a crash between a prior process's claim (status change + intent row,
+            // already committed) and its own dispatch — the intent is left durably "owed."
+            await bookingsDb.Bookings.Where(b => b.Id == bookingId).ExecuteUpdateAsync(
+                s => s.SetProperty(b => b.Status, BookingStatus.Expired).SetProperty(b => b.HoldExpiresAtUtc, (DateTimeOffset?)null),
+                TestContext.Current.CancellationToken);
+            bookingsDb.BookingHoldExpiryIntents.Add(BookingHoldExpiryIntent.Create(
+                bookingId, studentUserId, tutorUserId, startUtc, endUtc, durationMinutes, isTrial, now));
+            await bookingsDb.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        // Two independent scopes/DbContext instances, standing in for two concurrent dispatchers.
+        // Both reads happen here, before either writer below runs — deterministically
+        // constructing the exact precondition a real race would need, instead of hoping
+        // Task.WhenAll schedules them that way.
+        using var scopeA = fixture.Services.CreateScope();
+        var dbA = scopeA.ServiceProvider.GetRequiredService<BookingsDbContext>();
+        var pendingA = await dbA.BookingHoldExpiryIntents
+            .Where(i => i.DispatchedAtUtc == null && i.BookingId == bookingId)
+            .ToListAsync(TestContext.Current.CancellationToken);
+        var intentA = Assert.Single(pendingA);
+
+        using var scopeB = fixture.Services.CreateScope();
+        var dbB = scopeB.ServiceProvider.GetRequiredService<BookingsDbContext>();
+        var pendingB = await dbB.BookingHoldExpiryIntents
+            .Where(i => i.DispatchedAtUtc == null && i.BookingId == bookingId)
+            .ToListAsync(TestContext.Current.CancellationToken);
+        var intentB = Assert.Single(pendingB);
+
+        Func<Wolverine.IMessageContext, Task> raceBothDispatchers = async _ =>
+        {
+            // Replicates DispatchPendingIntentsAsync's own per-intent body exactly (publish,
+            // then mark, then save) — first for reader A's copy, then reader B's, proving that
+            // B's independently-fetched "pending" view is stale but still acted on, because
+            // nothing re-checks it before publishing.
+            var busA = scopeA.ServiceProvider.GetRequiredService<IMessageBus>();
+            await busA.PublishAsync(new BookingHoldExpired(
+                intentA.BookingId, intentA.StudentUserId, intentA.TutorUserId,
+                intentA.StartUtc, intentA.EndUtc, intentA.DurationMinutes, intentA.IsTrial, intentA.ExpiredAtUtc));
+            intentA.MarkDispatched(clock.GetUtcNow());
+            await dbA.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+            var busB = scopeB.ServiceProvider.GetRequiredService<IMessageBus>();
+            await busB.PublishAsync(new BookingHoldExpired(
+                intentB.BookingId, intentB.StudentUserId, intentB.TutorUserId,
+                intentB.StartUtc, intentB.EndUtc, intentB.DurationMinutes, intentB.IsTrial, intentB.ExpiredAtUtc));
+            intentB.MarkDispatched(clock.GetUtcNow());
+            await dbB.SaveChangesAsync(TestContext.Current.CancellationToken);
+        };
+        ITrackedSession trackedSession = await fixture.Services.TrackActivity(TimeSpan.FromSeconds(30))
+            .ExecuteAndWaitAsync(raceBothDispatchers);
+
+        // The decisive, non-inferred result: the real message bus sent the event twice for this
+        // one intent, because nothing stopped reader B from acting on its stale "still pending"
+        // view.
+        Assert.Equal(2, trackedSession.Sent.MessagesOf<BookingHoldExpired>().Count(e => e.BookingId == bookingId));
+
+        // Both deliveries reached the real consumer and neither was moved to the error queue —
+        // the idempotency path below absorbed the duplicate cleanly, it did not merely avoid
+        // crashing.
+        Assert.Empty(trackedSession.MovedToErrorQueue.MessagesOf<BookingHoldExpired>());
+
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NotificationsDbContext>();
+            var claims = await db.SentAbandonedCheckoutEmails.AsNoTracking()
+                .Where(e => e.BookingId == bookingId).ToListAsync(TestContext.Current.CancellationToken);
+            // Exactly one claim row survives the duplicate delivery — SentAbandonedCheckoutEmail's
+            // own unique index on BookingId (ADR-0029 Addendum A) is what makes this true, not an
+            // assumption.
+            Assert.Single(claims);
+        }
     }
 }

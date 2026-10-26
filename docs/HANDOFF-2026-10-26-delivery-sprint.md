@@ -72,11 +72,17 @@ going forward.
   (`27-phase3-audit-completion-2026-10-25.md`) — Certification's catalog-driven combobox and
   Education's "Degree type" field were explicitly flagged as needing an architect decision
   (unverifiable catalog data source / new backend schema) and were not implemented.
-- **A44 task-tracker items `#103-#107`** (migrate remaining publish sites, fix
-  `SuspendApplication` adminUserId, integration tests, deployment doc) — the tracker shows these as
-  still pending; this sprint's commits cover the Availability/Bookings/Payments/Search/Lessons
-  consumer-side work that appears to satisfy most of this, but the tracker itself was not
-  reconciled against actual code state this sprint.
+- **A44 task-tracker items `#103-#107`** — **reconciled** in a later session the same day (see
+  `docs/OPEN_QUESTIONS.md`'s A44 entry, "A44 #103-#107 follow-up" paragraph, and
+  `docs/WOLVERINE_PROVISIONING.md`, for the full evidence-backed disposition). Summary: 4 of 6
+  remaining publish sites fixed to genuine or best-available atomicity (`PublishApplication`,
+  `SuspendApplication`, `RejectCertificate`, `ProcessStripeWebhook` — the last of these verified
+  safe but resting on a fragile, undocumented-until-now Wolverine Eager-mode ordering dependency
+  that still needs an architect decision); 1 (`BookingHoldExpirySweepService`) investigated,
+  reproduced the same misrouting defect, and explicitly left unfixed/reverted rather than ship a
+  false atomicity claim — needs an architect decision; 1 (Availability's 4 self-service handlers)
+  upgraded to durable-but-not-fully-atomic dispatch. Integration tests and a dedicated
+  provisioning doc were added; not claiming full A44 closure given the two open items above.
 
 ## Commands used (for re-verification)
 

@@ -153,6 +153,11 @@ Each is independent (one schema per module, `ADR-0001`) — run only the ones yo
 order. Re-running an already-applied migration is a safe no-op (`dotnet ef` checks
 `__EFMigrationsHistory` first).
 
+**These migrations do not provision Wolverine's own message storage** (the
+`wolverine_incoming_envelopes`/`wolverine_outgoing_envelopes`/etc. tables A44 depends on) —
+Wolverine's own CLI command is a separate, required step. See
+[`docs/WOLVERINE_PROVISIONING.md`](./WOLVERINE_PROVISIONING.md).
+
 ## 4. Reset the local database safely (only when explicitly requested)
 
 This **destroys all local data** in every `tutorflow_*` database — never run it as part of a

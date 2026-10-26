@@ -11,6 +11,7 @@ namespace TutorFlow.Modules.Lessons.Tests;
 // Testcontainers-backed LessonsDbContext (via the fixture) with a locally-controlled
 // FakeTimeProvider, same precedent as BookingsApiFixture's DomainTests.cs — never a sleep, never
 // a background timer, always a deterministic injected clock.
+[Collection(LessonsHostCollection.Name)]
 public class LessonCompletionTests(LessonsApiFixture fixture) : IClassFixture<LessonsApiFixture>
 {
     private sealed class FakeTimeProvider(DateTimeOffset now) : TimeProvider

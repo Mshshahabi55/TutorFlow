@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace TutorFlow.Host.Tests;
 
+[Collection(HostCollection.Name)]
 public class HealthEndpointTests
 {
     [Fact]

@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Testcontainers.PostgreSql;
+using TutorFlow.Host;
 using TutorFlow.Modules.Bookings.Persistence;
 using TutorFlow.Modules.Lessons.Persistence;
 
@@ -20,6 +21,17 @@ namespace TutorFlow.Modules.Lessons.Tests;
 // are needed here: these tests seed a Booking row directly (ConfirmBooking.Handler has no
 // Availability/Tutors dependency of its own), then exercise the real BookingConfirmed ->
 // Lessons pipeline exactly as it runs in production.
+//
+// Genuinely one container, not two — a prior version of this fixture started a second,
+// separate container for Lessons, which this comment's own stated intent never actually
+// matched. That went unnoticed until A44 added a real cross-module Wolverine dispatch test
+// here: Wolverine's EfCoreEnvelopeTransaction marks an incoming LOCAL message as handled
+// through the consuming handler's OWN DbContext connection (LessonsDbContext here), writing to
+// the Host-owned Main store's "messaging" schema specifically — which only exists on whichever
+// container WolverineDb resolves to. Two separate containers meant "messaging" lived on
+// Bookings' container while Lessons' connection pointed at an entirely different one, so the
+// write failed with "relation messaging.wolverine_incoming_envelopes does not exist" no matter
+// when the table was created. One container for every schema this fixture touches is the fix.
 public sealed class LessonsApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
 {
     // Program.cs registers a Host-wide JsonStringEnumConverter — HttpClient's ReadFromJsonAsync
@@ -34,8 +46,9 @@ public sealed class LessonsApiFixture : WebApplicationFactory<Program>, IAsyncLi
     public const string JwtAudience = "TutorFlow.Tests";
     public const string JwtKey = "lessons-integration-test-signing-key-at-least-32-bytes-long";
 
-    private readonly PostgreSqlContainer _bookingsPostgres = new PostgreSqlBuilder("postgres:18").Build();
-    private readonly PostgreSqlContainer _lessonsPostgres = new PostgreSqlBuilder("postgres:18").Build();
+    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18").Build();
+
+    private IDisposable? _wolverineConnectionStrings;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -43,8 +56,8 @@ public sealed class LessonsApiFixture : WebApplicationFactory<Program>, IAsyncLi
         {
             configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConnectionStrings:BookingsDb"] = _bookingsPostgres.GetConnectionString(),
-                ["ConnectionStrings:LessonsDb"] = _lessonsPostgres.GetConnectionString(),
+                ["ConnectionStrings:BookingsDb"] = _postgres.GetConnectionString(),
+                ["ConnectionStrings:LessonsDb"] = _postgres.GetConnectionString(),
                 ["Jwt:Issuer"] = "TutorFlow.Tests",
                 ["Jwt:Audience"] = "TutorFlow.Tests",
                 ["Jwt:Key"] = "lessons-integration-test-signing-key-at-least-32-bytes-long",
@@ -55,7 +68,9 @@ public sealed class LessonsApiFixture : WebApplicationFactory<Program>, IAsyncLi
 
     public async ValueTask InitializeAsync()
     {
-        await Task.WhenAll(_bookingsPostgres.StartAsync(), _lessonsPostgres.StartAsync());
+        await _postgres.StartAsync();
+
+        _wolverineConnectionStrings = WolverineTestConnectionStrings.Configure(_postgres.GetConnectionString());
 
         using var scope = Services.CreateScope();
         await scope.ServiceProvider.GetRequiredService<BookingsDbContext>().Database.MigrateAsync();
@@ -64,8 +79,9 @@ public sealed class LessonsApiFixture : WebApplicationFactory<Program>, IAsyncLi
 
     public override async ValueTask DisposeAsync()
     {
-        await Task.WhenAll(_bookingsPostgres.DisposeAsync().AsTask(), _lessonsPostgres.DisposeAsync().AsTask());
+        await _postgres.DisposeAsync();
         await base.DisposeAsync();
+        _wolverineConnectionStrings?.Dispose();
     }
 
     public static string CreateAccessToken(Guid userId, params string[] roles)

@@ -11,6 +11,10 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <!-- F6: needed for [Wolverine.Attributes.WolverineHandler] on BookingConfirmedConsumer, now
+         that opts.Discovery.DisableConventionalDiscovery() means the attribute is the only way
+         it's ever found (Program.cs). -->
+    <PackageReference Include="WolverineFx" />
   </ItemGroup>
 
 </Project>

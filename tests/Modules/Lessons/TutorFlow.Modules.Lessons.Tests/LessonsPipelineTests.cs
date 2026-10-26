@@ -9,6 +9,7 @@ using CreateLessonFromBookingFeature = TutorFlow.Modules.Lessons.Features.Create
 
 namespace TutorFlow.Modules.Lessons.Tests;
 
+[Collection(LessonsHostCollection.Name)]
 public class LessonsPipelineTests(LessonsApiFixture fixture) : IClassFixture<LessonsApiFixture>
 {
     // PostgreSQL's "timestamp with time zone" is microsecond-precision; .NET's DateTimeOffset

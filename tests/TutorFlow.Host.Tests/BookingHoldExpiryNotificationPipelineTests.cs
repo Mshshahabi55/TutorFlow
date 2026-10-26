@@ -15,6 +15,8 @@ using TutorApplication = TutorFlow.Modules.Tutors.Domain.TutorApplication;
 using DraftUpdate = TutorFlow.Modules.Tutors.Domain.DraftUpdate;
 using TutorSpokenLanguage = TutorFlow.Modules.Tutors.Domain.TutorSpokenLanguage;
 using LanguageProficiency = TutorFlow.Modules.Tutors.Domain.LanguageProficiency;
+using TutorFlow.Shared;
+using Wolverine.Tracking;
 
 namespace TutorFlow.Host.Tests;
 
@@ -23,6 +25,7 @@ namespace TutorFlow.Host.Tests;
 /// Wolverine, Notifications' real consumer receives it and attempts a real send — proven
 /// end-to-end, no mocked cross-module boundary.
 /// </summary>
+[Collection(HostCollection.Name)]
 public sealed class BookingHoldExpiryNotificationPipelineTests(BookingHoldExpiryNotificationPipelineFixture fixture)
     : IClassFixture<BookingHoldExpiryNotificationPipelineFixture>
 {
@@ -50,6 +53,7 @@ public sealed class BookingHoldExpiryNotificationPipelineTests(BookingHoldExpiry
                     DisplayName: tutorDisplayName,
                     Headline: "Patient tutor",
                     ProfilePhotoReference: "https://example.com/photo.jpg",
+                    IntroVideoReference: "https://example.com/intro.mp4",
                     SubjectIds: [Guid.NewGuid()],
                     SpokenLanguages: [new TutorSpokenLanguage("en", LanguageProficiency.Native)],
                     HourlyRate: new TutorMoney(2500, "EUR")),
@@ -69,11 +73,27 @@ public sealed class BookingHoldExpiryNotificationPipelineTests(BookingHoldExpiry
             bookingId = bookingResult.Value.Id;
         }
 
+        ITrackedSession trackedSession;
         using (var scope = fixture.Services.CreateScope())
         {
             var sweepService = scope.ServiceProvider.GetRequiredService<BookingHoldExpirySweepService>();
-            await sweepService.SweepOnceAsync(TestContext.Current.CancellationToken);
+
+            // Wolverine's local in-process transport delivers asynchronously — PublishAsync only
+            // guarantees the message was routed, not that the consumer has run (directly measured
+            // across several batches: the real dispatch-to-execution gap can be several seconds on
+            // the first message of a given type in a fresh host, racing a fixed-duration DB poll).
+            // TrackActivity/ExecuteAndWaitAsync waits deterministically for the entire message
+            // cascade to reach a terminal state (success, failure, or timeout) instead.
+            trackedSession = await fixture.Services.TrackActivity(TimeSpan.FromSeconds(30))
+                .ExecuteAndWaitAsync(_ => sweepService.SweepOnceAsync(TestContext.Current.CancellationToken));
         }
+
+        // Wolverine's own default assertion (ExecuteAndWaitAsync throws on a detected timeout or
+        // exception unless explicitly opted out) already guards against a failed/stranded
+        // dispatch; this positively confirms the specific expected message reached the
+        // successful-completion record, not merely that nothing else went wrong.
+        var succeededEnvelope = trackedSession.MessageSucceeded.SingleEnvelope<BookingHoldExpired>();
+        Assert.NotNull(succeededEnvelope);
 
         using (var scope = fixture.Services.CreateScope())
         {
@@ -82,33 +102,17 @@ public sealed class BookingHoldExpiryNotificationPipelineTests(BookingHoldExpiry
             Assert.Equal(BookingStatus.Expired, status);
         }
 
-        // Wolverine's local in-process transport delivers asynchronously — the publish call
-        // above already returned; the consumer runs in the background.
-        var claim = await PollForClaimAsync(bookingId);
-        Assert.NotNull(claim);
-        Assert.True(claim.WasSent);
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NotificationsDbContext>();
+            var claim = await db.SentAbandonedCheckoutEmails.AsNoTracking().FirstOrDefaultAsync(
+                e => e.BookingId == bookingId, TestContext.Current.CancellationToken);
+            Assert.NotNull(claim);
+            Assert.True(claim.WasSent);
+        }
 
         var sender = (TestEmailSender)fixture.Services.GetRequiredService<IEmailSender>();
         var sent = Assert.Single(sender.SentMessages, m => m.ToEmail == studentEmail);
         Assert.Contains(tutorDisplayName, sent.Subject);
-    }
-
-    private async Task<SentAbandonedCheckoutEmail?> PollForClaimAsync(Guid bookingId)
-    {
-        for (var attempt = 0; attempt < 50; attempt++)
-        {
-            using var scope = fixture.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<NotificationsDbContext>();
-            var claim = await db.SentAbandonedCheckoutEmails.AsNoTracking().FirstOrDefaultAsync(
-                e => e.BookingId == bookingId, TestContext.Current.CancellationToken);
-            if (claim is { WasSent: true })
-            {
-                return claim;
-            }
-
-            await Task.Delay(100, TestContext.Current.CancellationToken);
-        }
-
-        return null;
     }
 }

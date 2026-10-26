@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Testcontainers.PostgreSql;
+using TutorFlow.Host;
 using TutorFlow.Modules.Students.Persistence;
 
 namespace TutorFlow.Modules.Students.Tests;
@@ -19,6 +20,8 @@ public sealed class StudentsApiFixture : WebApplicationFactory<Program>, IAsyncL
     public const string JwtKey = "students-integration-test-signing-key-at-least-32-bytes-long";
 
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18").Build();
+
+    private IDisposable? _wolverineConnectionStrings;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -39,6 +42,8 @@ public sealed class StudentsApiFixture : WebApplicationFactory<Program>, IAsyncL
     {
         await _postgres.StartAsync();
 
+        _wolverineConnectionStrings = WolverineTestConnectionStrings.Configure(_postgres.GetConnectionString());
+
         using var scope = Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<StudentsDbContext>();
         await db.Database.MigrateAsync();
@@ -48,6 +53,7 @@ public sealed class StudentsApiFixture : WebApplicationFactory<Program>, IAsyncL
     {
         await _postgres.DisposeAsync();
         await base.DisposeAsync();
+        _wolverineConnectionStrings?.Dispose();
     }
 
     /// Mints a JWT locally with the given role(s), decoupled from the Identity module's login

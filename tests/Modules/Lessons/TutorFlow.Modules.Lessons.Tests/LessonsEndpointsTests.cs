@@ -9,6 +9,7 @@ using GetMyLessonsResponse = TutorFlow.Modules.Lessons.Features.GetMyLessons.Get
 
 namespace TutorFlow.Modules.Lessons.Tests;
 
+[Collection(LessonsHostCollection.Name)]
 public class LessonsEndpointsTests(LessonsApiFixture fixture) : IClassFixture<LessonsApiFixture>
 {
     private HttpClient CreateAuthenticatedClient(Guid userId, params string[] roles)

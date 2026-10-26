@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Testcontainers.PostgreSql;
+using TutorFlow.Host;
 using TutorFlow.Modules.Bookings.Persistence;
 using TutorFlow.Modules.Identity.Persistence;
 using TutorFlow.Modules.Notifications.Infrastructure;
@@ -25,6 +26,8 @@ public sealed class BookingHoldExpiryNotificationPipelineFixture : WebApplicatio
     private readonly PostgreSqlContainer _notificationsPostgres = new PostgreSqlBuilder("postgres:18").Build();
     private readonly PostgreSqlContainer _identityPostgres = new PostgreSqlBuilder("postgres:18").Build();
     private readonly PostgreSqlContainer _tutorsPostgres = new PostgreSqlBuilder("postgres:18").Build();
+
+    private IDisposable? _wolverineConnectionStrings;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -54,6 +57,11 @@ public sealed class BookingHoldExpiryNotificationPipelineFixture : WebApplicatio
             _identityPostgres.StartAsync(),
             _tutorsPostgres.StartAsync());
 
+        _wolverineConnectionStrings = WolverineTestConnectionStrings.Configure(
+            _bookingsPostgres.GetConnectionString(),
+            bookingsDb: _bookingsPostgres.GetConnectionString(),
+            tutorsDb: _tutorsPostgres.GetConnectionString());
+
         using var scope = Services.CreateScope();
         await scope.ServiceProvider.GetRequiredService<BookingsDbContext>().Database.MigrateAsync();
         await scope.ServiceProvider.GetRequiredService<NotificationsDbContext>().Database.MigrateAsync();
@@ -69,5 +77,6 @@ public sealed class BookingHoldExpiryNotificationPipelineFixture : WebApplicatio
             _identityPostgres.DisposeAsync().AsTask(),
             _tutorsPostgres.DisposeAsync().AsTask());
         await base.DisposeAsync();
+        _wolverineConnectionStrings?.Dispose();
     }
 }

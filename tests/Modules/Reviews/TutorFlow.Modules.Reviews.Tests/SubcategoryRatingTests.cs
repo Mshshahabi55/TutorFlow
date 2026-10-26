@@ -15,6 +15,7 @@ namespace TutorFlow.Modules.Reviews.Tests;
 // Review — eligible after >=1 completed lesson with the tutor (not 3), at most one submission per
 // calendar month, each dimension (Clarity/Progress/Preparation/Reassurance) independently
 // optional, never student-editable afterward (a new row each eligible month, never an upsert).
+[Collection(ReviewsHostCollection.Name)]
 public class SubcategoryRatingTests(ReviewsApiFixture fixture) : IClassFixture<ReviewsApiFixture>
 {
     private HttpClient CreateAuthenticatedClient(Guid userId, params string[] roles)

@@ -17,6 +17,7 @@ namespace TutorFlow.Modules.Reviews.Tests;
 // here seeds real Lesson rows in the real LessonsDbContext (never a mock), through the real
 // ICompletedLessonCountQuery cross-module DI resolution, matching the "test against real
 // persisted lesson relationships" requirement.
+[Collection(ReviewsHostCollection.Name)]
 public class ReviewEligibilityAndSubmissionTests(ReviewsApiFixture fixture) : IClassFixture<ReviewsApiFixture>
 {
     private HttpClient CreateAuthenticatedClient(Guid userId, params string[] roles)

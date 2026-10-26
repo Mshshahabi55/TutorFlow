@@ -178,3 +178,16 @@ sites atomic — route each through Wolverine's local command dispatch (`bus.Inv
 in scope before any real deployment target exists, or deferred until one does; (3) whether
 Wolverine's envelope-storage schema needs a real EF migration or a documented manual/CLI
 provisioning step (`dotnet run -- storage setup`) is acceptable going forward.
+
+## Addendum (2026-10-27): A44 #103-#107 bounded-closed — architect decision
+
+All three decisions above were made and implemented across later sessions. **Authoritative,
+current disposition lives in `docs/OPEN_QUESTIONS.md`'s A44 entry** (not duplicated here) —
+summary only: #104/#105/#106 closed with file-level evidence; #103's six publish-site paths each
+reached their achievable atomicity tier, with the `ProcessStripeWebhook` Ancillary-store
+registration-order dependency **explicitly accepted as temporary technical debt** (not resolved —
+no Wolverine upgrade/patch was investigated) and guarded by two regression tests
+(`ProcessStripeWebhookTopologyTests` and the new `WolverineAncillaryStoreRegistrationOrderTests`).
+A44 is **bounded-closed for its current scope** — this is not a claim that the messaging
+architecture is risk-free or fully order-independent. No further A44 infrastructure work is
+planned; the next priority is TutorFlow's unfinished Preply-parity tutor onboarding forms.

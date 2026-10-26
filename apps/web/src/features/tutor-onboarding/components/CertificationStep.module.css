@@ -1,0 +1,64 @@
+.entries {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.yearRange {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.yearRange > * {
+  flex: 1;
+}
+
+.documentSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.documentHint {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+.verifiedBadge {
+  color: var(--color-success-fg);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  margin: 0;
+}
+
+.pendingBanner {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+.rejectedBanner {
+  color: var(--color-error-fg);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+.status {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+.uploadError {
+  color: var(--color-error-fg);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  margin: 0;
+}

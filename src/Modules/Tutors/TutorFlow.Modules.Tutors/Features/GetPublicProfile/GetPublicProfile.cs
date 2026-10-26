@@ -15,6 +15,22 @@ public static class GetPublicProfile
 {
     public sealed record SpokenLanguageResponse(string LanguageCode, string Proficiency);
 
+    /// <summary>Public projection of <see cref="CertificateEntry"/> — deliberately excludes
+    /// <c>FileReference</c> (a server storage path/reference), <c>RejectionReason</c>, and the raw
+    /// <c>VerificationStatus</c> enum; <see cref="IsVerified"/> is the only derived fact ever
+    /// exposed, computed strictly from <c>VerificationStatus == Verified</c> — never true for
+    /// None/PendingReview/Rejected. Mapping the domain record directly into a public,
+    /// anonymous-access response, as the pre-Stage-1 implementation did, is the security gap this
+    /// explicit allowlist exists to prevent from recurring as new internal fields are added.</summary>
+    public sealed record PublicCertificateEntry(
+        string Name,
+        string IssuingOrganization,
+        string? Description,
+        Guid? SubjectId,
+        int? StartYear,
+        int? EndYear,
+        bool IsVerified);
+
     public sealed record Response(
         Guid TutorUserId,
         string Slug,
@@ -32,7 +48,7 @@ public static class GetPublicProfile
         int? YearsOfExperience,
         string? ExperienceSummary,
         IReadOnlyList<EducationEntry> EducationEntries,
-        IReadOnlyList<CertificateEntry> CertificateEntries,
+        IReadOnlyList<PublicCertificateEntry> CertificateEntries,
         int HourlyRateAmountMinorUnits,
         string HourlyRateCurrency,
         bool IsAcceptingNewStudents);
@@ -72,7 +88,14 @@ public static class GetPublicProfile
                 application.YearsOfExperience,
                 application.ExperienceSummary,
                 application.EducationEntries,
-                application.CertificateEntries,
+                [.. application.CertificateEntries.Select(c => new PublicCertificateEntry(
+                    c.Name,
+                    c.IssuingOrganization,
+                    c.Description,
+                    c.SubjectId,
+                    c.StartYear,
+                    c.EndYear,
+                    c.VerificationStatus == CertificateVerificationStatus.Verified))],
                 application.HourlyRateAmountMinorUnits ?? 0,
                 application.HourlyRateCurrency ?? "EUR",
                 application.IsAcceptingNewStudents));

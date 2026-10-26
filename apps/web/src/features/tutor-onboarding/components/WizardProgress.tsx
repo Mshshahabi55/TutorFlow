@@ -2,14 +2,14 @@ import { WIZARD_STEPS, WizardStep } from '../types';
 import styles from './WizardProgress.module.css';
 
 const STEP_LABELS: Record<WizardStep, string> = {
-  basics: 'Basics',
+  about: 'About',
   photo: 'Photo',
-  teaching: 'Teaching',
-  credentials: 'Credentials',
+  certification: 'Certification',
+  education: 'Education',
+  description: 'Description',
   video: 'Intro video',
   availability: 'Availability',
-  rate: 'Rate',
-  review: 'Review',
+  pricing: 'Pricing',
 };
 
 export interface WizardProgressProps {
@@ -38,7 +38,7 @@ export function WizardProgress({ currentStep, completedSteps, onSelectStep }: Wi
             <span className={styles.index} aria-hidden="true">
               {completedSteps.has(step) ? '✓' : index + 1}
             </span>
-            {STEP_LABELS[step]}
+            <span className={styles.label}>{STEP_LABELS[step]}</span>
           </button>
         </li>
       ))}

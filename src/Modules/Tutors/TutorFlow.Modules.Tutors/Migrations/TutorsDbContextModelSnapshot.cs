@@ -81,6 +81,10 @@ namespace TutorFlow.Modules.Tutors.Migrations
                     b.Property<bool>("IsSuperTutor")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("PhoneNumber")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<string>("ProfilePhotoReference")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
@@ -130,6 +134,12 @@ namespace TutorFlow.Modules.Tutors.Migrations
                     b.Property<int?>("YearsOfExperience")
                         .HasColumnType("integer");
 
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id");
 
                     b.HasIndex("PublicSlug")
@@ -150,14 +160,27 @@ namespace TutorFlow.Modules.Tutors.Migrations
                             b1.Property<int>("__synthesizedOrdinal")
                                 .ValueGeneratedOnAdd();
 
+                            b1.Property<string>("Description");
+
+                            b1.Property<int?>("EndYear");
+
                             b1.Property<string>("FileReference");
 
-                            b1.Property<int?>("IssueYear");
+                            b1.Property<Guid>("Id");
 
                             b1.Property<string>("IssuingOrganization")
                                 .IsRequired();
 
                             b1.Property<string>("Name")
+                                .IsRequired();
+
+                            b1.Property<string>("RejectionReason");
+
+                            b1.Property<int?>("StartYear");
+
+                            b1.Property<Guid?>("SubjectId");
+
+                            b1.Property<string>("VerificationStatus")
                                 .IsRequired();
 
                             b1.HasKey("TutorApplicationId", "__synthesizedOrdinal");
@@ -213,7 +236,8 @@ namespace TutorFlow.Modules.Tutors.Migrations
                             b1.Property<string>("LanguageCode")
                                 .IsRequired();
 
-                            b1.Property<int>("Proficiency");
+                            b1.Property<string>("Proficiency")
+                                .IsRequired();
 
                             b1.HasKey("TutorApplicationId", "__synthesizedOrdinal");
 

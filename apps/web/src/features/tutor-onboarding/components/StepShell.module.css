@@ -1,24 +1,38 @@
 .step {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-5);
+}
+
+/* Reserves clearance below the body/error content equal to the fixed mobile footer's own height
+   (button min-height + its padding/border, generously rounded up) plus the safe-area inset, so
+   the last field in a step is never left sitting directly behind the fixed bar — the same
+   static-padding approach Drawer.module.css already uses for its own safe-area clearance, not a
+   new technique for this codebase. Desktop is untouched: the footer stays in normal flow there,
+   so no reserved space is needed. */
+@media (max-width: 767px) {
+  .step {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
 }
 
 .title {
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-2xl);
   font-weight: 700;
+  letter-spacing: -0.01em;
   margin: 0;
 }
 
 .description {
   color: var(--color-text-secondary);
+  font-size: var(--font-size-md);
   margin: 0;
 }
 
 .body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-5);
 }
 
 .error {
@@ -30,4 +44,56 @@
   display: flex;
   justify-content: space-between;
   gap: var(--space-2);
+}
+
+/* Mobile: the Back/Continue footer becomes a fixed bottom action bar instead of inline content
+   (TUTORFLOW_WIZARD_ARCHITECTURE.md "Responsive/mobile UX" — "the sticky WizardFooter/
+   StepNavigation becomes a fixed bottom bar on mobile rather than inline"). Mirrors the identical
+   fixed-bottom-bar pattern BookingPanel.module.css already established for the same breakpoint
+   (position/inset/z-index), reusing var(--z-header) for the same reason: a mobile-only bottom
+   bar that never appears on screen at the same time as anything else at that z tier. Desktop
+   (>=768px) keeps the base rule above, unchanged. */
+@media (max-width: 767px) {
+  .footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom)) var(--space-4);
+    background: var(--color-bg-surface);
+    border-top: var(--border-width-thin) solid var(--color-border);
+    z-index: var(--z-header);
+  }
+}
+
+/* Desktop sticky footer — the Continue button stays fixed at the bottom of the viewport while
+   the step's content scrolls, matching the real Preply About stage's evidenced behavior
+   (docs/product/preply-reverse-engineering/24-about-stage-live-evidence-2026-10-18.md §2,
+   user-confirmed). Bounded to PageContainer's own max-width/centering (76rem, see
+   PageContainer.module.css) rather than stretching edge-to-edge across the viewport, since no
+   evidence was gathered either way for full-bleed vs. content-width alignment at desktop — this
+   is the more conservative choice, matching the page's own existing content column. Mobile/
+   keyboard-open sticky behavior is explicitly out of scope (26-...md §7/§8 — no evidence exists
+   for either), so the existing mobile rule above is left untouched. */
+@media (min-width: 768px) {
+  .step {
+    padding-bottom: 6rem;
+  }
+
+  .footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-width: 76rem;
+    margin: 0 auto;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-4) var(--space-6);
+    background: var(--color-bg-surface);
+    border-top: var(--border-width-thin) solid var(--color-border);
+    z-index: var(--z-header);
+  }
 }

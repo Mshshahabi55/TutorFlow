@@ -49,6 +49,14 @@ public sealed class TutorApplication
     /// (`PREPLY_SEARCH_PARITY_SPEC.md`). Self-reported by the tutor, unlike the two badges below.</summary>
     public string? CountryOfBirthCode { get; private set; }
 
+    /// <summary>Explicitly optional on Preply's own evidenced About stage — the only field on
+    /// that stage with an observed "(optional)" marker
+    /// (docs/product/preply-reverse-engineering/24-about-stage-live-evidence-2026-10-18.md §2
+    /// item 7). Free-text, including any country-calling-code prefix the tutor enters — no format
+    /// validation is imposed, since none was observed either. Never added to
+    /// <see cref="GetSubmissionReadinessErrors"/>.</summary>
+    public string? PhoneNumber { get; private set; }
+
     /// <summary>Platform-determined badge, never tutor-self-reported — see
     /// <see cref="SetProfessionalTutorStatus"/>. Eligibility computation itself (Preply's own
     /// criteria: a passing grade in their course, or a ≥120h accredited certificate) is future
@@ -96,6 +104,16 @@ public sealed class TutorApplication
     /// PREPLY_TUTOR_PROFILE_PARITY_SPEC.md §2/§11, ADR-0022). Deliberately not the same concept
     /// as <see cref="Suspend"/>, which is an admin/platform action, not a tutor's own choice.</summary>
     public bool IsAcceptingNewStudents { get; private set; } = true;
+
+    /// <summary>Private-storage file references orphaned by the most recent
+    /// <see cref="ApplyDraftUpdate"/>/<see cref="WithdrawCertificateDocument"/>/
+    /// <see cref="VerifyCertificate"/>/<see cref="RejectCertificate"/> call — populated by the
+    /// domain (which never does file I/O itself), read and cleared by the calling handler
+    /// strictly *after* <c>SaveChangesAsync</c> succeeds, so a file is never deleted before its
+    /// corresponding DB state is durably persisted. Explicitly <c>Ignore()</c>d in
+    /// <c>TutorApplicationConfiguration</c> — same precedent as the computed <see cref="HourlyRate"/>
+    /// property below.</summary>
+    public IReadOnlyList<string> PendingFileCleanup { get; private set; } = [];
 
     public static TutorApplication CreateDraft(Guid userId, TimeProvider clock)
     {
@@ -162,6 +180,11 @@ public sealed class TutorApplication
             CountryOfBirthCode = update.CountryOfBirthCode;
         }
 
+        if (update.PhoneNumber is not null)
+        {
+            PhoneNumber = update.PhoneNumber;
+        }
+
         if (update.YearsOfExperience is not null)
         {
             YearsOfExperience = update.YearsOfExperience;
@@ -179,7 +202,7 @@ public sealed class TutorApplication
 
         if (update.CertificateEntries is not null)
         {
-            CertificateEntries = [.. update.CertificateEntries];
+            CertificateEntries = ReconcileCertificateEntries(update.CertificateEntries);
         }
 
         if (update.HourlyRate is not null)
@@ -238,6 +261,11 @@ public sealed class TutorApplication
         if (HourlyRate is null)
         {
             errors.Add("Hourly rate is required before submission.");
+        }
+
+        if (string.IsNullOrWhiteSpace(IntroVideoReference))
+        {
+            errors.Add("An intro video is required before submission.");
         }
 
         return errors;
@@ -392,6 +420,232 @@ public sealed class TutorApplication
         IsAcceptingNewStudents = isAccepting;
         UpdatedAtUtc = clock.GetUtcNow();
     }
+
+    /// <summary>Merges a draft-update's certificate input against the currently-stored entries by
+    /// stable <see cref="CertificateEntry.Id"/> — never by position. An entry edit that changes any
+    /// descriptive field while the entry is anything other than <see cref="CertificateVerificationStatus.None"/>
+    /// resets it to <see cref="CertificateVerificationStatus.None"/> and orphans its file (queued in
+    /// <see cref="PendingFileCleanup"/> for the handler to delete post-commit) — a verification or
+    /// pending review was a claim about the *previous* details, not whatever the tutor just typed.
+    /// An entry present before but absent from the new input (removed by the tutor) orphans its
+    /// file the same way. New entries (no <see cref="CertificateEntryDraftInput.Id"/>) get a fresh
+    /// <see cref="Guid"/> and start at <see cref="CertificateVerificationStatus.None"/>.</summary>
+    private List<CertificateEntry> ReconcileCertificateEntries(IReadOnlyList<CertificateEntryDraftInput> incoming)
+    {
+        var existingById = CertificateEntries.ToDictionary(e => e.Id);
+        var reconciled = new List<CertificateEntry>(incoming.Count);
+        var orphanedFiles = new List<string>();
+        var matchedIds = new HashSet<Guid>();
+
+        foreach (var input in incoming)
+        {
+            if (input.Id is { } id && existingById.TryGetValue(id, out var existing))
+            {
+                matchedIds.Add(id);
+
+                var descriptiveFieldsChanged =
+                    existing.Name != input.Name ||
+                    existing.IssuingOrganization != input.IssuingOrganization ||
+                    existing.Description != input.Description ||
+                    existing.SubjectId != input.SubjectId ||
+                    existing.StartYear != input.StartYear ||
+                    existing.EndYear != input.EndYear;
+
+                if (descriptiveFieldsChanged && existing.VerificationStatus != CertificateVerificationStatus.None)
+                {
+                    if (existing.FileReference is not null)
+                    {
+                        orphanedFiles.Add(existing.FileReference);
+                    }
+
+                    reconciled.Add(existing with
+                    {
+                        Name = input.Name,
+                        IssuingOrganization = input.IssuingOrganization,
+                        Description = input.Description,
+                        SubjectId = input.SubjectId,
+                        StartYear = input.StartYear,
+                        EndYear = input.EndYear,
+                        VerificationStatus = CertificateVerificationStatus.None,
+                        FileReference = null,
+                        RejectionReason = null,
+                    });
+                }
+                else
+                {
+                    reconciled.Add(existing with
+                    {
+                        Name = input.Name,
+                        IssuingOrganization = input.IssuingOrganization,
+                        Description = input.Description,
+                        SubjectId = input.SubjectId,
+                        StartYear = input.StartYear,
+                        EndYear = input.EndYear,
+                    });
+                }
+            }
+            else
+            {
+                reconciled.Add(new CertificateEntry(
+                    Guid.NewGuid(),
+                    input.Name,
+                    input.IssuingOrganization,
+                    input.Description,
+                    input.SubjectId,
+                    input.StartYear,
+                    input.EndYear,
+                    FileReference: null));
+            }
+        }
+
+        foreach (var existing in CertificateEntries)
+        {
+            if (!matchedIds.Contains(existing.Id) && existing.FileReference is not null)
+            {
+                orphanedFiles.Add(existing.FileReference);
+            }
+        }
+
+        if (orphanedFiles.Count > 0)
+        {
+            PendingFileCleanup = [.. PendingFileCleanup, .. orphanedFiles];
+        }
+
+        return reconciled;
+    }
+
+    private int FindCertificateIndex(Guid certificateId) => CertificateEntries.FindIndex(e => e.Id == certificateId);
+
+    /// <summary>Tutor uploads/replaces a document for one certificate — always moves it to
+    /// <see cref="CertificateVerificationStatus.PendingReview"/> regardless of its prior status
+    /// (including re-upload after a rejection). Never auto-verifies.</summary>
+    public Result SubmitCertificateDocument(Guid certificateId, string fileReference, TimeProvider clock)
+    {
+        var index = FindCertificateIndex(certificateId);
+        if (index < 0)
+        {
+            return Result.Failure("Certificate not found.");
+        }
+
+        var entry = CertificateEntries[index];
+        if (entry.FileReference is not null)
+        {
+            PendingFileCleanup = [.. PendingFileCleanup, entry.FileReference];
+        }
+
+        CertificateEntries[index] = entry with
+        {
+            FileReference = fileReference,
+            VerificationStatus = CertificateVerificationStatus.PendingReview,
+            RejectionReason = null,
+        };
+        UpdatedAtUtc = clock.GetUtcNow();
+        return Result.Success();
+    }
+
+    /// <summary>Tutor withdraws a not-yet-decided or rejected document without replacing it.
+    /// A <see cref="CertificateVerificationStatus.Verified"/> document cannot be withdrawn this
+    /// way — editing descriptive fields (which resets verification) is the only path off
+    /// <see cref="CertificateVerificationStatus.Verified"/>.</summary>
+    public Result WithdrawCertificateDocument(Guid certificateId, TimeProvider clock)
+    {
+        var index = FindCertificateIndex(certificateId);
+        if (index < 0)
+        {
+            return Result.Failure("Certificate not found.");
+        }
+
+        var entry = CertificateEntries[index];
+        if (entry.VerificationStatus == CertificateVerificationStatus.Verified)
+        {
+            return Result.Failure("A verified certificate's document cannot be withdrawn directly — edit the certificate's details to reset it.");
+        }
+
+        if (entry.FileReference is null)
+        {
+            return Result.Failure("This certificate has no document to withdraw.");
+        }
+
+        PendingFileCleanup = [.. PendingFileCleanup, entry.FileReference];
+        CertificateEntries[index] = entry with
+        {
+            FileReference = null,
+            VerificationStatus = CertificateVerificationStatus.None,
+            RejectionReason = null,
+        };
+        UpdatedAtUtc = clock.GetUtcNow();
+        return Result.Success();
+    }
+
+    /// <summary>Admin approval — only a <see cref="CertificateVerificationStatus.PendingReview"/>
+    /// certificate can be verified (never approved sight-unseen, never re-decided once final).
+    /// Per the approved retention policy, the document itself is deleted on this final decision —
+    /// only the status is retained — so <see cref="PendingFileCleanup"/> is populated here too.</summary>
+    public Result VerifyCertificate(Guid certificateId, TimeProvider clock)
+    {
+        var index = FindCertificateIndex(certificateId);
+        if (index < 0)
+        {
+            return Result.Failure("Certificate not found.");
+        }
+
+        var entry = CertificateEntries[index];
+        if (entry.VerificationStatus != CertificateVerificationStatus.PendingReview)
+        {
+            return Result.Failure($"Cannot verify a certificate in '{entry.VerificationStatus}' status.");
+        }
+
+        if (entry.FileReference is not null)
+        {
+            PendingFileCleanup = [.. PendingFileCleanup, entry.FileReference];
+        }
+
+        CertificateEntries[index] = entry with
+        {
+            VerificationStatus = CertificateVerificationStatus.Verified,
+            FileReference = null,
+            RejectionReason = null,
+        };
+        UpdatedAtUtc = clock.GetUtcNow();
+        return Result.Success();
+    }
+
+    /// <summary>Admin rejection — only a <see cref="CertificateVerificationStatus.PendingReview"/>
+    /// certificate can be rejected. The document is deleted the same as on verification (approved
+    /// retention policy); the reason is the retained decision record.</summary>
+    public Result RejectCertificate(Guid certificateId, string reason, TimeProvider clock)
+    {
+        var index = FindCertificateIndex(certificateId);
+        if (index < 0)
+        {
+            return Result.Failure("Certificate not found.");
+        }
+
+        var entry = CertificateEntries[index];
+        if (entry.VerificationStatus != CertificateVerificationStatus.PendingReview)
+        {
+            return Result.Failure($"Cannot reject a certificate in '{entry.VerificationStatus}' status.");
+        }
+
+        if (entry.FileReference is not null)
+        {
+            PendingFileCleanup = [.. PendingFileCleanup, entry.FileReference];
+        }
+
+        CertificateEntries[index] = entry with
+        {
+            VerificationStatus = CertificateVerificationStatus.Rejected,
+            FileReference = null,
+            RejectionReason = reason,
+        };
+        UpdatedAtUtc = clock.GetUtcNow();
+        return Result.Success();
+    }
+
+    /// <summary>Clears the queued file-cleanup list — called by a handler only after it has
+    /// actually attempted deletion of every entry returned to it (success or best-effort-logged
+    /// failure), never before.</summary>
+    public void ClearPendingFileCleanup() => PendingFileCleanup = [];
 }
 
 public sealed record DraftUpdate(
@@ -404,10 +658,11 @@ public sealed record DraftUpdate(
     IReadOnlyList<Guid>? SubjectIds = null,
     IReadOnlyList<Guid>? SpecialtyIds = null,
     string? CountryOfBirthCode = null,
+    string? PhoneNumber = null,
     int? YearsOfExperience = null,
     string? ExperienceSummary = null,
     IReadOnlyList<EducationEntry>? EducationEntries = null,
-    IReadOnlyList<CertificateEntry>? CertificateEntries = null,
+    IReadOnlyList<CertificateEntryDraftInput>? CertificateEntries = null,
     Money? HourlyRate = null,
     bool? AvailabilitySettingsConfigured = null,
     bool? BookingSettingsConfigured = null);

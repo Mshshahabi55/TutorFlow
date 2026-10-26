@@ -2,6 +2,7 @@ using System.Security.Claims;
 using FluentValidation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -9,9 +10,11 @@ using Microsoft.Extensions.DependencyInjection;
 using TutorFlow.Modules.Tutors.Infrastructure;
 using TutorFlow.Modules.Tutors.Persistence;
 using TutorFlow.Shared;
+using Wolverine.EntityFrameworkCore;
 using ApproveApplicationFeature = TutorFlow.Modules.Tutors.Features.ApproveApplication.ApproveApplication;
 using BeginReviewApplicationFeature = TutorFlow.Modules.Tutors.Features.BeginReviewApplication.BeginReviewApplication;
 using CreateApplicationFeature = TutorFlow.Modules.Tutors.Features.CreateApplication.CreateApplication;
+using DownloadCertificateDocumentFeature = TutorFlow.Modules.Tutors.Features.DownloadCertificateDocument.DownloadCertificateDocument;
 using GetCurrentApplicationFeature = TutorFlow.Modules.Tutors.Features.GetCurrentApplication.GetCurrentApplication;
 using GetCurrentStatusFeature = TutorFlow.Modules.Tutors.Features.GetCurrentStatus.GetCurrentStatus;
 using GetPendingTutorApplicationsFeature = TutorFlow.Modules.Tutors.Features.GetPendingTutorApplications.GetPendingTutorApplications;
@@ -19,10 +22,15 @@ using GetPublicProfileFeature = TutorFlow.Modules.Tutors.Features.GetPublicProfi
 using GetTutorApplicationForAdminFeature = TutorFlow.Modules.Tutors.Features.GetTutorApplicationForAdmin.GetTutorApplicationForAdmin;
 using PublishApplicationFeature = TutorFlow.Modules.Tutors.Features.PublishApplication.PublishApplication;
 using RejectApplicationFeature = TutorFlow.Modules.Tutors.Features.RejectApplication.RejectApplication;
+using RejectCertificateFeature = TutorFlow.Modules.Tutors.Features.RejectCertificate.RejectCertificate;
 using ReopenApplicationForRevisionFeature = TutorFlow.Modules.Tutors.Features.ReopenApplicationForRevision.ReopenApplicationForRevision;
 using SubmitApplicationFeature = TutorFlow.Modules.Tutors.Features.SubmitApplication.SubmitApplication;
+using SubmitCertificateDocumentFeature = TutorFlow.Modules.Tutors.Features.SubmitCertificateDocument.SubmitCertificateDocument;
 using SuspendApplicationFeature = TutorFlow.Modules.Tutors.Features.SuspendApplication.SuspendApplication;
 using UpdateDraftFeature = TutorFlow.Modules.Tutors.Features.UpdateDraft.UpdateDraft;
+using UploadProfilePhotoFeature = TutorFlow.Modules.Tutors.Features.UploadProfilePhoto.UploadProfilePhoto;
+using VerifyCertificateFeature = TutorFlow.Modules.Tutors.Features.VerifyCertificate.VerifyCertificate;
+using WithdrawCertificateDocumentFeature = TutorFlow.Modules.Tutors.Features.WithdrawCertificateDocument.WithdrawCertificateDocument;
 
 namespace TutorFlow.Modules.Tutors;
 
@@ -30,8 +38,10 @@ public static class TutorsModule
 {
     public static IServiceCollection AddTutorsModule(this IServiceCollection services, IConfiguration config)
     {
-        services.AddDbContext<TutorsDbContext>(options =>
-            options.UseNpgsql(config.GetConnectionString("TutorsDb")));
+        // A44: see BookingsModule's identical comment on AddDbContextWithWolverineIntegration.
+        services.AddDbContextWithWolverineIntegration<TutorsDbContext>(
+            options => options.UseNpgsql(config.GetConnectionString("TutorsDb"), npgsql => npgsql.EnableRetryOnFailure()),
+            "tutors");
 
         services.AddScoped<CreateApplicationFeature.Handler>();
         services.AddScoped<GetCurrentApplicationFeature.Handler>();
@@ -44,6 +54,30 @@ public static class TutorsModule
 
         services.AddScoped<UpdateDraftFeature.Handler>();
         services.AddScoped<IValidator<UpdateDraftFeature.Command>, UpdateDraftFeature.Validator>();
+
+        // Local-disk photo storage (see TutorPhotoStorage's own doc comment for why: no
+        // object-storage provider exists in this codebase, and no production deployment target
+        // is defined yet either).
+        services.Configure<TutorPhotoStorageOptions>(config.GetSection("TutorPhotoStorage"));
+        services.AddScoped<UploadProfilePhotoFeature.Handler>();
+
+        // Stage 2 (Certification) — private, non-static-served document storage; see
+        // CertificateDocumentStorage's own doc comment for why this is deliberately not
+        // TutorPhotoStorage's pattern. Signature/extension/size validation only — no real image
+        // decode (SixLabors.ImageSharp was evaluated and explicitly declined; see the module's
+        // production-readiness notes). The cleanup sweep is the retry mechanism for a failed
+        // post-decision delete or an abandoned/crashed upload — same BackgroundService +
+        // PeriodicTimer precedent as Notifications' AbandonedCheckoutClaimReconciliationService.
+        services.Configure<CertificateDocumentStorageOptions>(config.GetSection("CertificateDocumentStorage"));
+        services.AddScoped<ICertificateDocumentStorage, LocalCertificateDocumentStorage>();
+        services.Configure<CertificateDocumentCleanupOptions>(config.GetSection("CertificateDocumentCleanup"));
+        services.AddHostedService<CertificateDocumentCleanupService>();
+        services.AddScoped<SubmitCertificateDocumentFeature.Handler>();
+        services.AddScoped<WithdrawCertificateDocumentFeature.Handler>();
+        services.AddScoped<DownloadCertificateDocumentFeature.Handler>();
+        services.AddScoped<VerifyCertificateFeature.Handler>();
+        services.AddScoped<RejectCertificateFeature.Handler>();
+        services.AddScoped<IValidator<RejectCertificateFeature.Command>, RejectCertificateFeature.Validator>();
 
         // Admin review pipeline (ADR-0028) — Composed Admin (ADR-0008): these handlers live in
         // Tutors, the owning module, not a separate Admin module.
@@ -70,10 +104,10 @@ public static class TutorsModule
             .AddPolicy(PolicyNames.AdminOnly, p => p.RequireRole(RoleNames.Admin));
 
         // Public, read-heavy, infrequently-mutated response — exactly the output-cache use case
-        // the Kit's caching skill names first (ADR-0022). Tagged "tutors" so a future endpoint
-        // that mutates a Published profile has a one-line eviction hook
-        // (IOutputCacheStore.EvictByTagAsync) ready to use; nothing currently mutates a
-        // Published application, so no eviction call exists yet — added when one does.
+        // the Kit's caching skill names first (ADR-0022). Tagged "tutors" — VerifyCertificate and
+        // RejectCertificate now call IOutputCacheStore.EvictByTagAsync("tutors") on every decision,
+        // so a verification-badge change is visible immediately rather than waiting out the
+        // 5-minute TTL below.
         services.AddOutputCache(options =>
             options.AddPolicy("TutorPublicProfile", policy =>
                 policy.Expire(TimeSpan.FromMinutes(5)).SetVaryByRouteValue("slug").Tag("tutors")));
@@ -111,6 +145,32 @@ public static class TutorsModule
         group.MapPost("/applications/me/reopen", ReopenApplicationForRevisionAsync)
             .WithName("ReopenTutorApplicationForRevision")
             .WithSummary("Move a Rejected application back to Draft so it can be corrected and resubmitted (ADR-0026).");
+
+        group.MapPost("/me/photo", UploadProfilePhotoAsync)
+            .WithName("UploadTutorProfilePhoto")
+            .WithSummary("Upload a profile photo for the current user (JPEG/PNG/WebP, max 5 MB). Returns an absolute URL to pass to UpdateDraft's profilePhotoReference.")
+            .Accepts<IFormFile>("multipart/form-data")
+            // Minimal APIs require an explicit opt-out for any endpoint binding form data
+            // (ASP.NET Core 10 default). No antiforgery middleware exists anywhere in this app —
+            // every other mutating endpoint already relies solely on the auth cookie's
+            // SameSite=Lax setting (AuthCookie.cs) for CSRF protection, which already blocks
+            // cross-site POSTs; this endpoint is consistent with that existing posture, not a
+            // new gap.
+            .DisableAntiforgery();
+
+        group.MapPost("/me/certificates/{certificateId:guid}/document", SubmitCertificateDocumentAsync)
+            .WithName("SubmitCertificateDocument")
+            .WithSummary("Upload/replace a document for one of the current user's own certificates (JPEG/PNG, max 20 MB). Always moves it to PendingReview.")
+            .Accepts<IFormFile>("multipart/form-data")
+            .DisableAntiforgery();
+
+        group.MapDelete("/me/certificates/{certificateId:guid}/document", WithdrawCertificateDocumentAsync)
+            .WithName("WithdrawCertificateDocument")
+            .WithSummary("Withdraw a not-yet-decided or rejected certificate document without replacing it.");
+
+        group.MapGet("/me/certificates/{certificateId:guid}/document", DownloadOwnCertificateDocumentAsync)
+            .WithName("DownloadOwnCertificateDocument")
+            .WithSummary("Stream the current user's own certificate document (private storage — never a public URL).");
 
         // Separate, anonymous-access group — the self-service group above requires
         // PolicyNames.TutorOnly for every route it defines, which the public profile route
@@ -161,6 +221,19 @@ public static class TutorsModule
             .WithSummary("Suspend a Published application with a required reason, removing it from Search.")
             .AddEndpointFilter<ValidationFilter<SuspendApplicationFeature.Request>>();
 
+        adminGroup.MapGet("/applications/{id:guid}/certificates/{certificateId:guid}/document", DownloadCertificateDocumentForAdminAsync)
+            .WithName("DownloadCertificateDocumentForAdmin")
+            .WithSummary("Stream a certificate document for admin review (private storage — never a public URL).");
+
+        adminGroup.MapPost("/applications/{id:guid}/certificates/{certificateId:guid}/verify", VerifyCertificateAsync)
+            .WithName("VerifyCertificate")
+            .WithSummary("Approve a PendingReview certificate. Independent of application approval — never implied by it.");
+
+        adminGroup.MapPost("/applications/{id:guid}/certificates/{certificateId:guid}/reject", RejectCertificateAsync)
+            .WithName("RejectCertificate")
+            .WithSummary("Reject a PendingReview certificate with a required reason. Notifies the tutor.")
+            .AddEndpointFilter<ValidationFilter<RejectCertificateFeature.Command>>();
+
         return app;
     }
 
@@ -207,10 +280,24 @@ public static class TutorsModule
             return TypedResults.Unauthorized();
         }
 
-        var result = await handler.HandleAsync(userId, command, ct);
-        return result.IsSuccess
-            ? TypedResults.Ok(result.Value)
-            : result.ToProblemDetails(StatusCodes.Status400BadRequest);
+        try
+        {
+            var result = await handler.HandleAsync(userId, command, ct);
+            return result.IsSuccess
+                ? TypedResults.Ok(result.Value)
+                : result.ToProblemDetails(StatusCodes.Status400BadRequest);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Audit finding F1 — another request (a certificate decision, another draft save)
+            // committed against this same application between our read and our write. Letting
+            // that silently overwrite the newer state is exactly the bug being fixed; 409 tells
+            // the caller to reload and retry, matching this codebase's existing convention for
+            // every other optimistic-conflict case (BookingsModule/AvailabilityModule).
+            return TypedResults.Problem(
+                title: "This application was updated by another request. Reload and try again.",
+                statusCode: StatusCodes.Status409Conflict);
+        }
     }
 
     private static async Task<IResult> SubmitApplicationAsync(
@@ -259,6 +346,28 @@ public static class TutorsModule
         return result.IsSuccess
             ? TypedResults.Ok(result.Value)
             : result.ToProblemDetails(StatusCodes.Status400BadRequest);
+    }
+
+    private static async Task<IResult> UploadProfilePhotoAsync(
+        ClaimsPrincipal user,
+        IFormFile? file,
+        HttpRequest request,
+        UploadProfilePhotoFeature.Handler handler,
+        CancellationToken ct)
+    {
+        if (!user.TryGetUserId(out var userId))
+        {
+            return TypedResults.Unauthorized();
+        }
+
+        var result = await handler.HandleAsync(userId, file, ct);
+        if (result.IsFailure)
+        {
+            return result.ToProblemDetails(StatusCodes.Status400BadRequest);
+        }
+
+        var url = $"{request.Scheme}://{request.Host}/uploads/tutor-photos/{result.Value.FileName}";
+        return TypedResults.Ok(new { url });
     }
 
     private static async Task<IResult> GetPublicProfileAsync(
@@ -449,5 +558,228 @@ public static class TutorsModule
         return result.IsSuccess
             ? TypedResults.Ok()
             : result.ToProblemDetails(StatusCodes.Status400BadRequest);
+    }
+
+    private static async Task<IResult> SubmitCertificateDocumentAsync(
+        ClaimsPrincipal user,
+        Guid certificateId,
+        IFormFile? file,
+        SubmitCertificateDocumentFeature.Handler handler,
+        CancellationToken ct)
+    {
+        if (!user.TryGetUserId(out var userId))
+        {
+            return TypedResults.Unauthorized();
+        }
+
+        try
+        {
+            var result = await handler.HandleAsync(userId, certificateId, file, ct);
+            return result.IsSuccess
+                ? TypedResults.Ok(result.Value)
+                : result.ToProblemDetails(StatusCodes.Status400BadRequest);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Audit finding F1 — see UpdateDraftAsync's identical catch for the full rationale.
+            return TypedResults.Problem(
+                title: "This application was updated by another request. Reload and try again.",
+                statusCode: StatusCodes.Status409Conflict);
+        }
+    }
+
+    private static async Task<IResult> WithdrawCertificateDocumentAsync(
+        ClaimsPrincipal user,
+        Guid certificateId,
+        WithdrawCertificateDocumentFeature.Handler handler,
+        CancellationToken ct)
+    {
+        if (!user.TryGetUserId(out var userId))
+        {
+            return TypedResults.Unauthorized();
+        }
+
+        try
+        {
+            var result = await handler.HandleAsync(userId, certificateId, ct);
+            // NoContent (204), not Ok() — the frontend's void-typed apiDelete only special-cases
+            // 204 when deciding whether to skip JSON-parsing the response body; Ok() with no
+            // value still writes a genuinely empty 200 body, which fetch's .json() throws on
+            // (confirmed live: the withdraw succeeded server-side every time, but the UI falsely
+            // reported failure before this fix).
+            return result.IsSuccess
+                ? TypedResults.NoContent()
+                : result.ToProblemDetails(StatusCodes.Status400BadRequest);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Audit finding F1 — see UpdateDraftAsync's identical catch for the full rationale.
+            return TypedResults.Problem(
+                title: "This application was updated by another request. Reload and try again.",
+                statusCode: StatusCodes.Status409Conflict);
+        }
+    }
+
+    /// <summary>Private-storage streaming — never a redirect to a public URL, never
+    /// <c>UseStaticFiles</c>. <c>Cache-Control: no-store</c> and an inline, filename-free
+    /// Content-Disposition keep a confidential document out of any shared/browser cache and avoid
+    /// ever echoing a client-controlled or original filename back in a response header.</summary>
+    private static IResult StreamDocument(DownloadCertificateDocumentFeature.Document document)
+    {
+        return TypedResults.Stream(document.Content, document.ContentType, lastModified: null, entityTag: null);
+    }
+
+    private static async Task<IResult> DownloadOwnCertificateDocumentAsync(
+        ClaimsPrincipal user,
+        Guid certificateId,
+        DownloadCertificateDocumentFeature.Handler handler,
+        HttpResponse response,
+        CancellationToken ct)
+    {
+        if (!user.TryGetUserId(out var userId))
+        {
+            return TypedResults.Unauthorized();
+        }
+
+        var result = await handler.HandleForTutorAsync(userId, certificateId, ct);
+        if (result.IsFailure)
+        {
+            return result.ToProblemDetails(StatusCodes.Status404NotFound);
+        }
+
+        response.Headers.CacheControl = "no-store";
+        response.Headers.ContentDisposition = "inline";
+        return StreamDocument(result.Value);
+    }
+
+    private static async Task<IResult> DownloadCertificateDocumentForAdminAsync(
+        Guid id,
+        Guid certificateId,
+        ClaimsPrincipal admin,
+        TutorsDbContext db,
+        DownloadCertificateDocumentFeature.Handler handler,
+        HttpResponse response,
+        CancellationToken ct)
+    {
+        // Audit finding F4 — every other admin action on an application (BeginReview/Approve/
+        // Reject/Publish/Suspend/VerifyCertificate/RejectCertificate) already refuses to let an
+        // admin act on their own tutor application; this download endpoint was the one
+        // certificate-review action missing that same check. Viewing alone changes no state (an
+        // admin-as-tutor could already view this exact document via their own
+        // DownloadOwnCertificateDocumentAsync endpoint regardless), but the guard should be
+        // applied consistently rather than carved out silently.
+        if (!admin.TryGetUserId(out var adminUserId))
+        {
+            return TypedResults.Unauthorized();
+        }
+
+        var ownerUserId = await GetApplicationOwnerUserIdAsync(db, id, ct);
+        if (ownerUserId is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        if (ownerUserId == adminUserId)
+        {
+            return TypedResults.Problem(title: "Cannot act on your own tutor application.", statusCode: StatusCodes.Status403Forbidden);
+        }
+
+        var result = await handler.HandleForAdminAsync(id, certificateId, ct);
+        if (result.IsFailure)
+        {
+            return result.ToProblemDetails(StatusCodes.Status404NotFound);
+        }
+
+        response.Headers.CacheControl = "no-store";
+        response.Headers.ContentDisposition = "inline";
+        return StreamDocument(result.Value);
+    }
+
+    private static async Task<IResult> VerifyCertificateAsync(
+        Guid id,
+        Guid certificateId,
+        ClaimsPrincipal admin,
+        TutorsDbContext db,
+        VerifyCertificateFeature.Handler handler,
+        CancellationToken ct)
+    {
+        if (!admin.TryGetUserId(out var adminUserId))
+        {
+            return TypedResults.Unauthorized();
+        }
+
+        var ownerUserId = await GetApplicationOwnerUserIdAsync(db, id, ct);
+        if (ownerUserId is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        if (ownerUserId == adminUserId)
+        {
+            return TypedResults.Problem(title: "Cannot act on your own tutor application.", statusCode: StatusCodes.Status403Forbidden);
+        }
+
+        try
+        {
+            var result = await handler.HandleAsync(id, certificateId, adminUserId, ct);
+            // NoContent (204) — same reasoning as WithdrawCertificateDocumentAsync.
+            return result.IsSuccess
+                ? TypedResults.NoContent()
+                : result.ToProblemDetails(StatusCodes.Status400BadRequest);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Audit finding F1 — another admin action (verify/reject on a different certificate,
+            // a draft save) committed against this same application between our read and our
+            // write. Without a concurrency token this would silently overwrite that decision;
+            // 409 tells this caller their view is stale and the decision was NOT applied — see
+            // UpdateDraftAsync's identical catch for the full rationale.
+            return TypedResults.Problem(
+                title: "This application was updated by another request. Reload and try again.",
+                statusCode: StatusCodes.Status409Conflict);
+        }
+    }
+
+    private static async Task<IResult> RejectCertificateAsync(
+        Guid id,
+        Guid certificateId,
+        RejectCertificateFeature.Command command,
+        ClaimsPrincipal admin,
+        TutorsDbContext db,
+        RejectCertificateFeature.Handler handler,
+        CancellationToken ct)
+    {
+        if (!admin.TryGetUserId(out var adminUserId))
+        {
+            return TypedResults.Unauthorized();
+        }
+
+        var ownerUserId = await GetApplicationOwnerUserIdAsync(db, id, ct);
+        if (ownerUserId is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        if (ownerUserId == adminUserId)
+        {
+            return TypedResults.Problem(title: "Cannot act on your own tutor application.", statusCode: StatusCodes.Status403Forbidden);
+        }
+
+        try
+        {
+            var result = await handler.HandleAsync(id, certificateId, command.Reason, adminUserId, ct);
+            // NoContent (204) — same reasoning as WithdrawCertificateDocumentAsync.
+            return result.IsSuccess
+                ? TypedResults.NoContent()
+                : result.ToProblemDetails(StatusCodes.Status400BadRequest);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Audit finding F1 — see VerifyCertificateAsync's identical catch for the full
+            // rationale.
+            return TypedResults.Problem(
+                title: "This application was updated by another request. Reload and try again.",
+                statusCode: StatusCodes.Status409Conflict);
+        }
     }
 }

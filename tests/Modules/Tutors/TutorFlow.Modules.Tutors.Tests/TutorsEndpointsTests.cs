@@ -15,6 +15,7 @@ using SubmitApplicationResponse = TutorFlow.Modules.Tutors.Features.SubmitApplic
 
 namespace TutorFlow.Modules.Tutors.Tests;
 
+[Collection(TutorsHostCollection.Name)]
 public class TutorsEndpointsTests(TutorsApiFixture fixture) : IClassFixture<TutorsApiFixture>
 {
     private readonly HttpClient _client = fixture.CreateClient();
@@ -77,6 +78,44 @@ public class TutorsEndpointsTests(TutorsApiFixture fixture) : IClassFixture<Tuto
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    // Closes the coverage gap flagged by the 2026-10-19 About-stage parity audit: every existing
+    // Proficiency-referencing test used only LanguageProficiency.Native, so the owned-JSON
+    // HasConversion<string>() mapping (TutorApplicationConfiguration.cs) was never actually proven
+    // against the real Postgres container for a non-Native CEFR value. Two separate DbContext
+    // scopes (and AsNoTracking on the reload) are deliberate — a single shared context would
+    // satisfy the assertion purely from its own change-tracker identity map without ever
+    // re-deserializing the stored JSONB, which would prove nothing about the converter.
+    [Fact]
+    public async Task SpokenLanguageProficiency_B2_SurvivesARealPersistenceRoundTrip_ThroughTheOwnedJsonConverter()
+    {
+        var userId = Guid.NewGuid();
+        Guid applicationId;
+
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<TutorsDbContext>();
+            var application = TutorApplication.CreateDraft(userId, TimeProvider.System);
+            application.ApplyDraftUpdate(
+                new DraftUpdate(SpokenLanguages: [new TutorSpokenLanguage("es", LanguageProficiency.B2)]),
+                TimeProvider.System);
+            db.TutorApplications.Add(application);
+            await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+            applicationId = application.Id;
+        }
+
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<TutorsDbContext>();
+            var reloaded = await db.TutorApplications
+                .AsNoTracking()
+                .FirstAsync(a => a.Id == applicationId, TestContext.Current.CancellationToken);
+
+            var language = Assert.Single(reloaded.SpokenLanguages);
+            Assert.Equal("es", language.LanguageCode);
+            Assert.Equal(LanguageProficiency.B2, language.Proficiency);
+        }
+    }
+
     [Fact]
     public async Task GetCurrentApplication_WithoutExistingApplication_ReturnsNotFound()
     {
@@ -85,6 +124,20 @@ public class TutorsEndpointsTests(TutorsApiFixture fixture) : IClassFixture<Tuto
         var response = await client.GetAsync("/api/tutors/applications/me", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    // Live-verified during the 2026-10-19 Student/Tutor role-separation audit (real browser
+    // session, fresh Student-only account, before any Tutor role grant): a Student must not be
+    // able to read Tutor-only application data merely by being authenticated — confirmed 403 live,
+    // now locked in as a regression test. Mirrors CreateApplication_WithoutTutorRole_ReturnsForbidden.
+    [Fact]
+    public async Task GetCurrentApplication_WithoutTutorRole_ReturnsForbidden()
+    {
+        var client = CreateAuthenticatedClient(Guid.NewGuid(), "Student");
+
+        var response = await client.GetAsync("/api/tutors/applications/me", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]
@@ -134,6 +187,108 @@ public class TutorsEndpointsTests(TutorsApiFixture fixture) : IClassFixture<Tuto
         Assert.Contains(body.SpokenLanguages, l => l.LanguageCode == "en");
     }
 
+    // Stage 1 Certification-step fields (docs/product/preply-reverse-engineering/evidence/
+    // Preply_Certifications) — a real HTTP round trip through UpdateDraft/GetCurrentApplication,
+    // not just a domain-level unit test, proving the full command → validator → handler →
+    // persistence → response path accepts and returns Subject/Description/StartYear/EndYear, and
+    // that a null EndYear ("Present") survives the trip rather than being coerced to 0 or dropped.
+    [Fact]
+    public async Task UpdateDraft_WithCertificateEntries_PersistsSubjectDescriptionAndYearRange()
+    {
+        var client = CreateAuthenticatedClient(Guid.NewGuid(), "Tutor");
+        await client.PostAsync("/api/tutors/applications", null, TestContext.Current.CancellationToken);
+        var subjectId = Guid.NewGuid();
+
+        var update = await client.PatchAsJsonAsync(
+            "/api/tutors/applications/me",
+            new
+            {
+                certificateEntries = new[]
+                {
+                    new
+                    {
+                        name = "TEFL Certificate",
+                        issuingOrganization = "International TEFL Academy",
+                        description = "120-hour course",
+                        subjectId,
+                        startYear = 2020,
+                        endYear = (int?)null,
+                        fileReference = (string?)null,
+                    },
+                },
+            },
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+
+        var response = await client.GetAsync("/api/tutors/applications/me", TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<GetCurrentApplicationResponse>(JsonOptions, TestContext.Current.CancellationToken);
+
+        var entry = Assert.Single(body!.CertificateEntries);
+        Assert.Equal("TEFL Certificate", entry.Name);
+        Assert.Equal("International TEFL Academy", entry.IssuingOrganization);
+        Assert.Equal("120-hour course", entry.Description);
+        Assert.Equal(subjectId, entry.SubjectId);
+        Assert.Equal(2020, entry.StartYear);
+        Assert.Null(entry.EndYear);
+    }
+
+    [Fact]
+    public async Task UpdateDraft_WithMoreThanTenCertificateEntries_ReturnsBadRequest()
+    {
+        var client = CreateAuthenticatedClient(Guid.NewGuid(), "Tutor");
+        await client.PostAsync("/api/tutors/applications", null, TestContext.Current.CancellationToken);
+        var elevenEntries = Enumerable.Range(0, 11)
+            .Select(i => new { name = $"Cert {i}", issuingOrganization = "Org", description = (string?)null, subjectId = (Guid?)null, startYear = (int?)null, endYear = (int?)null, fileReference = (string?)null })
+            .ToArray();
+
+        var response = await client.PatchAsJsonAsync(
+            "/api/tutors/applications/me",
+            new { certificateEntries = elevenEntries },
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateDraft_WithCertificateStartYearAfterEndYear_ReturnsBadRequest()
+    {
+        var client = CreateAuthenticatedClient(Guid.NewGuid(), "Tutor");
+        await client.PostAsync("/api/tutors/applications", null, TestContext.Current.CancellationToken);
+
+        var response = await client.PatchAsJsonAsync(
+            "/api/tutors/applications/me",
+            new
+            {
+                certificateEntries = new[]
+                {
+                    new { name = "Cert", issuingOrganization = "Org", description = (string?)null, subjectId = (Guid?)null, startYear = 2024, endYear = (int?)2020, fileReference = (string?)null },
+                },
+            },
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateDraft_WithEmptyGuidCertificateSubjectId_ReturnsBadRequest()
+    {
+        var client = CreateAuthenticatedClient(Guid.NewGuid(), "Tutor");
+        await client.PostAsync("/api/tutors/applications", null, TestContext.Current.CancellationToken);
+
+        var response = await client.PatchAsJsonAsync(
+            "/api/tutors/applications/me",
+            new
+            {
+                certificateEntries = new[]
+                {
+                    new { name = "Cert", issuingOrganization = "Org", description = (string?)null, subjectId = Guid.Empty, startYear = (int?)null, endYear = (int?)null, fileReference = (string?)null },
+                },
+            },
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     [Fact]
     public async Task UpdateDraft_WithoutExistingApplication_ReturnsBadRequest()
     {
@@ -170,6 +325,7 @@ public class TutorsEndpointsTests(TutorsApiFixture fixture) : IClassFixture<Tuto
                 displayName = "Complete Tutor",
                 headline = "Patient, experienced tutor",
                 profilePhotoReference = "https://example.com/photo.jpg",
+                introVideoReference = "https://example.com/intro.mp4",
                 subjectIds = new[] { Guid.NewGuid() },
                 spokenLanguages = new[] { new { languageCode = "en", proficiency = "Native" } },
                 hourlyRate = new { amountMinorUnits = 2500, currency = "EUR" }
@@ -197,6 +353,7 @@ public class TutorsEndpointsTests(TutorsApiFixture fixture) : IClassFixture<Tuto
                 displayName = "Complete Tutor",
                 headline = "Patient, experienced tutor",
                 profilePhotoReference = "https://example.com/photo.jpg",
+                introVideoReference = "https://example.com/intro.mp4",
                 subjectIds = new[] { Guid.NewGuid() },
                 spokenLanguages = new[] { new { languageCode = "en", proficiency = "Native" } },
                 hourlyRate = new { amountMinorUnits = 2500, currency = "EUR" }
@@ -221,6 +378,7 @@ public class TutorsEndpointsTests(TutorsApiFixture fixture) : IClassFixture<Tuto
                 displayName = "Complete Tutor",
                 headline = "Patient, experienced tutor",
                 profilePhotoReference = "https://example.com/photo.jpg",
+                introVideoReference = "https://example.com/intro.mp4",
                 subjectIds = new[] { Guid.NewGuid() },
                 spokenLanguages = new[] { new { languageCode = "en", proficiency = "Native" } },
                 hourlyRate = new { amountMinorUnits = 2500, currency = "EUR" }
@@ -283,6 +441,7 @@ public class TutorsEndpointsTests(TutorsApiFixture fixture) : IClassFixture<Tuto
                 displayName,
                 headline = "Patient, experienced tutor",
                 profilePhotoReference = "https://example.com/photo.jpg",
+                introVideoReference = "https://example.com/intro.mp4",
                 subjectIds = new[] { Guid.NewGuid() },
                 spokenLanguages = new[] { new { languageCode = "en", proficiency = "Native" } },
                 hourlyRate = new { amountMinorUnits = 2500, currency = "EUR" }
@@ -314,6 +473,7 @@ public class TutorsEndpointsTests(TutorsApiFixture fixture) : IClassFixture<Tuto
                 displayName = "Slug Visible Tutor",
                 headline = "Patient, experienced tutor",
                 profilePhotoReference = "https://example.com/photo.jpg",
+                introVideoReference = "https://example.com/intro.mp4",
                 subjectIds = new[] { Guid.NewGuid() },
                 spokenLanguages = new[] { new { languageCode = "en", proficiency = "Native" } },
                 hourlyRate = new { amountMinorUnits = 2500, currency = "EUR" }
@@ -342,6 +502,7 @@ public class TutorsEndpointsTests(TutorsApiFixture fixture) : IClassFixture<Tuto
                 displayName = "Needs Revision Tutor",
                 headline = "Patient, experienced tutor",
                 profilePhotoReference = "https://example.com/photo.jpg",
+                introVideoReference = "https://example.com/intro.mp4",
                 subjectIds = new[] { Guid.NewGuid() },
                 spokenLanguages = new[] { new { languageCode = "en", proficiency = "Native" } },
                 hourlyRate = new { amountMinorUnits = 2500, currency = "EUR" }
@@ -449,6 +610,7 @@ public class TutorsEndpointsTests(TutorsApiFixture fixture) : IClassFixture<Tuto
                 displayName = "Approved Not Published",
                 headline = "Patient, experienced tutor",
                 profilePhotoReference = "https://example.com/photo.jpg",
+                introVideoReference = "https://example.com/intro.mp4",
                 subjectIds = new[] { Guid.NewGuid() },
                 spokenLanguages = new[] { new { languageCode = "en", proficiency = "Native" } },
                 hourlyRate = new { amountMinorUnits = 2500, currency = "EUR" }
@@ -512,5 +674,69 @@ public class TutorsEndpointsTests(TutorsApiFixture fixture) : IClassFixture<Tuto
         Assert.DoesNotContain("availabilitySettingsConfigured", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("bookingSettingsConfigured", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("\"status\"", json, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // The actual security gap identified and fixed in this change: GetPublicProfile previously
+    // returned the raw domain CertificateEntry (including FileReference, a server storage
+    // path/reference) directly to an anonymous caller. Nothing in today's upload surface sets
+    // FileReference yet (Stage 2), but the field already exists on the domain record and is
+    // already settable via UpdateDraft — so this must be proven now, not deferred until Stage 2
+    // ships, matching the same real-HTTP-round-trip rigor as every other test in this file.
+    [Fact]
+    public async Task GetPublicProfile_DoesNotExposeCertificateFileReference()
+    {
+        var userId = Guid.NewGuid();
+        var client = CreateAuthenticatedClient(userId, "Tutor");
+        await client.PostAsync("/api/tutors/applications", null, TestContext.Current.CancellationToken);
+        await client.PatchAsJsonAsync(
+            "/api/tutors/applications/me",
+            new
+            {
+                displayName = "Certificate Exposure Check",
+                headline = "Patient, experienced tutor",
+                profilePhotoReference = "https://example.com/photo.jpg",
+                introVideoReference = "https://example.com/intro.mp4",
+                subjectIds = new[] { Guid.NewGuid() },
+                spokenLanguages = new[] { new { languageCode = "en", proficiency = "Native" } },
+                hourlyRate = new { amountMinorUnits = 2500, currency = "EUR" },
+                certificateEntries = new[]
+                {
+                    new
+                    {
+                        name = "TEFL Certificate",
+                        issuingOrganization = "International TEFL Academy",
+                        description = "120-hour course",
+                        subjectId = (Guid?)null,
+                        startYear = 2020,
+                        endYear = (int?)null,
+                        fileReference = "/uploads/tutor-certificates/should-never-be-public.pdf",
+                    },
+                },
+            },
+            TestContext.Current.CancellationToken);
+        await client.PostAsync("/api/tutors/applications/me/submit", null, TestContext.Current.CancellationToken);
+
+        string slug;
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<TutorsDbContext>();
+            var application = await db.TutorApplications.FirstAsync(a => a.UserId == userId, TestContext.Current.CancellationToken);
+            application.BeginReview(TimeProvider.System);
+            application.Approve(TimeProvider.System);
+            application.Publish(TimeProvider.System);
+            await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+            slug = application.PublicSlug!;
+        }
+
+        var response = await _client.GetAsync($"/api/tutors/{slug}", TestContext.Current.CancellationToken);
+        var json = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.DoesNotContain("fileReference", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("should-never-be-public", json, StringComparison.OrdinalIgnoreCase);
+        // Confirms this isn't just an empty/absent certificateEntries array hiding the gap —
+        // the legitimately-public fields for the same entry really are present on the wire.
+        Assert.Contains("TEFL Certificate", json);
+        Assert.Contains("International TEFL Academy", json);
     }
 }

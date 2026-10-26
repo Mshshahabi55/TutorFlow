@@ -1,5 +1,191 @@
-.preview {
+/* Non-interactive preview card: photo on the left, name + country flag beside it, subjects and
+   languages stacked below — matches the reference's information hierarchy
+   (docs/product/preply-reverse-engineering/18-screenshot-evidence.md, SS02). Thin top/bottom
+   dividers, no background fill — matches the real Preply Photo step's plain-page presentation
+   (docs/product/preply-reverse-engineering/evidence/Preply_Photo/Screenshot 2026-10-19
+   083938.png), not an earlier filled-card treatment that evidence doesn't support. */
+.previewCard {
   display: flex;
-  justify-content: center;
+  align-items: center;
+  gap: var(--space-4);
   padding: var(--space-4) 0;
+  border-top: var(--border-width-thin) solid var(--color-border);
+  border-bottom: var(--border-width-thin) solid var(--color-border);
+}
+
+.previewInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.previewNameRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.previewName {
+  font-weight: 700;
+}
+
+.previewHeadline {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+.previewMeta {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+/* Plain outlined button — a real <button> that programmatically clicks a sibling, visually-hidden,
+   aria-hidden <input type="file"> via ref, styled to match the real Preply wizard's "Upload new
+   photo" button (full-width, black outline, bold centered text) rather than a dashed dropzone
+   box. A real <button> (not a <label htmlFor>) is the sole focusable/interactive element here —
+   the file input's own implicit "button" ARIA role made a label-wrapped input ambiguous for
+   anything resolving an element by accessible role/name rather than native label-click
+   forwarding. Still carries the drag handlers so drag-and-drop keeps working. The explicit
+   background/color/font reset below exists because native <button> elements (unlike <label>) get
+   browser UA-stylesheet chrome that a plain <label> never had — without it this would no longer
+   look identical to the original label-based button. */
+.uploadButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: var(--size-control-field);
+  padding: 0 var(--space-4);
+  border: var(--border-width-thick) solid var(--color-neutral-900);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  color: inherit;
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+  cursor: pointer;
+  transition: background-color var(--motion-duration-base) var(--motion-easing-standard);
+}
+
+.uploadButton:hover {
+  background: var(--color-bg-muted);
+}
+
+.uploadButton:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.uploadButton[data-dragging] {
+  background: var(--color-accent-50);
+  border-color: var(--color-accent-600);
+}
+
+.uploadButton[data-disabled] {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.uploadHint {
+  margin: calc(var(--space-2) * -1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.status {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+.success {
+  color: var(--color-success-fg);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  margin: 0;
+}
+
+.uploadError {
+  color: var(--color-error-fg);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  margin: 0;
+}
+
+/* No background card — plain page background, matching the evidenced "What your photo needs"
+   section (same screenshot as .previewCard above). */
+.guide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.guideTitle {
+  font-weight: 600;
+  margin: 0;
+}
+
+.exampleGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+@media (max-width: 479px) {
+  .exampleGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.exampleTile {
+  display: flex;
+}
+
+.exampleIllustration {
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: var(--border-width-thin) solid var(--color-border);
+  width: 100%;
+}
+
+.exampleImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Checkmark-prefixed list, matching the evidenced checklist style — the global
+   `ul { list-style: none }` reset (globals.css) would otherwise silently drop any marker, so the
+   checkmark is set explicitly via the `list-style` string form rather than relying on `disc`. */
+.guideList {
+  list-style: '✓  ';
+  margin: 0;
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.urlFallback {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.urlToggle {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-link);
+  text-decoration: underline;
+  cursor: pointer;
 }

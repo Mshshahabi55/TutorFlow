@@ -19,10 +19,24 @@
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
+    <!-- F6: Wolverine.Tracking's ITrackedSession/TrackActivity — a public API, not internal, so
+         no InternalsVisibleTo is needed (this project still tests exclusively through HTTP; see
+         AssemblyInfo.cs's own note on TutorFlow.Modules.Tutors). Used only in
+         CertificateRejectionNotificationTests.cs to assert the real bus dispatch actually
+         succeeded (and never moved to the error queue) rather than inferring it from an email's
+         absence. -->
+    <PackageReference Include="WolverineFx" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../../../../src/Modules/Tutors/TutorFlow.Modules.Tutors/TutorFlow.Modules.Tutors.csproj" />
+    <!-- Audit finding F6 regression test — proves TutorCertificateRejected actually reaches
+         Notifications' consumer through the real Wolverine bus, not just that the HTTP endpoint
+         returns success. Needs Identity's ApplicationUser/UserManager to seed a real recipient
+         (IUserEmailQuery resolves against a real row, same precedent as NotificationsApiFixture's
+         identical reciprocal reference) and Notifications' TestEmailSender to observe the send. -->
+    <ProjectReference Include="../../../../src/Modules/Identity/TutorFlow.Modules.Identity/TutorFlow.Modules.Identity.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Notifications/TutorFlow.Modules.Notifications/TutorFlow.Modules.Notifications.csproj" />
     <ProjectReference Include="../../../../src/TutorFlow.Host/TutorFlow.Host.csproj" />
   </ItemGroup>
 

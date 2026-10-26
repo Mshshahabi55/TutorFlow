@@ -20,6 +20,7 @@ namespace TutorFlow.Modules.Tutors.Tests;
 /// repeated approval safely rejected (not silently idempotent, matching every other transition
 /// in this aggregate), and an admin can never act on their own tutor application.
 /// </summary>
+[Collection(TutorsHostCollection.Name)]
 public class TutorsAdminEndpointsTests(TutorsApiFixture fixture) : IClassFixture<TutorsApiFixture>
 {
     private readonly HttpClient _client = fixture.CreateClient();
@@ -50,6 +51,7 @@ public class TutorsAdminEndpointsTests(TutorsApiFixture fixture) : IClassFixture
                 displayName,
                 headline = "Patient, experienced tutor",
                 profilePhotoReference = "https://example.com/photo.jpg",
+                introVideoReference = "https://example.com/intro.mp4",
                 subjectIds = new[] { Guid.NewGuid() },
                 spokenLanguages = new[] { new { languageCode = "en", proficiency = "Native" } },
                 hourlyRate = new { amountMinorUnits = 2500, currency = "EUR" }

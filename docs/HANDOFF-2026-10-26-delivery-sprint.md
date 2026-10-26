@@ -95,3 +95,50 @@ dotnet exec <module>.Tests.dll          # per-module test run (dotnet test repor
 Nothing is blocking further work on this branch. If continuing: reconcile the A44 task tracker
 against actual code (items `#103-#107` above), then move to the explicitly-deferred Certification
 catalog / Education degree-type items once their respective architect decisions are made.
+
+## Addendum (2026-10-26): production stabilization pass — no app-code regression found
+
+A follow-up sprint targeted three things: a previously-unresolved "404/redirect-bounce
+instability" investigation, re-verification of A44's payment/tutor-published replay-safety
+claims, and a review of the Certification/Education Preply-parity gaps. Findings:
+
+- **404/bounce**: live-reproduced across the public site, the wizard, and protected dynamic
+  routes (`/tutors/[slug]`, `/messages/[id]`, `/admin/tutor-applications/[id]`) using both the
+  existing dev server and a fresh `next build && next start` production instance on a second
+  port. One symptom did reproduce — `/tutors/{nonexistent-slug}` returned `500` instead of `404`
+  — but only on a single long-running (16+ hour) `next dev` process (`Jest worker encountered 2
+  child process exceptions, exceeding retry limit`, Next's own internal compile-worker pool, not
+  app code). The identical request against a clean production build returned the correct `404`
+  immediately. **No application code change made** — this is dev-server process staleness, not a
+  TutorFlow defect; restart any long-lived `next dev` process if this recurs, and prefer
+  validating against a production build for this class of symptom (matches the prior sprint's own
+  "Part C" practice).
+- **The one real defect `27-phase3-audit-completion-2026-10-25.md` found** (Availability's
+  missing React Query cache invalidation after in-app save+navigate) was checked against current
+  code and **is already fixed** — `AvailabilityStep.tsx` now uses `useReplaceWeeklyRules()`/
+  `useUpdateBookingSettings()`, with a dedicated regression test
+  (`AvailabilityStep.cacheInvalidation.test.tsx`), landed in commit `948809d` before this pass
+  started. No further action needed; this closes that finding.
+- **A44 replay-safety** (`PaymentSucceededConsumer`, Availability's and Search's
+  `TutorPublishedConsumer`): re-inspected current source rather than trusting the task tracker.
+  All three already carry the documented Lightweight-transaction + idempotent-republish fix
+  (`ConfirmBooking`'s `AlreadyConfirmed` path keyed on persisted `PaymentReferenceId`;
+  `TutorBookability.TryApply`'s stale-redelivery guard + unconditional signal republish). No
+  regression found; no change made.
+- **Certification/Education parity**: confirmed Education's Specialization/Years-of-
+  study/no-degree-checkbox fields (already wired, using previously-unused backend fields) are
+  live in code. Degree-type (needs new backend schema) and Certification's catalog combobox
+  (needs real provider/course data this codebase has no source for) remain correctly deferred —
+  no new evidence this session to act on either.
+- **Found and fixed, unrelated to the above**: `01-create-app-role.sh` never provisioned a
+  database for `Notifications`, and `docs/DEVELOPMENT_DATABASE.md` never documented `Payments` or
+  `Notifications` at all despite both needing connection strings — fixed in commit `4dd4341`.
+  **Left open, flagged for the architect** (not fixed, to avoid guessing): `WolverineDb` (A44's
+  Host-owned Main envelope store) and `MessagingDb` (the `Messaging` module's own database) would
+  both naturally be named `tutorflow_messaging` under this project's existing per-module naming
+  convention — pick a non-colliding name for one of them (`docs/DEVELOPMENT_DATABASE.md` §1) before
+  `MessagingDb` is ever added to the init script.
+- A disposable local test account (`bounce-check-7f3a1@example.local`) was created via the real
+  signup flow for this session's live reproduction, consistent with this engagement's established
+  practice of using throwaway `.local` accounts for local-only testing; no cleanup action taken
+  since it's harmless local dev data, same as every other test account already in this database.

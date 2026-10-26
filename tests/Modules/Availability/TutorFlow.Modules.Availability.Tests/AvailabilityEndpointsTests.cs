@@ -14,6 +14,7 @@ using UpdateBookingSettingsResponse = TutorFlow.Modules.Availability.Features.Up
 
 namespace TutorFlow.Modules.Availability.Tests;
 
+[Collection(AvailabilityHostCollection.Name)]
 public class AvailabilityEndpointsTests(AvailabilityApiFixture fixture) : IClassFixture<AvailabilityApiFixture>
 {
     private readonly HttpClient _client = fixture.CreateClient();

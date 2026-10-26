@@ -15,6 +15,7 @@ namespace TutorFlow.Modules.Availability.Tests;
 /// ADR-0025: GetTutorSlots evolved to be duration- and range-aware for trial slot selection.
 /// Had zero endpoint-level test coverage before this phase.
 /// </summary>
+[Collection(AvailabilityHostCollection.Name)]
 public sealed class GetTutorSlotsTests(AvailabilityApiFixture fixture) : IClassFixture<AvailabilityApiFixture>
 {
     private HttpClient CreateAuthenticatedClient(Guid userId, params string[] roles)

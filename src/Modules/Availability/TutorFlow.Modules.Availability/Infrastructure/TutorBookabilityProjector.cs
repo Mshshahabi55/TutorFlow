@@ -10,17 +10,21 @@ namespace TutorFlow.Modules.Availability.Infrastructure;
 // is ready for that handler to call.
 public sealed class TutorBookabilityProjector(AvailabilityDbContext db, TimeProvider clock)
 {
-    public async Task ApplyBookabilityChangedAsync(Guid tutorUserId, bool isBookable, CancellationToken ct)
+    // A44 replay-safety fix: occurredAtUtc is the publishing event's own timestamp
+    // (TutorPublished/TutorUnpublished.OccurredAtUtc) — passed through to TutorBookability so a
+    // stale/out-of-order redelivery can be detected and ignored rather than blindly overwriting
+    // a legitimately newer state (see TutorBookability.TryApply).
+    public async Task ApplyBookabilityChangedAsync(Guid tutorUserId, bool isBookable, DateTimeOffset occurredAtUtc, CancellationToken ct)
     {
         var existing = await db.TutorBookabilityRecords.FirstOrDefaultAsync(b => b.TutorUserId == tutorUserId, ct);
 
         if (existing is null)
         {
-            db.TutorBookabilityRecords.Add(TutorBookability.Create(tutorUserId, isBookable, clock));
+            db.TutorBookabilityRecords.Add(TutorBookability.Create(tutorUserId, isBookable, clock, occurredAtUtc));
         }
         else
         {
-            existing.Apply(isBookable, clock);
+            existing.TryApply(isBookable, occurredAtUtc, clock);
         }
 
         await db.SaveChangesAsync(ct);

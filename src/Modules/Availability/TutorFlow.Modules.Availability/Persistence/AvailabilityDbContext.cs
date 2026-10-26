@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TutorFlow.Modules.Availability.Domain;
+using Wolverine.EntityFrameworkCore;
 
 namespace TutorFlow.Modules.Availability.Persistence;
 
@@ -17,5 +18,9 @@ public sealed class AvailabilityDbContext(DbContextOptions<AvailabilityDbContext
     {
         modelBuilder.HasDefaultSchema("availability");
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AvailabilityDbContext).Assembly);
+
+        // A44: Availability's own durable outbox/inbox tables, in its own schema — registered as
+        // an Ancillary Wolverine message store (Program.cs) for AvailabilitySignalPublisher.
+        modelBuilder.MapWolverineEnvelopeStorage();
     }
 }

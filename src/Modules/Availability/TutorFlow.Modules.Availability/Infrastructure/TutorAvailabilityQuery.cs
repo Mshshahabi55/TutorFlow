@@ -10,13 +10,23 @@ namespace TutorFlow.Modules.Availability.Infrastructure;
 // AvailabilityCalculator.ValidateRequestedSlot's note.
 internal sealed class TutorAvailabilityQuery(AvailabilityDbContext db, TimeProvider clock) : ITutorAvailabilityQuery
 {
+    public async Task<bool> IsTutorBookableAsync(Guid tutorUserId, CancellationToken ct)
+    {
+        // Same fail-closed rule as ValidateSlotAsync below, extracted as its own narrow check for
+        // callers (Messaging, ADR-0030) that only need "is this tutor currently bookable at all,"
+        // not a specific slot. Deliberately no try/catch: a genuine query failure must propagate
+        // as an unhandled failure, never be swallowed into a confident "false" — doing so would
+        // misrepresent an infrastructure problem as a business ineligibility decision.
+        var bookability = await db.TutorBookabilityRecords.AsNoTracking().FirstOrDefaultAsync(b => b.TutorUserId == tutorUserId, ct);
+        return bookability is { IsBookable: true };
+    }
+
     public async Task<SlotValidationResult> ValidateSlotAsync(Guid tutorUserId, DateTimeOffset startUtc, DateTimeOffset endUtc, CancellationToken ct)
     {
         // Fail-closed (ADR-0014 correction): absence of a bookability record means "not
         // bookable," never "bookable by default." This is correct and expected until ADR-0011's
         // Tutors -> Availability publish/consume pipeline is wired for a given tutor.
-        var bookability = await db.TutorBookabilityRecords.AsNoTracking().FirstOrDefaultAsync(b => b.TutorUserId == tutorUserId, ct);
-        if (bookability is null || !bookability.IsBookable)
+        if (!await IsTutorBookableAsync(tutorUserId, ct))
         {
             return new SlotValidationResult(false, "tutor not bookable");
         }

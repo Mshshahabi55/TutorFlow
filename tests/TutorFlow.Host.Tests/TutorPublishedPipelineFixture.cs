@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
+using TutorFlow.Host;
 using TutorFlow.Modules.Availability.Persistence;
 using TutorFlow.Modules.Bookings.Persistence;
 using TutorFlow.Modules.Search.Persistence;
@@ -25,6 +26,8 @@ public sealed class TutorPublishedPipelineFixture : WebApplicationFactory<Progra
 {
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18").Build();
 
+    private IDisposable? _wolverineConnectionStrings;
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.ConfigureAppConfiguration((_, configBuilder) =>
@@ -43,6 +46,8 @@ public sealed class TutorPublishedPipelineFixture : WebApplicationFactory<Progra
     {
         await _postgres.StartAsync();
 
+        _wolverineConnectionStrings = WolverineTestConnectionStrings.Configure(_postgres.GetConnectionString());
+
         using var scope = Services.CreateScope();
         await scope.ServiceProvider.GetRequiredService<TutorsDbContext>().Database.MigrateAsync();
         await scope.ServiceProvider.GetRequiredService<SearchDbContext>().Database.MigrateAsync();
@@ -54,5 +59,6 @@ public sealed class TutorPublishedPipelineFixture : WebApplicationFactory<Progra
     {
         await _postgres.DisposeAsync();
         await base.DisposeAsync();
+        _wolverineConnectionStrings?.Dispose();
     }
 }

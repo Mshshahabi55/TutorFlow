@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using TutorFlow.Modules.Availability.Infrastructure;
 using TutorFlow.Modules.Availability.Persistence;
 using TutorFlow.Shared;
+using Wolverine.EntityFrameworkCore;
 using AddTimeOffFeature = TutorFlow.Modules.Availability.Features.AddTimeOff.AddTimeOff;
 using GetComputedSlotsFeature = TutorFlow.Modules.Availability.Features.GetComputedSlots.GetComputedSlots;
 using GetCurrentConfigurationFeature = TutorFlow.Modules.Availability.Features.GetCurrentConfiguration.GetCurrentConfiguration;
@@ -24,8 +25,10 @@ public static class AvailabilityModule
 {
     public static IServiceCollection AddAvailabilityModule(this IServiceCollection services, IConfiguration config)
     {
-        services.AddDbContext<AvailabilityDbContext>(options =>
-            options.UseNpgsql(config.GetConnectionString("AvailabilityDb")));
+        // A44: see BookingsModule's identical comment on AddDbContextWithWolverineIntegration.
+        services.AddDbContextWithWolverineIntegration<AvailabilityDbContext>(
+            options => options.UseNpgsql(config.GetConnectionString("AvailabilityDb")),
+            "availability");
 
         services.AddScoped<ReplaceWeeklyRulesFeature.Handler>();
         services.AddScoped<IValidator<ReplaceWeeklyRulesFeature.Command>, ReplaceWeeklyRulesFeature.Validator>();

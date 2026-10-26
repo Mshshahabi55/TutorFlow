@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Testcontainers.PostgreSql;
+using TutorFlow.Host;
 using TutorFlow.Modules.Availability.Persistence;
 using TutorFlow.Modules.Bookings.Persistence;
 
@@ -17,6 +18,8 @@ namespace TutorFlow.Modules.Availability.Tests;
 
 public sealed class AvailabilityApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
 {
+    private IDisposable? _wolverineConnectionStrings;
+
     // Program.cs registers a Host-wide JsonStringEnumConverter — HttpClient's ReadFromJsonAsync
     // has no knowledge of that server-side DI configuration and needs matching options passed
     // explicitly to deserialize a string-enum wire value (e.g. DayOfWeek) at all.
@@ -54,6 +57,8 @@ public sealed class AvailabilityApiFixture : WebApplicationFactory<Program>, IAs
     {
         await _postgres.StartAsync();
 
+        _wolverineConnectionStrings = WolverineTestConnectionStrings.Configure(_postgres.GetConnectionString());
+
         using var scope = Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AvailabilityDbContext>();
         await db.Database.MigrateAsync();
@@ -64,6 +69,7 @@ public sealed class AvailabilityApiFixture : WebApplicationFactory<Program>, IAs
     {
         await _postgres.DisposeAsync();
         await base.DisposeAsync();
+        _wolverineConnectionStrings?.Dispose();
     }
 
     /// Mints a JWT locally with the given role(s), decoupled from Identity's login flow —

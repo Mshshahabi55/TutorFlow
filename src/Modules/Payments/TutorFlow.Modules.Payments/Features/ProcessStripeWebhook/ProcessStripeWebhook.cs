@@ -3,6 +3,8 @@ using TutorFlow.Modules.Payments.Domain;
 using TutorFlow.Modules.Payments.Persistence;
 using TutorFlow.Shared;
 using Wolverine;
+using Wolverine.Attributes;
+using Wolverine.Persistence;
 
 namespace TutorFlow.Modules.Payments.Features.ProcessStripeWebhook;
 
@@ -10,6 +12,17 @@ namespace TutorFlow.Modules.Payments.Features.ProcessStripeWebhook;
 // handler is ever reached — this handler is the part that is directly, deterministically
 // testable (mirroring Bookings.ConfirmBooking's own "only reachable by tests simulating the
 // notification directly" precedent), never exposed as a public "mark as paid" endpoint itself.
+//
+// A44 #103: the HTTP endpoint dispatches Command via IMessageBus.InvokeAsync
+// (ProcessStripeWebhookConsumer below) instead of calling Handler directly. Unlike
+// PublishApplication/SuspendApplication/RejectCertificate, Handler's own SaveChangesAsync/
+// ExecuteUpdateAsync calls did not need to change at all: PaymentsDbContext has no
+// EnableRetryOnFailure(), so Eager mode's explicit transaction wraps every one of them exactly
+// as written, genuinely atomically, with the outgoing envelope — no deferred-save restructuring,
+// no idempotent-republish branch needed (the existing DuplicateEvent check already handles a
+// Stripe-redelivered event correctly once true atomicity means nothing can ever half-commit).
+// Called directly (bypassing Wolverine) still works for isolated unit tests of Handler's own
+// business logic — it just does not get the atomic wrapping outside that chain.
 public static class ProcessStripeWebhook
 {
     public enum Outcome
@@ -22,7 +35,9 @@ public static class ProcessStripeWebhook
         Unrecognized
     }
 
-    internal sealed class Handler(PaymentsDbContext db, TimeProvider clock, IMessageBus bus)
+    public sealed record Command(string StripeEventId, string EventType, string? ProviderPaymentId, string? FailureReason, string RawPayloadJson);
+
+    public sealed class Handler(PaymentsDbContext db, TimeProvider clock, IMessageBus bus)
     {
         public async Task<Outcome> ProcessEventAsync(
             string stripeEventId,
@@ -115,4 +130,19 @@ public static class ProcessStripeWebhook
             return Outcome.Failed;
         }
     }
+}
+
+/// <summary>
+/// A44 #103: local-command dispatch target — see <c>ProcessStripeWebhook</c>'s own remarks.
+/// Eager (not Lightweight) mode is both viable and correct here: <c>PaymentsDbContext</c> has no
+/// <c>EnableRetryOnFailure()</c> registration (unlike <c>TutorsDbContext</c>), so Eager's explicit
+/// transaction can wrap the handler's <c>ExecuteUpdateAsync</c> calls without conflict, giving
+/// genuine same-transaction atomicity for the business write and the outgoing envelope.
+/// </summary>
+[WolverineHandler]
+[Transactional(typeof(PaymentsDbContext), Mode = TransactionMiddlewareMode.Eager)]
+public sealed class ProcessStripeWebhookConsumer(ProcessStripeWebhook.Handler handler)
+{
+    public Task<ProcessStripeWebhook.Outcome> HandleAsync(ProcessStripeWebhook.Command command, CancellationToken ct) =>
+        handler.ProcessEventAsync(command.StripeEventId, command.EventType, command.ProviderPaymentId, command.FailureReason, command.RawPayloadJson, ct);
 }

@@ -2,6 +2,7 @@ using FluentValidation;
 using TutorFlow.Modules.Availability.Domain;
 using TutorFlow.Modules.Availability.Infrastructure;
 using TutorFlow.Modules.Availability.Persistence;
+using Wolverine;
 
 namespace TutorFlow.Modules.Availability.Features.AddTimeOff;
 
@@ -20,7 +21,7 @@ public static class AddTimeOff
         }
     }
 
-    internal sealed class Handler(AvailabilityDbContext db, AvailabilitySignalPublisher signalPublisher)
+    internal sealed class Handler(AvailabilityDbContext db, IMessageBus bus)
     {
         public async Task<Result<Response>> HandleAsync(Guid tutorUserId, Command command, CancellationToken ct)
         {
@@ -34,7 +35,9 @@ public static class AddTimeOff
             db.TimeOffPeriods.Add(timeOff);
             await db.SaveChangesAsync(ct);
 
-            await signalPublisher.PublishCurrentSignalAsync(tutorUserId, ct);
+            // A44 #103: dispatched via Wolverine (RecomputeAvailabilitySignalConsumer) instead
+            // of calling AvailabilitySignalPublisher directly.
+            await bus.InvokeAsync(new RecomputeAvailabilitySignalCommand(tutorUserId), ct);
 
             return Result.Success(new Response(timeOff.Id, timeOff.StartUtc, timeOff.EndUtc, timeOff.Reason));
         }

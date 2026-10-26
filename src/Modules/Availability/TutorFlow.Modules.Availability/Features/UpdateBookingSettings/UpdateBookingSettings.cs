@@ -4,6 +4,7 @@ using Npgsql;
 using TutorFlow.Modules.Availability.Domain;
 using TutorFlow.Modules.Availability.Infrastructure;
 using TutorFlow.Modules.Availability.Persistence;
+using Wolverine;
 
 namespace TutorFlow.Modules.Availability.Features.UpdateBookingSettings;
 
@@ -29,7 +30,7 @@ public static class UpdateBookingSettings
         }
     }
 
-    internal sealed class Handler(AvailabilityDbContext db, TimeProvider clock, AvailabilitySignalPublisher signalPublisher)
+    internal sealed class Handler(AvailabilityDbContext db, TimeProvider clock, IMessageBus bus)
     {
         public async Task<Result<Response>> HandleAsync(Guid tutorUserId, Command command, CancellationToken ct)
         {
@@ -64,7 +65,7 @@ public static class UpdateBookingSettings
                     return Result.Failure<Response>("Booking settings were already created for this user; please retry.");
                 }
 
-                await signalPublisher.PublishCurrentSignalAsync(tutorUserId, ct);
+                await bus.InvokeAsync(new RecomputeAvailabilitySignalCommand(tutorUserId), ct);
 
                 return Result.Success(Map(createResult.Value));
             }
@@ -83,7 +84,7 @@ public static class UpdateBookingSettings
 
             await db.SaveChangesAsync(ct);
 
-            await signalPublisher.PublishCurrentSignalAsync(tutorUserId, ct);
+            await bus.InvokeAsync(new RecomputeAvailabilitySignalCommand(tutorUserId), ct);
 
             return Result.Success(Map(existing));
         }

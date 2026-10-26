@@ -7,9 +7,11 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using TutorFlow.Modules.Tutors.Domain;
 using TutorFlow.Modules.Tutors.Infrastructure;
 using TutorFlow.Modules.Tutors.Persistence;
 using TutorFlow.Shared;
+using Wolverine;
 using Wolverine.EntityFrameworkCore;
 using ApproveApplicationFeature = TutorFlow.Modules.Tutors.Features.ApproveApplication.ApproveApplication;
 using BeginReviewApplicationFeature = TutorFlow.Modules.Tutors.Features.BeginReviewApplication.BeginReviewApplication;
@@ -505,7 +507,7 @@ public static class TutorsModule
         Guid id,
         ClaimsPrincipal admin,
         TutorsDbContext db,
-        PublishApplicationFeature.Handler handler,
+        IMessageBus bus,
         CancellationToken ct)
     {
         if (!admin.TryGetUserId(out var adminUserId))
@@ -524,7 +526,9 @@ public static class TutorsModule
             return TypedResults.Problem(title: "Cannot act on your own tutor application.", statusCode: StatusCodes.Status403Forbidden);
         }
 
-        var result = await handler.HandleAsync(id, ct);
+        // A44 #103: dispatched via Wolverine (PublishApplicationConsumer), not called directly,
+        // so the business write and the outgoing TutorPublished event commit atomically.
+        var result = await bus.InvokeAsync<Result<GetCurrentApplicationFeature.Response>>(new PublishApplicationFeature.Command(id), ct);
         return result.IsSuccess
             ? TypedResults.Ok(result.Value)
             : result.ToProblemDetails(StatusCodes.Status400BadRequest);
@@ -535,7 +539,7 @@ public static class TutorsModule
         SuspendApplicationFeature.Request request,
         ClaimsPrincipal admin,
         TutorsDbContext db,
-        SuspendApplicationFeature.Handler handler,
+        IMessageBus bus,
         CancellationToken ct)
     {
         if (!admin.TryGetUserId(out var adminUserId))
@@ -554,7 +558,9 @@ public static class TutorsModule
             return TypedResults.Problem(title: "Cannot act on your own tutor application.", statusCode: StatusCodes.Status403Forbidden);
         }
 
-        var result = await handler.HandleAsync(id, request.Reason, adminUserId, ct);
+        // A44 #103: dispatched via Wolverine (SuspendApplicationConsumer), not called directly,
+        // so the business write and the outgoing TutorUnpublished event commit atomically.
+        var result = await bus.InvokeAsync<Result>(new SuspendApplicationFeature.Command(id, request.Reason, adminUserId), ct);
         return result.IsSuccess
             ? TypedResults.Ok()
             : result.ToProblemDetails(StatusCodes.Status400BadRequest);
@@ -746,7 +752,7 @@ public static class TutorsModule
         RejectCertificateFeature.Command command,
         ClaimsPrincipal admin,
         TutorsDbContext db,
-        RejectCertificateFeature.Handler handler,
+        IMessageBus bus,
         CancellationToken ct)
     {
         if (!admin.TryGetUserId(out var adminUserId))
@@ -767,7 +773,11 @@ public static class TutorsModule
 
         try
         {
-            var result = await handler.HandleAsync(id, certificateId, command.Reason, adminUserId, ct);
+            // A44 #103: dispatched via Wolverine (RejectCertificateConsumer), not called
+            // directly — see RejectCertificate.cs's own remarks on what this does and does not
+            // make atomic.
+            var result = await bus.InvokeAsync<Result>(
+                new RejectCertificateFeature.Dispatch(id, certificateId, command.Reason, adminUserId), ct);
             // NoContent (204) — same reasoning as WithdrawCertificateDocumentAsync.
             return result.IsSuccess
                 ? TypedResults.NoContent()

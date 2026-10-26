@@ -27,6 +27,18 @@ namespace TutorFlow.Modules.Bookings.Infrastructure;
 /// (<see cref="BookingsOptions.HoldExpirySweepIntervalSeconds"/>) is TutorFlow's own engineering
 /// choice, explicitly not a reverse-engineered Preply timing (which is NOT VERIFIED — see
 /// ADR-0029).
+///
+/// A44 #103: deliberately NOT routed through a Wolverine chain (unlike PublishApplication/
+/// SuspendApplication/RejectCertificate/ProcessStripeWebhook) — see
+/// docs/HANDOFF-2026-10-26-delivery-sprint.md's A44 #103 addendum for why: Eager mode was found,
+/// empirically, to mis-route the outgoing envelope to the wrong Ancillary store (observed:
+/// "payments" schema, via BookingsDbContext's own connection) whenever more than one Ancillary
+/// store is registered — reproducible against genuinely separate per-module databases, which is
+/// this project's actual target topology, not just a test artifact. Lightweight mode avoids that
+/// specific bug but reintroduces the original gap with no safe compensating mechanism available
+/// (no persisted marker on Booking analogous to TutorBookability.LastEventAtUtc or
+/// Payment.PaymentReferenceId to safely gate an idempotent republish). Left unfixed and reported,
+/// per this task's explicit instruction not to hide a gap that cannot be safely closed.
 /// </summary>
 public sealed class BookingHoldExpirySweepService(
     IServiceScopeFactory scopeFactory,

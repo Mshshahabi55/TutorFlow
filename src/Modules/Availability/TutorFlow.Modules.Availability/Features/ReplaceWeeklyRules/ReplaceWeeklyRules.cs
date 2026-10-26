@@ -5,6 +5,7 @@ using Npgsql;
 using TutorFlow.Modules.Availability.Domain;
 using TutorFlow.Modules.Availability.Infrastructure;
 using TutorFlow.Modules.Availability.Persistence;
+using Wolverine;
 
 namespace TutorFlow.Modules.Availability.Features.ReplaceWeeklyRules;
 
@@ -31,7 +32,7 @@ public static class ReplaceWeeklyRules
         }
     }
 
-    internal sealed class Handler(AvailabilityDbContext db, AvailabilitySignalPublisher signalPublisher)
+    internal sealed class Handler(AvailabilityDbContext db, IMessageBus bus)
     {
         public async Task<Result<Response>> HandleAsync(Guid tutorUserId, Command command, CancellationToken ct)
         {
@@ -78,7 +79,10 @@ public static class ReplaceWeeklyRules
                 throw new WeeklyRulesConflictException("Weekly availability rules were modified concurrently; please retry.");
             }
 
-            await signalPublisher.PublishCurrentSignalAsync(tutorUserId, ct);
+            // A44 #103: dispatched via Wolverine (RecomputeAvailabilitySignalConsumer) instead
+            // of calling AvailabilitySignalPublisher directly — see that command's own remarks
+            // for what this does and does not guarantee.
+            await bus.InvokeAsync(new RecomputeAvailabilitySignalCommand(tutorUserId), ct);
 
             var response = new Response([.. newRules.Select(r => new RuleResponse(r.Id, r.DayOfWeek, r.StartTime, r.EndTime))]);
             return Result.Success(response);

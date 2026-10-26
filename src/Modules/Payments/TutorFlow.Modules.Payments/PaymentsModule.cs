@@ -11,6 +11,7 @@ using Stripe;
 using TutorFlow.Modules.Payments.Infrastructure;
 using TutorFlow.Modules.Payments.Persistence;
 using TutorFlow.Shared;
+using Wolverine;
 using Wolverine.EntityFrameworkCore;
 using CreatePaymentIntentFeature = TutorFlow.Modules.Payments.Features.CreatePaymentIntent.CreatePaymentIntent;
 using ProcessStripeWebhookFeature = TutorFlow.Modules.Payments.Features.ProcessStripeWebhook.ProcessStripeWebhook;
@@ -91,7 +92,7 @@ public static class PaymentsModule
     private static async Task<IResult> ProcessStripeWebhookAsync(
         HttpRequest request,
         IOptions<PaymentsOptions> options,
-        ProcessStripeWebhookFeature.Handler handler,
+        IMessageBus bus,
         TimeProvider clock,
         CancellationToken ct)
     {
@@ -133,7 +134,11 @@ public static class PaymentsModule
         // with 200 — none of them are transient failures Stripe redelivery would resolve; a
         // genuine transient failure (DB unavailable, etc.) propagates as an unhandled exception
         // and surfaces as a real 5xx, which Stripe does redeliver (ADR-0018 §3).
-        await handler.ProcessEventAsync(stripeEvent.Id, stripeEvent.Type, paymentIntentId, failureReason, json, ct);
+        // A44 #103: dispatched via Wolverine (ProcessStripeWebhookConsumer), not called
+        // directly, so the business write and the outgoing PaymentSucceeded/PaymentFailed event
+        // commit atomically.
+        await bus.InvokeAsync<ProcessStripeWebhookFeature.Outcome>(
+            new ProcessStripeWebhookFeature.Command(stripeEvent.Id, stripeEvent.Type, paymentIntentId, failureReason, json), ct);
         return TypedResults.Ok();
     }
 }

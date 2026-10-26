@@ -150,6 +150,16 @@ try
         opts.Discovery.IncludeAssembly(typeof(BookingsDbContext).Assembly);
         opts.CodeGeneration.AlwaysUseServiceLocationFor<PaymentsDbContext>();
 
+        // A44 #103: Tutors never needed its own assembly registered for discovery before — it
+        // only ever published (PublishAsync doesn't need the publishing assembly scanned), never
+        // hosted a Wolverine handler of its own. Now it does: PublishApplicationConsumer/
+        // SuspendApplicationConsumer/RejectCertificateConsumer are local-command dispatch targets
+        // (see PublishApplication.cs's own remarks) that close the crash window between each
+        // feature's business write and its outgoing TutorPublished/TutorUnpublished/
+        // TutorCertificateRejected event by running inside a real Wolverine chain instead of being
+        // called as a plain DI class directly from the HTTP endpoint.
+        opts.Discovery.IncludeAssembly(typeof(TutorsDbContext).Assembly);
+
         // Lessons' BookingConfirmedConsumer is its first real Wolverine handler ever (ADR-0016) —
         // Bookings is now also a publisher (ConfirmBooking.Handler), not just a consumer. Same
         // opaque-AddDbContext-factory treatment as every other DbContext reachable from a Wolverine

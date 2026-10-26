@@ -15,6 +15,7 @@ namespace TutorFlow.Modules.Search.Tests;
 /// <see cref="TutorSearchDocument.HasUpcomingAvailability"/> to a stale value (observed as an
 /// intermittent failure in <c>TutorPublishedPipelineTests.UpdatingWeeklyRules_...</c>).
 /// </summary>
+[Collection(SearchHostCollection.Name)]
 public sealed class TutorAvailabilitySignalChangedConsumerTests(SearchApiFixture fixture) : IClassFixture<SearchApiFixture>
 {
     private static readonly DateTimeOffset T1 = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);

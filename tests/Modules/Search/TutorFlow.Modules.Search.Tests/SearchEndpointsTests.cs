@@ -7,6 +7,7 @@ using TutorFlow.Modules.Search.Persistence;
 
 namespace TutorFlow.Modules.Search.Tests;
 
+[Collection(SearchHostCollection.Name)]
 public sealed class SearchEndpointsTests(SearchApiFixture fixture) : IClassFixture<SearchApiFixture>
 {
     private readonly HttpClient _client = fixture.CreateClient();

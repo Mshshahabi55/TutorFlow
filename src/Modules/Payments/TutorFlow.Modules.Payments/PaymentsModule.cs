@@ -11,6 +11,7 @@ using Stripe;
 using TutorFlow.Modules.Payments.Infrastructure;
 using TutorFlow.Modules.Payments.Persistence;
 using TutorFlow.Shared;
+using Wolverine.EntityFrameworkCore;
 using CreatePaymentIntentFeature = TutorFlow.Modules.Payments.Features.CreatePaymentIntent.CreatePaymentIntent;
 using ProcessStripeWebhookFeature = TutorFlow.Modules.Payments.Features.ProcessStripeWebhook.ProcessStripeWebhook;
 
@@ -20,8 +21,10 @@ public static class PaymentsModule
 {
     public static IServiceCollection AddPaymentsModule(this IServiceCollection services, IConfiguration config)
     {
-        services.AddDbContext<PaymentsDbContext>(options =>
-            options.UseNpgsql(config.GetConnectionString("PaymentsDb")));
+        // A44: see BookingsModule's identical comment on AddDbContextWithWolverineIntegration.
+        services.AddDbContextWithWolverineIntegration<PaymentsDbContext>(
+            options => options.UseNpgsql(config.GetConnectionString("PaymentsDb")),
+            "payments");
 
         services.AddOptions<PaymentsOptions>().Bind(config.GetSection("Payments"));
 

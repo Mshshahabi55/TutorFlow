@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using TutorFlow.Modules.Search.Persistence;
 using TutorFlow.Shared;
+using Wolverine.Attributes;
 
 namespace TutorFlow.Modules.Search.Consumers;
 
@@ -21,6 +22,7 @@ namespace TutorFlow.Modules.Search.Consumers;
 /// sequential out-of-order delivery. Equal timestamps are accepted (not rejected), so redelivery
 /// of the exact same event (e.g. an at-least-once retry) is idempotent.
 /// </summary>
+[WolverineHandler]
 public sealed class TutorAvailabilitySignalChangedConsumer(SearchDbContext db)
 {
     public Task HandleAsync(TutorAvailabilitySignalChanged message, CancellationToken ct) =>

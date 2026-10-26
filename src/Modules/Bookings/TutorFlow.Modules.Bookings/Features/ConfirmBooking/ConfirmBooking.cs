@@ -22,7 +22,13 @@ public static class ConfirmBooking
         ConfirmedNow,
         AlreadyConfirmed,
         NotFound,
-        Conflict
+        Conflict,
+
+        // A44 replay-safety fix: distinct from Conflict (which covers every other non-Confirmed,
+        // non-PendingPayment state) so a genuinely different/conflicting payment reference
+        // confirming an already-Confirmed booking is never silently conflated with the expected,
+        // benign "duplicate delivery of the SAME payment" case (AlreadyConfirmed).
+        ConfirmedByDifferentPayment
     }
 
     public sealed class Handler(BookingsDbContext db, TimeProvider clock, IMessageBus bus)
@@ -54,8 +60,10 @@ public static class ConfirmBooking
 
             if (affected == 1)
             {
-                // ADR-0016 §1: published only after the transition genuinely happened, never on
-                // the idempotent AlreadyConfirmed/Conflict paths below.
+                // ADR-0016 §1: published after the transition genuinely happens here. The
+                // AlreadyConfirmed path below also republishes, but only as replay-recovery for
+                // the SAME payment reference (see its own comment) — Conflict/NotFound never
+                // publish.
                 await bus.PublishAsync(new BookingConfirmed(
                     booking.Id,
                     booking.StudentUserId,
@@ -75,9 +83,39 @@ public static class ConfirmBooking
                 return Outcome.NotFound;
             }
 
-            // Duplicate webhook delivery for an already-confirmed booking is idempotent
-            // success, not re-processed (ADR-0015 §4) — and, per ADR-0016 §1, not re-published.
-            return current.Status == BookingStatus.Confirmed ? Outcome.AlreadyConfirmed : Outcome.Conflict;
+            if (current.Status != BookingStatus.Confirmed)
+            {
+                return Outcome.Conflict;
+            }
+
+            // A44 replay-safety fix: Lightweight transaction mode (unlike Eager) does not
+            // atomically couple this row's commit with BookingConfirmed's durable persistence —
+            // there is a narrow window where the booking transitions to Confirmed but the
+            // process crashes before the outgoing envelope is durably recorded, in which case
+            // the message is never sent and this same PaymentSucceeded envelope is redelivered
+            // (it was never marked handled, since the handler never returned). Republishing here
+            // recovers that case. Guarded by PaymentReferenceId so only a genuine redelivery of
+            // the SAME payment event triggers recovery — using Booking's own already-persisted,
+            // authoritative PaymentReferenceId (set at the original confirmation), not an
+            // invented identity or an inference from status alone. A different payment reference
+            // confirming an already-Confirmed booking is a conflicting event, not a replay, and
+            // must never be treated as idempotent success.
+            if (current.PaymentReferenceId != paymentReferenceId)
+            {
+                return Outcome.ConfirmedByDifferentPayment;
+            }
+
+            await bus.PublishAsync(new BookingConfirmed(
+                current.Id,
+                current.StudentUserId,
+                current.TutorUserId,
+                current.StartUtc,
+                current.EndUtc,
+                current.DurationMinutes,
+                current.SubscriptionReferenceId,
+                current.ConfirmedAtUtc ?? now));
+
+            return Outcome.AlreadyConfirmed;
         }
     }
 }

@@ -13,6 +13,7 @@ namespace TutorFlow.Modules.Bookings.Tests;
 // Proves the cross-module contracts (ADR-0014, ADR-0014 correction) actually wire up through
 // the real Host composition root — not mocked substitutes — and that the fail-closed default
 // (ADR-0014 correction) holds.
+[Collection(BookingsHostCollection.Name)]
 public class IntegrationContractTests(BookingsApiFixture fixture) : IClassFixture<BookingsApiFixture>
 {
     [Fact]

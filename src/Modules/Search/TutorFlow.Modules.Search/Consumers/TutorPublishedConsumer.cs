@@ -2,19 +2,31 @@ using Microsoft.EntityFrameworkCore;
 using TutorFlow.Modules.Search.Domain;
 using TutorFlow.Modules.Search.Persistence;
 using TutorFlow.Shared;
+using Wolverine.Attributes;
 
 namespace TutorFlow.Modules.Search.Consumers;
 
 /// <summary>
-/// Wolverine discovers this by convention (a public <c>HandleAsync</c> instance method) — no
-/// interface or registration needed beyond <c>opts.Discovery.IncludeAssembly</c> in
-/// <c>TutorFlow.Host/Program.cs</c>. Constructor-injected <c>SearchDbContext</c>, matching every
-/// other Handler class in this codebase. <c>SearchDbContext</c> is explicitly allow-listed for
-/// service location in <c>Program.cs</c> (<c>AlwaysUseServiceLocationFor</c>) — <c>AddDbContext</c>
-/// registers <c>DbContextOptions&lt;T&gt;</c> via an opaque lambda factory that Wolverine 6's
-/// codegen otherwise refuses to resolve (<c>InvalidServiceLocationException</c> at startup).
-/// Upserts the one row <c>TutorPublished</c> describes; never touches any other tutor's document.
+/// Explicitly marked for Wolverine discovery (F6 — see Program.cs's
+/// DisableConventionalDiscovery comment) rather than relying on the default "type name ends with
+/// Handler/Consumer" naming convention. Constructor-injected <c>SearchDbContext</c>, matching
+/// every other Handler class in this codebase. <c>SearchDbContext</c> is explicitly allow-listed
+/// for service location in <c>Program.cs</c> (<c>AlwaysUseServiceLocationFor</c>) —
+/// <c>AddDbContext</c> registers <c>DbContextOptions&lt;T&gt;</c> via an opaque lambda factory
+/// that Wolverine 6's codegen otherwise refuses to resolve (<c>InvalidServiceLocationException</c>
+/// at startup). Upserts the one row <c>TutorPublished</c> describes; never touches any other
+/// tutor's document.
 /// </summary>
+/// <remarks>
+/// A44: <c>AutoApplyTransactions()</c> (Program.cs) groups every handler of the same message
+/// type into one chain — <c>TutorPublished</c> also has an
+/// <c>Availability.TutorPublishedConsumer</c> subscriber backed by a different DbContext, making
+/// the pair ambiguous without an explicit designation per handler. Search was never one of A44's
+/// four target publisher modules, and this handler is a simple idempotent upsert with no
+/// outgoing publish of its own — opting out preserves its current behavior unchanged.
+/// </remarks>
+[WolverineHandler]
+[NonTransactional]
 public sealed class TutorPublishedConsumer(SearchDbContext db)
 {
     public async Task HandleAsync(TutorPublished message, CancellationToken ct)

@@ -8,6 +8,7 @@ using TutorFlow.Modules.Bookings.Persistence;
 using TutorFlow.Modules.Lessons.Domain;
 using TutorFlow.Modules.Lessons.Persistence;
 using ApplyRefundFeature = TutorFlow.Modules.Bookings.Features.ApplyRefund.ApplyRefund;
+using CancelBookingForPaymentFailureFeature = TutorFlow.Modules.Bookings.Features.CancelBookingForPaymentFailure.CancelBookingForPaymentFailure;
 using CheckoutBookingFeature = TutorFlow.Modules.Bookings.Features.CheckoutBooking.CheckoutBooking;
 using ConfirmBookingFeature = TutorFlow.Modules.Bookings.Features.ConfirmBooking.ConfirmBooking;
 using CreateTrialHoldResponse = TutorFlow.Modules.Bookings.Features.CreateTrialHold.CreateTrialHold.Response;
@@ -19,6 +20,7 @@ using TrialEligibilityResponse = TutorFlow.Modules.Bookings.Features.GetTrialEli
 
 namespace TutorFlow.Modules.Bookings.Tests;
 
+[Collection(BookingsHostCollection.Name)]
 public class BookingsEndpointsTests(BookingsApiFixture fixture) : IClassFixture<BookingsApiFixture>
 {
     private readonly HttpClient _client = fixture.CreateClient();
@@ -587,6 +589,109 @@ public class BookingsEndpointsTests(BookingsApiFixture fixture) : IClassFixture<
 
         Assert.Equal(ConfirmBookingFeature.Outcome.ConfirmedNow, first);
         Assert.Equal(ConfirmBookingFeature.Outcome.AlreadyConfirmed, second);
+    }
+
+    [Fact]
+    public async Task ConfirmBookingHandler_RedeliveredAfterCrashBetweenCommitAndPublish_RecoversBookingConfirmed()
+    {
+        // A44 replay-safety fix. Simulates the exact narrow window identified by decompiling
+        // Wolverine 6.45.0's EfCoreEnvelopeTransaction/MessageContext.PersistOrSendAsync under
+        // Lightweight transaction mode: the business write (ExecuteUpdateAsync, non-
+        // transactional, commits immediately) can succeed while a process crash right
+        // afterward prevents BookingConfirmed from ever being durably published — since
+        // HandleAsync never returned, the incoming PaymentSucceeded envelope was never marked
+        // handled, so Wolverine redelivers it. This test reproduces that persisted end-state
+        // directly (booking already Confirmed, BookingConfirmed never sent, no Lesson exists)
+        // rather than literally crashing a process, then proves the SAME handler call recovers
+        // by publishing BookingConfirmed and Lessons converging to the correct state.
+        var (tutorId, studentId, studentClient, _) = await ArrangeBookableTutorAsync();
+        var created = await CreateHoldAsync(studentClient, tutorId);
+        await ForcePendingPaymentAsync(created.Id, "pi_crash_recovery");
+
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BookingsDbContext>();
+            await db.Bookings.Where(b => b.Id == created.Id).ExecuteUpdateAsync(s => s
+                .SetProperty(b => b.Status, BookingStatus.Confirmed)
+                .SetProperty(b => b.PaymentReferenceId, "pi_crash_recovery")
+                .SetProperty(b => b.HoldExpiresAtUtc, (DateTimeOffset?)null), TestContext.Current.CancellationToken);
+        }
+
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var lessonsDbBefore = scope.ServiceProvider.GetRequiredService<LessonsDbContext>();
+            Assert.False(await lessonsDbBefore.Lessons.AnyAsync(l => l.BookingId == created.Id, TestContext.Current.CancellationToken));
+        }
+
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var handler = scope.ServiceProvider.GetRequiredService<ConfirmBookingFeature.Handler>();
+            var outcome = await handler.HandleAsync(created.Id, "pi_crash_recovery", TestContext.Current.CancellationToken);
+            Assert.Equal(ConfirmBookingFeature.Outcome.AlreadyConfirmed, outcome);
+        }
+
+        var lesson = await PollForLessonAsync(created.Id);
+        Assert.NotNull(lesson);
+        Assert.Equal(studentId, lesson!.StudentUserId);
+        Assert.Equal(tutorId, lesson.TutorUserId);
+    }
+
+    [Fact]
+    public async Task ConfirmBookingHandler_ConflictingPaymentReferenceOnAlreadyConfirmedBooking_DoesNotPublish()
+    {
+        // A44 replay-safety fix: the recovery path above must only fire for a genuine
+        // redelivery of the SAME payment event — never for an unrelated/conflicting one that
+        // happens to target an already-Confirmed booking.
+        var (tutorId, _, studentClient, _) = await ArrangeBookableTutorAsync();
+        var created = await CreateHoldAsync(studentClient, tutorId);
+        await ForcePendingPaymentAsync(created.Id, "pi_original");
+
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var handler = scope.ServiceProvider.GetRequiredService<ConfirmBookingFeature.Handler>();
+            var outcome = await handler.HandleAsync(created.Id, "pi_original", TestContext.Current.CancellationToken);
+            Assert.Equal(ConfirmBookingFeature.Outcome.ConfirmedNow, outcome);
+        }
+
+        await PollForLessonAsync(created.Id);
+
+        using var scope2 = fixture.Services.CreateScope();
+        var handler2 = scope2.ServiceProvider.GetRequiredService<ConfirmBookingFeature.Handler>();
+        var conflicting = await handler2.HandleAsync(created.Id, "pi_different", TestContext.Current.CancellationToken);
+        Assert.Equal(ConfirmBookingFeature.Outcome.ConfirmedByDifferentPayment, conflicting);
+
+        await Task.Delay(500, TestContext.Current.CancellationToken);
+
+        var lessonsDb = scope2.ServiceProvider.GetRequiredService<LessonsDbContext>();
+        var lessonCount = await lessonsDb.Lessons.CountAsync(l => l.BookingId == created.Id, TestContext.Current.CancellationToken);
+        Assert.Equal(1, lessonCount);
+    }
+
+    [Fact]
+    public async Task CancelBookingForPaymentFailureHandler_DuplicateWebhook_IsIdempotent()
+    {
+        // A44 topology fix: PaymentFailedConsumer now runs under
+        // TransactionMiddlewareMode.Lightweight (Program.cs's AutoApplyTransactions no longer
+        // wraps it in an ambient transaction shared with the Main store's envelope bookkeeping)
+        // — this is the duplicate-delivery coverage that decision depended on. No prior test
+        // exercised this handler at all.
+        var (tutorId, _, studentClient, _) = await ArrangeBookableTutorAsync();
+        var created = await CreateHoldAsync(studentClient, tutorId);
+        await ForcePendingPaymentAsync(created.Id, "pi_fail_test");
+
+        using var scope = fixture.Services.CreateScope();
+        var handler = scope.ServiceProvider.GetRequiredService<CancelBookingForPaymentFailureFeature.Handler>();
+
+        var first = await handler.HandleAsync(created.Id, "card_declined", TestContext.Current.CancellationToken);
+        var second = await handler.HandleAsync(created.Id, "card_declined", TestContext.Current.CancellationToken);
+
+        Assert.Equal(CancelBookingForPaymentFailureFeature.Outcome.Cancelled, first);
+        Assert.Equal(CancelBookingForPaymentFailureFeature.Outcome.AlreadyTerminal, second);
+
+        using var verifyScope = fixture.Services.CreateScope();
+        var db = verifyScope.ServiceProvider.GetRequiredService<BookingsDbContext>();
+        var booking = await db.Bookings.AsNoTracking().FirstAsync(b => b.Id == created.Id, TestContext.Current.CancellationToken);
+        Assert.Equal(BookingStatus.Cancelled, booking.Status);
     }
 
     [Fact]

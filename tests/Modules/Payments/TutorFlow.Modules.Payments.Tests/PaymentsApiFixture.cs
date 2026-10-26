@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Testcontainers.PostgreSql;
+using TutorFlow.Host;
 using TutorFlow.Modules.Availability.Persistence;
 using TutorFlow.Modules.Bookings.Persistence;
 using TutorFlow.Modules.Lessons.Persistence;
@@ -34,6 +35,8 @@ public sealed class PaymentsApiFixture : WebApplicationFactory<Program>, IAsyncL
     public const string JwtKey = "payments-integration-test-signing-key-at-least-32-bytes-long";
 
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18").Build();
+
+    private IDisposable? _wolverineConnectionStrings;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -60,6 +63,8 @@ public sealed class PaymentsApiFixture : WebApplicationFactory<Program>, IAsyncL
     {
         await _postgres.StartAsync();
 
+        _wolverineConnectionStrings = WolverineTestConnectionStrings.Configure(_postgres.GetConnectionString());
+
         using var scope = Services.CreateScope();
         await scope.ServiceProvider.GetRequiredService<PaymentsDbContext>().Database.MigrateAsync();
         await scope.ServiceProvider.GetRequiredService<BookingsDbContext>().Database.MigrateAsync();
@@ -72,6 +77,7 @@ public sealed class PaymentsApiFixture : WebApplicationFactory<Program>, IAsyncL
     {
         await _postgres.DisposeAsync();
         await base.DisposeAsync();
+        _wolverineConnectionStrings?.Dispose();
     }
 
     public static string CreateAccessToken(Guid userId, params string[] roles)

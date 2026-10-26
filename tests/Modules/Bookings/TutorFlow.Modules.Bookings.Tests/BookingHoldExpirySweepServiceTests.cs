@@ -14,6 +14,7 @@ namespace TutorFlow.Modules.Bookings.Tests;
 /// (<c>BookingHoldExpiryNotificationPipelineTests</c>), matching this codebase's established
 /// division between module-level and full-pipeline tests.
 /// </summary>
+[Collection(BookingsHostCollection.Name)]
 public class BookingHoldExpirySweepServiceTests(BookingsApiFixture fixture) : IClassFixture<BookingsApiFixture>
 {
     private static readonly TimeProvider Clock = TimeProvider.System;

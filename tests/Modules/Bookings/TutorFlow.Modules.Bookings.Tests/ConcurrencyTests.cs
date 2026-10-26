@@ -14,6 +14,7 @@ namespace TutorFlow.Modules.Bookings.Tests;
 // Proves ADR-0013's corrected concurrency design against a real PostgreSQL instance — the exact
 // gap the architecture review (2026-10-04) found and required fixed: the exclusion constraint
 // and lazy sweep must cover Held/PendingPayment/Confirmed, not Held/Confirmed only.
+[Collection(BookingsHostCollection.Name)]
 public class ConcurrencyTests(BookingsApiFixture fixture) : IClassFixture<BookingsApiFixture>
 {
     private HttpClient CreateAuthenticatedClient(Guid userId, params string[] roles)

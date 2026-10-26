@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using TutorFlow.Modules.Bookings.Infrastructure;
 using TutorFlow.Modules.Bookings.Persistence;
 using TutorFlow.Shared;
+using Wolverine.EntityFrameworkCore;
 using CancelBookingFeature = TutorFlow.Modules.Bookings.Features.CancelBooking.CancelBooking;
 using CancelBookingForPaymentFailureFeature = TutorFlow.Modules.Bookings.Features.CancelBookingForPaymentFailure.CancelBookingForPaymentFailure;
 using CheckoutBookingFeature = TutorFlow.Modules.Bookings.Features.CheckoutBooking.CheckoutBooking;
@@ -25,8 +26,16 @@ public static class BookingsModule
 {
     public static IServiceCollection AddBookingsModule(this IServiceCollection services, IConfiguration config)
     {
-        services.AddDbContext<BookingsDbContext>(options =>
-            options.UseNpgsql(config.GetConnectionString("BookingsDb")));
+        // A44: AddDbContextWithWolverineIntegration (not plain AddDbContext) wires this
+        // DbContext into Wolverine's EF Core transactional middleware — required so handlers
+        // like ConfirmBooking/BookingHoldExpirySweepService get atomic business-write + outbox
+        // commits under opts.Policies.AutoApplyTransactions() (Program.cs). The schema name
+        // registers the message-store naming for the module's own Ancillary store; the actual
+        // store registration (connection string + MessageStoreRole.Ancillary) happens in
+        // Program.cs's UseWolverine block, not here.
+        services.AddDbContextWithWolverineIntegration<BookingsDbContext>(
+            options => options.UseNpgsql(config.GetConnectionString("BookingsDb")),
+            "bookings");
 
         services.AddOptions<BookingsOptions>()
             .Bind(config.GetSection("Bookings"))

@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Testcontainers.PostgreSql;
+using TutorFlow.Host;
 using TutorFlow.Modules.Availability.Persistence;
 using TutorFlow.Modules.Bookings.Infrastructure;
 using TutorFlow.Modules.Bookings.Persistence;
@@ -19,11 +20,12 @@ using TutorFlow.Modules.Tutors.Persistence;
 
 namespace TutorFlow.Modules.Bookings.Tests;
 
-// Three Postgres containers — one per module with a schema Bookings' first implementation
-// slice actually exercises (Bookings itself, plus the two prerequisite modules — Availability
-// for ITutorAvailabilityQuery/the browse-slots endpoint, Tutors for ITutorPricingQuery) — all
-// through the real Host composition root, exactly like AvailabilityApiFixture/the established
-// convention, so these tests prove real cross-module DI wiring, not a mocked substitute.
+// Four Postgres containers — one per module with a schema Bookings' first implementation
+// slice actually exercises (Bookings itself, plus Availability for ITutorAvailabilityQuery/the
+// browse-slots endpoint, Tutors for ITutorPricingQuery, Payments for the real checkout
+// roundtrip) — all through the real Host composition root, exactly like AvailabilityApiFixture/
+// the established convention, so these tests prove real cross-module DI wiring, not a mocked
+// substitute. Lessons has NO container of its own — see the field comment below for why.
 public sealed class BookingsApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
 {
     // Program.cs registers a Host-wide JsonStringEnumConverter — HttpClient's ReadFromJsonAsync
@@ -42,7 +44,14 @@ public sealed class BookingsApiFixture : WebApplicationFactory<Program>, IAsyncL
     private readonly PostgreSqlContainer _availabilityPostgres = new PostgreSqlBuilder("postgres:18").Build();
     private readonly PostgreSqlContainer _tutorsPostgres = new PostgreSqlBuilder("postgres:18").Build();
     private readonly PostgreSqlContainer _paymentsPostgres = new PostgreSqlBuilder("postgres:18").Build();
-    private readonly PostgreSqlContainer _lessonsPostgres = new PostgreSqlBuilder("postgres:18").Build();
+
+    // Lessons' schema lives on the SAME container as Bookings/messaging, not its own — Wolverine's
+    // EfCoreEnvelopeTransaction marks an incoming local message (BookingConfirmed) as handled
+    // through LessonsDbContext's own connection, writing to the Host-owned Main store's
+    // "messaging" schema specifically (same root cause documented on LessonsApiFixture). Giving
+    // Lessons a separate container here reproduced that exact "relation does not exist" failure.
+
+    private IDisposable? _wolverineConnectionStrings;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -54,7 +63,7 @@ public sealed class BookingsApiFixture : WebApplicationFactory<Program>, IAsyncL
                 ["ConnectionStrings:AvailabilityDb"] = _availabilityPostgres.GetConnectionString(),
                 ["ConnectionStrings:TutorsDb"] = _tutorsPostgres.GetConnectionString(),
                 ["ConnectionStrings:PaymentsDb"] = _paymentsPostgres.GetConnectionString(),
-                ["ConnectionStrings:LessonsDb"] = _lessonsPostgres.GetConnectionString(),
+                ["ConnectionStrings:LessonsDb"] = _bookingsPostgres.GetConnectionString(),
                 ["Jwt:Issuer"] = JwtIssuer,
                 ["Jwt:Audience"] = JwtAudience,
                 ["Jwt:Key"] = JwtKey,
@@ -78,8 +87,23 @@ public sealed class BookingsApiFixture : WebApplicationFactory<Program>, IAsyncL
             _bookingsPostgres.StartAsync(),
             _availabilityPostgres.StartAsync(),
             _tutorsPostgres.StartAsync(),
-            _paymentsPostgres.StartAsync(),
-            _lessonsPostgres.StartAsync());
+            _paymentsPostgres.StartAsync());
+
+        _wolverineConnectionStrings = WolverineTestConnectionStrings.Configure(
+            _bookingsPostgres.GetConnectionString(),
+            bookingsDb: _bookingsPostgres.GetConnectionString(),
+            availabilityDb: _availabilityPostgres.GetConnectionString(),
+            tutorsDb: _tutorsPostgres.GetConnectionString(),
+            paymentsDb: _paymentsPostgres.GetConnectionString());
+
+        // Must run BEFORE Services is first touched below — see ProvisionEnvelopeTablesAsync's
+        // own doc comment for why provisioning after host start is unreliable.
+        await WolverineTestConnectionStrings.ProvisionEnvelopeTablesAsync(
+            _bookingsPostgres.GetConnectionString(),
+            bookingsDb: _bookingsPostgres.GetConnectionString(),
+            availabilityDb: _availabilityPostgres.GetConnectionString(),
+            tutorsDb: _tutorsPostgres.GetConnectionString(),
+            paymentsDb: _paymentsPostgres.GetConnectionString());
 
         using var scope = Services.CreateScope();
         await scope.ServiceProvider.GetRequiredService<BookingsDbContext>().Database.MigrateAsync();
@@ -95,9 +119,9 @@ public sealed class BookingsApiFixture : WebApplicationFactory<Program>, IAsyncL
             _bookingsPostgres.DisposeAsync().AsTask(),
             _availabilityPostgres.DisposeAsync().AsTask(),
             _tutorsPostgres.DisposeAsync().AsTask(),
-            _paymentsPostgres.DisposeAsync().AsTask(),
-            _lessonsPostgres.DisposeAsync().AsTask());
+            _paymentsPostgres.DisposeAsync().AsTask());
         await base.DisposeAsync();
+        _wolverineConnectionStrings?.Dispose();
     }
 
     public static string CreateAccessToken(Guid userId, params string[] roles)

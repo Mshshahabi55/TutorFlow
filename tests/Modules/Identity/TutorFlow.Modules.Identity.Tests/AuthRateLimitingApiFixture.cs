@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
+using TutorFlow.Host;
 using TutorFlow.Modules.Identity.Persistence;
 
 namespace TutorFlow.Modules.Identity.Tests;
@@ -23,6 +24,8 @@ public sealed class AuthRateLimitingApiFixture : WebApplicationFactory<Program>,
     public const string SimulatedClientIpHeader = "X-Test-Simulated-Client-Ip";
 
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18").Build();
+
+    private IDisposable? _wolverineConnectionStrings;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -56,6 +59,8 @@ public sealed class AuthRateLimitingApiFixture : WebApplicationFactory<Program>,
     {
         await _postgres.StartAsync();
 
+        _wolverineConnectionStrings = WolverineTestConnectionStrings.Configure(_postgres.GetConnectionString());
+
         using var scope = Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
         await db.Database.MigrateAsync();
@@ -65,6 +70,7 @@ public sealed class AuthRateLimitingApiFixture : WebApplicationFactory<Program>,
     {
         await _postgres.DisposeAsync();
         await base.DisposeAsync();
+        _wolverineConnectionStrings?.Dispose();
     }
 
     private sealed class SimulatedClientIpStartupFilter : IStartupFilter

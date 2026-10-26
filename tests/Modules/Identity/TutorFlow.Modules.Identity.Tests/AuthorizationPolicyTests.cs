@@ -5,6 +5,7 @@ using TutorFlow.Modules.Identity.Infrastructure;
 
 namespace TutorFlow.Modules.Identity.Tests;
 
+[Collection(IdentityHostCollection.Name)]
 public class AuthorizationPolicyTests(IdentityApiFixture fixture) : IClassFixture<IdentityApiFixture>
 {
     [Fact]

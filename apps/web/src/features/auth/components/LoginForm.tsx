@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useLogin } from '../useAuthMutations';
 import { getAuthErrorMessage } from '../errorMessage';
+import { buildAuthHref } from '../authHref';
+import { ExternalLoginButtons } from './ExternalLoginButtons';
 import { PasswordInput } from './PasswordInput';
 import styles from './AuthForm.module.css';
 
@@ -15,9 +17,13 @@ const EMAIL_PATTERN = /^\S+@\S+\.\S+$/;
 
 export interface LoginFormProps {
   returnTo: string;
+  /** Relayed onward to the Sign up link only — Login's own heading/copy never changes by context
+   * (it stays the plain unified page). Without this, a user bouncing Become-a-tutor -> Login ->
+   * Sign up would lose the tutor-flavored Signup heading the moment they touched Login. */
+  context?: 'tutor';
 }
 
-export function LoginForm({ returnTo }: LoginFormProps) {
+export function LoginForm({ returnTo, context }: LoginFormProps) {
   const router = useRouter();
   const login = useLogin();
   const [email, setEmail] = useState('');
@@ -48,46 +54,50 @@ export function LoginForm({ returnTo }: LoginFormProps) {
   }
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit} noValidate>
-      <FormField label="Email" required errorText={fieldErrors.email}>
-        {(fieldProps) => (
-          <Input
-            {...fieldProps}
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            disabled={login.isPending}
-          />
-        )}
-      </FormField>
+    <div className={styles.stack}>
+      <ExternalLoginButtons returnTo={returnTo} />
 
-      <FormField label="Password" required errorText={fieldErrors.password}>
-        {(fieldProps) => (
-          <PasswordInput
-            {...fieldProps}
-            autoComplete="current-password"
-            value={password}
-            onChange={setPassword}
-            disabled={login.isPending}
-          />
-        )}
-      </FormField>
+      <form className={styles.form} onSubmit={handleSubmit} noValidate>
+        <FormField label="Email" required errorText={fieldErrors.email}>
+          {(fieldProps) => (
+            <Input
+              {...fieldProps}
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              disabled={login.isPending}
+            />
+          )}
+        </FormField>
 
-      {login.isError && (
-        <p className={styles.formError} role="alert">
-          {getAuthErrorMessage(login.error)}
+        <FormField label="Password" required errorText={fieldErrors.password}>
+          {(fieldProps) => (
+            <PasswordInput
+              {...fieldProps}
+              autoComplete="current-password"
+              value={password}
+              onChange={setPassword}
+              disabled={login.isPending}
+            />
+          )}
+        </FormField>
+
+        {login.isError && (
+          <p className={styles.formError} role="alert">
+            {getAuthErrorMessage(login.error)}
+          </p>
+        )}
+
+        <Button type="submit" fullWidth loading={login.isPending}>
+          Log in
+        </Button>
+
+        <p className={styles.switchLine}>
+          Don&apos;t have an account?{' '}
+          <Link href={buildAuthHref('/signup', returnTo, context)}>Sign up</Link>
         </p>
-      )}
-
-      <Button type="submit" fullWidth loading={login.isPending}>
-        Log in
-      </Button>
-
-      <p className={styles.switchLine}>
-        Don&apos;t have an account?{' '}
-        <Link href={returnTo === '/' ? '/signup' : `/signup?returnTo=${encodeURIComponent(returnTo)}`}>Sign up</Link>
-      </p>
-    </form>
+      </form>
+    </div>
   );
 }

@@ -75,4 +75,38 @@ describe('SignupForm', () => {
     const { container } = render(<SignupForm returnTo="/" />);
     expect((await axe(container)).violations).toEqual([]);
   });
+
+  it('shows tutor-flavored CTA copy when context="tutor", same submit behavior', () => {
+    mockMutate.mockImplementation((_input, { onSuccess }) => onSuccess());
+    render(<SignupForm returnTo="/become-a-tutor" context="tutor" />);
+
+    expect(screen.queryByRole('button', { name: 'Sign up' })).not.toBeInTheDocument();
+    const submit = screen.getByRole('button', { name: 'Get started' });
+
+    fireEvent.change(screen.getByLabelText(/^email/i), { target: { value: 'new@example.com' } });
+    fireEvent.change(screen.getByLabelText(/^password/i), { target: { value: 'Password123' } });
+    fireEvent.click(submit);
+
+    expect(mockMutate).toHaveBeenCalledWith(
+      { email: 'new@example.com', password: 'Password123' },
+      expect.anything(),
+    );
+    expect(mockReplace).toHaveBeenCalledWith('/become-a-tutor');
+  });
+
+  it('relays context="tutor" to the Log in link', () => {
+    render(<SignupForm returnTo="/become-a-tutor" context="tutor" />);
+    expect(screen.getByRole('link', { name: 'Log in' })).toHaveAttribute(
+      'href',
+      '/login?context=tutor&returnTo=%2Fbecome-a-tutor',
+    );
+  });
+
+  it('omits context from the Log in link by default', () => {
+    render(<SignupForm returnTo="/become-a-tutor" />);
+    expect(screen.getByRole('link', { name: 'Log in' })).toHaveAttribute(
+      'href',
+      '/login?returnTo=%2Fbecome-a-tutor',
+    );
+  });
 });

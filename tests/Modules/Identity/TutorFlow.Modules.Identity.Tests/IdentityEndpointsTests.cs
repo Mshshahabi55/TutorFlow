@@ -13,6 +13,7 @@ using RegisterResponse = TutorFlow.Modules.Identity.Features.Register.Register.S
 using LoginResponse = TutorFlow.Modules.Identity.Features.Login.Login.SessionResponse;
 using MeResponse = TutorFlow.Modules.Identity.Features.CurrentUser.GetCurrentUser.Response;
 using BecomeTutorResponse = TutorFlow.Modules.Identity.Features.BecomeTutor.BecomeTutor.SessionResponse;
+using ProfileResponse = TutorFlow.Modules.Identity.Features.Profile.GetProfile.Response;
 
 namespace TutorFlow.Modules.Identity.Tests;
 
@@ -22,6 +23,7 @@ namespace TutorFlow.Modules.Identity.Tests;
 // is what WebApplicationFactory's default client uses. HandleCookies=false disables that
 // container so Set-Cookie survives on response.Headers, and CaptureSessionCookie replays it
 // manually — this tests our server's cookie contract, not a .NET HttpClient quirk.
+[Collection(IdentityHostCollection.Name)]
 public class IdentityEndpointsTests(IdentityApiFixture fixture) : IClassFixture<IdentityApiFixture>
 {
     private readonly HttpClient _client = fixture.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
@@ -369,6 +371,96 @@ public class IdentityEndpointsTests(IdentityApiFixture fixture) : IClassFixture<
     public async Task BecomeTutor_Unauthenticated_ReturnsUnauthorized()
     {
         var response = await _client.PostAsync("/api/identity/me/become-tutor", content: null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetProfile_ForANewAccount_ReturnsNullNamesAndTheRealEmail()
+    {
+        var email = $"{Guid.NewGuid():N}@example.com";
+        var registerResponse = await _client.PostAsJsonAsync(
+            "/api/identity/register",
+            new { email, password = "P@ssword123" },
+            TestContext.Current.CancellationToken);
+        CaptureSessionCookie(registerResponse, _client);
+
+        var response = await _client.GetAsync("/api/identity/me/profile", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<ProfileResponse>(TestContext.Current.CancellationToken);
+        Assert.NotNull(body);
+        Assert.Null(body!.FirstName);
+        Assert.Null(body.LastName);
+        Assert.Equal(email, body.Email);
+    }
+
+    [Fact]
+    public async Task UpdateProfile_SetsFirstAndLastName_AndGetProfileReflectsThem()
+    {
+        var email = $"{Guid.NewGuid():N}@example.com";
+        var registerResponse = await _client.PostAsJsonAsync(
+            "/api/identity/register",
+            new { email, password = "P@ssword123" },
+            TestContext.Current.CancellationToken);
+        CaptureSessionCookie(registerResponse, _client);
+
+        var updateResponse = await _client.PatchAsJsonAsync(
+            "/api/identity/me/profile",
+            new { firstName = "Ada", lastName = "Lovelace" },
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+        var updateBody = await updateResponse.Content.ReadFromJsonAsync<ProfileResponse>(TestContext.Current.CancellationToken);
+        Assert.Equal("Ada", updateBody!.FirstName);
+        Assert.Equal("Lovelace", updateBody.LastName);
+
+        var getResponse = await _client.GetAsync("/api/identity/me/profile", TestContext.Current.CancellationToken);
+        var getBody = await getResponse.Content.ReadFromJsonAsync<ProfileResponse>(TestContext.Current.CancellationToken);
+        Assert.Equal("Ada", getBody!.FirstName);
+        Assert.Equal("Lovelace", getBody.LastName);
+    }
+
+    [Fact]
+    public async Task UpdateProfile_WithOnlyFirstName_LeavesLastNameUnchanged()
+    {
+        var email = $"{Guid.NewGuid():N}@example.com";
+        var registerResponse = await _client.PostAsJsonAsync(
+            "/api/identity/register",
+            new { email, password = "P@ssword123" },
+            TestContext.Current.CancellationToken);
+        CaptureSessionCookie(registerResponse, _client);
+
+        await _client.PatchAsJsonAsync(
+            "/api/identity/me/profile",
+            new { firstName = "Ada", lastName = "Lovelace" },
+            TestContext.Current.CancellationToken);
+
+        var secondUpdate = await _client.PatchAsJsonAsync(
+            "/api/identity/me/profile",
+            new { firstName = "Grace" },
+            TestContext.Current.CancellationToken);
+
+        var body = await secondUpdate.Content.ReadFromJsonAsync<ProfileResponse>(TestContext.Current.CancellationToken);
+        Assert.Equal("Grace", body!.FirstName);
+        Assert.Equal("Lovelace", body.LastName);
+    }
+
+    [Fact]
+    public async Task GetProfile_Unauthenticated_ReturnsUnauthorized()
+    {
+        var response = await _client.GetAsync("/api/identity/me/profile", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateProfile_Unauthenticated_ReturnsUnauthorized()
+    {
+        var response = await _client.PatchAsJsonAsync(
+            "/api/identity/me/profile",
+            new { firstName = "Ada" },
+            TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }

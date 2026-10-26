@@ -77,4 +77,20 @@ describe('LoginForm', () => {
     const { container } = render(<LoginForm returnTo="/" />);
     expect((await axe(container)).violations).toEqual([]);
   });
+
+  it('relays context="tutor" to the Sign up link', () => {
+    render(<LoginForm returnTo="/become-a-tutor" context="tutor" />);
+    expect(screen.getByRole('link', { name: 'Sign up' })).toHaveAttribute(
+      'href',
+      '/signup?context=tutor&returnTo=%2Fbecome-a-tutor',
+    );
+  });
+
+  it('omits context from the Sign up link by default', () => {
+    render(<LoginForm returnTo="/become-a-tutor" />);
+    expect(screen.getByRole('link', { name: 'Sign up' })).toHaveAttribute(
+      'href',
+      '/signup?returnTo=%2Fbecome-a-tutor',
+    );
+  });
 });

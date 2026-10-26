@@ -14,6 +14,12 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
 
         builder.HasDefaultSchema("identity");
 
+        builder.Entity<ApplicationUser>(user =>
+        {
+            user.Property(u => u.FirstName).HasMaxLength(200);
+            user.Property(u => u.LastName).HasMaxLength(200);
+        });
+
         builder.Entity<IdentityRole<Guid>>().HasData(
             new IdentityRole<Guid>
             {

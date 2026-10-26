@@ -1,0 +1,44 @@
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Matches Button.module.css's `.secondary` visual language (this isn't the Button component
+   itself because these are real cross-origin navigation links, not click handlers). */
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--size-touch-target-min);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  border: var(--border-width-thin) solid var(--color-border-strong);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  transition: background-color var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+.button:hover {
+  background: var(--color-bg-muted);
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: var(--border-width-thin);
+  background: var(--color-border);
+}

@@ -28,17 +28,24 @@ namespace TutorFlow.Modules.Bookings.Infrastructure;
 /// choice, explicitly not a reverse-engineered Preply timing (which is NOT VERIFIED — see
 /// ADR-0029).
 ///
-/// A44 #103: deliberately NOT routed through a Wolverine chain (unlike PublishApplication/
-/// SuspendApplication/RejectCertificate/ProcessStripeWebhook) — see
-/// docs/HANDOFF-2026-10-26-delivery-sprint.md's A44 #103 addendum for why: Eager mode was found,
-/// empirically, to mis-route the outgoing envelope to the wrong Ancillary store (observed:
-/// "payments" schema, via BookingsDbContext's own connection) whenever more than one Ancillary
-/// store is registered — reproducible against genuinely separate per-module databases, which is
-/// this project's actual target topology, not just a test artifact. Lightweight mode avoids that
-/// specific bug but reintroduces the original gap with no safe compensating mechanism available
-/// (no persisted marker on Booking analogous to TutorBookability.LastEventAtUtc or
-/// Payment.PaymentReferenceId to safely gate an idempotent republish). Left unfixed and reported,
-/// per this task's explicit instruction not to hide a gap that cannot be safely closed.
+/// A44 #103 bounded fallback (see <c>docs/OPEN_QUESTIONS.md</c>'s A44 entry for the full
+/// investigation): routing this through a Wolverine chain was attempted twice and reproducibly
+/// found unsafe both times — first under Eager mode (the outgoing envelope mis-routed to
+/// whichever Ancillary store happened to be registered last), then again after fixing that exact
+/// root cause with Wolverine.Postgresql's <c>Enroll&lt;T&gt;()</c> (which fixed the originally-
+/// targeted misrouting, but surfaced a second, confirmed Wolverine 6.45.0 codegen-ordering
+/// defect: generated chains run <c>EnlistInOutboxAsync</c>/<c>EnrollDbContextInTransaction</c>
+/// before the frame that pins <c>MessageContext.Storage</c> by type, so the very first delivery
+/// through that newly-fixed path durably persisted its incoming envelope against the wrong
+/// schema regardless). Both are genuine Wolverine-library-level limitations, not something this
+/// module's own code can safely patch. Fallback instead: this service owns its own durability
+/// directly, via <see cref="BookingHoldExpiryIntent"/> — a plain row in Bookings' own database,
+/// written in the same explicit transaction as the booking's status change (so a crash between
+/// the two can never happen), later dispatched by this same service's own second phase. No
+/// Wolverine envelope/outbox machinery is involved in persisting the durability guarantee at
+/// all — only the final, ordinary <c>bus.PublishAsync</c> once dispatch has already decided to
+/// deliver, which carries no store-ambiguity risk because nothing asks Wolverine to persist it
+/// transactionally cross-store.
 /// </summary>
 public sealed class BookingHoldExpirySweepService(
     IServiceScopeFactory scopeFactory,
@@ -58,7 +65,9 @@ public sealed class BookingHoldExpirySweepService(
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 // A failed tick must never crash the host or stop future ticks — the next tick
-                // will simply re-evaluate the same (still-stale) candidates.
+                // will simply re-evaluate the same (still-stale) candidates, and any already-
+                // claimed-but-undispatched intent from a prior tick is retried by the dispatch
+                // phase below regardless of what failed here.
                 logger.LogError(ex, "Booking hold-expiry sweep tick failed");
             }
         }
@@ -66,7 +75,10 @@ public sealed class BookingHoldExpirySweepService(
 
     /// <summary>Public so tests can drive one sweep deterministically rather than waiting on the
     /// real timer (matching this codebase's established "public for testability" convention,
-    /// e.g. <c>ActiveBookingIntervalsQuery</c>).</summary>
+    /// e.g. <c>ActiveBookingIntervalsQuery</c>). Two independent phases, both idempotent and
+    /// safe to run concurrently with themselves or each other: claim (business-state change +
+    /// durable intent, atomically) and dispatch (publish owed events, oldest-first, marking each
+    /// delivered only once <c>bus.PublishAsync</c> has actually returned).</summary>
     public async Task SweepOnceAsync(CancellationToken ct)
     {
         using var scope = scopeFactory.CreateScope();
@@ -74,10 +86,6 @@ public sealed class BookingHoldExpirySweepService(
         var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
         var now = clock.GetUtcNow();
 
-        // Read-only candidate list first (never the source of truth for "did this actually
-        // transition" — the guarded per-row update below is) — Confirmed/Cancelled/Completed/
-        // NoShow/Refunded/Rescheduled bookings are excluded by the Status filter alone, with no
-        // special-casing needed for any of them.
         var candidates = await db.Bookings
             .AsNoTracking()
             .Where(b => (b.Status == BookingStatus.Held || b.Status == BookingStatus.PendingPayment) && b.HoldExpiresAtUtc < now)
@@ -86,18 +94,74 @@ public sealed class BookingHoldExpirySweepService(
 
         foreach (var candidate in candidates)
         {
-            var affected = await BookingWrites.ExpireSingleHoldIfStaleAsync(db, candidate.Id, now, ct);
-            if (affected == 1)
+            try
+            {
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+                // Never the source of truth for "did this actually transition" — the guarded
+                // per-row update is. Confirmed/Cancelled/Completed/NoShow/Refunded/Rescheduled
+                // bookings are excluded by the Status filter alone, with no special-casing
+                // needed for any of them.
+                var affected = await BookingWrites.ExpireSingleHoldIfStaleAsync(db, candidate.Id, now, ct);
+                if (affected == 1)
+                {
+                    // Same transaction as the status change above — a crash here rolls back
+                    // both together, leaving neither a partial expiry nor an orphaned intent.
+                    db.BookingHoldExpiryIntents.Add(BookingHoldExpiryIntent.Create(
+                        candidate.Id, candidate.StudentUserId, candidate.TutorUserId,
+                        candidate.StartUtc, candidate.EndUtc, candidate.DurationMinutes, candidate.IsTrial, now));
+                    await db.SaveChangesAsync(ct);
+                }
+
+                await transaction.CommitAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                // One candidate's genuine failure (e.g. a transient DB error) must never block
+                // the rest of this tick's otherwise-healthy candidates — the next tick
+                // re-evaluates this one from scratch, since nothing partial was ever committed.
+                logger.LogError(ex, "Failed to claim hold expiry for booking {BookingId}", candidate.Id);
+            }
+        }
+
+        await DispatchPendingIntentsAsync(db, bus, ct);
+    }
+
+    /// <summary>
+    /// Publishes every not-yet-dispatched intent and marks it dispatched — deliberately in that
+    /// order, never reversed: a crash between <c>PublishAsync</c> returning and the follow-up
+    /// <c>SaveChangesAsync</c> leaves the intent looking "still owed," so the next tick (or the
+    /// next restart) re-publishes it. That is an accepted, at-least-once duplicate, not a lost
+    /// event — the same guarantee every other event in this codebase provides, absorbed the same
+    /// way: <see cref="Notifications.Consumers.BookingHoldExpiredConsumer"/>'s own existing
+    /// claim/resolve protocol (ADR-0029 Addendum A) already treats a duplicate
+    /// <c>BookingHoldExpired</c> delivery as a harmless re-send, by design, independent of this
+    /// change. Concurrent dispatchers (if this service were ever scaled to multiple nodes) are
+    /// safe for the identical reason — a duplicate publish is tolerated, not prevented — rather
+    /// than via a dedicated claim lock, which would reintroduce exactly the "mark before the work
+    /// is confirmed done" ordering risk this method's own comment above explains avoiding.
+    /// </summary>
+    private async Task DispatchPendingIntentsAsync(BookingsDbContext db, IMessageBus bus, CancellationToken ct)
+    {
+        var pending = await db.BookingHoldExpiryIntents
+            .Where(i => i.DispatchedAtUtc == null)
+            .OrderBy(i => i.CreatedAtUtc)
+            .ToListAsync(ct);
+
+        foreach (var intent in pending)
+        {
+            try
             {
                 await bus.PublishAsync(new BookingHoldExpired(
-                    candidate.Id,
-                    candidate.StudentUserId,
-                    candidate.TutorUserId,
-                    candidate.StartUtc,
-                    candidate.EndUtc,
-                    candidate.DurationMinutes,
-                    candidate.IsTrial,
-                    now));
+                    intent.BookingId, intent.StudentUserId, intent.TutorUserId,
+                    intent.StartUtc, intent.EndUtc, intent.DurationMinutes, intent.IsTrial, intent.ExpiredAtUtc));
+
+                intent.MarkDispatched(clock.GetUtcNow());
+                await db.SaveChangesAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to dispatch hold-expiry intent for booking {BookingId}", intent.BookingId);
             }
         }
     }

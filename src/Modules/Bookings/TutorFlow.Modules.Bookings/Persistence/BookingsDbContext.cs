@@ -8,6 +8,8 @@ public sealed class BookingsDbContext(DbContextOptions<BookingsDbContext> option
 {
     public DbSet<Booking> Bookings => Set<Booking>();
 
+    public DbSet<BookingHoldExpiryIntent> BookingHoldExpiryIntents => Set<BookingHoldExpiryIntent>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("bookings");

@@ -21,6 +21,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres <<-EOSQL
     CREATE DATABASE tutorflow_payments OWNER "${TUTORFLOW_APP_USER}";
     CREATE DATABASE tutorflow_lessons OWNER "${TUTORFLOW_APP_USER}";
     CREATE DATABASE tutorflow_reviews OWNER "${TUTORFLOW_APP_USER}";
+    CREATE DATABASE tutorflow_notifications OWNER "${TUTORFLOW_APP_USER}";
 EOSQL
 
 # tutorflow_app owns each database above, so it already has the privilege to install "trusted"

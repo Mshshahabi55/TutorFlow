@@ -28,7 +28,19 @@ which:
   `Attributes` column is empty, i.e. no `SUPERUSER`/`CREATEDB`/`CREATEROLE`)
 - creates databases — `tutorflow_identity`, `tutorflow_tutors`, `tutorflow_availability`,
   `tutorflow_bookings`, `tutorflow_search`, `tutorflow_subjects`, `tutorflow_students`,
-  `tutorflow_lessons`, `tutorflow_reviews` — each **owned by** `tutorflow_app`
+  `tutorflow_payments`, `tutorflow_lessons`, `tutorflow_reviews`, `tutorflow_notifications` — each
+  **owned by** `tutorflow_app`
+
+**Not provisioned here, by design — resolve before relying on them locally:**
+- **`WolverineDb`** (the A44 Host-owned Main envelope store, `Program.cs`) needs its own database
+  — not any module's own database, per that call site's own comment ("rather than piggybacking on
+  a business module"). One was created ad hoc as `tutorflow_messaging` during a prior debugging
+  session (`docs/product/preply-reverse-engineering/27-phase3-audit-completion-2026-10-25.md` §0).
+- **`MessagingDb`** (the `Messaging` module's own conversations/messages database) has never been
+  provisioned anywhere, and — because this project's existing per-module convention would also
+  name it `tutorflow_messaging` — **cannot simply reuse that same ad hoc name** without colliding
+  with the Main store above. `[OPEN — Architect]`: pick a non-colliding name for one of the two
+  (e.g. rename the Main store to `tutorflow_wolverine`) before adding this to the init script.
 
 `TUTORFLOW_DB_ADMIN_USER`/`TUTORFLOW_DB_ADMIN_PASSWORD` are a bootstrap role docker's own
 entrypoint requires to initialize the instance — the application never authenticates as it.
@@ -85,7 +97,18 @@ dotnet user-secrets set "ConnectionStrings:LessonsDb" \
 dotnet user-secrets set "ConnectionStrings:ReviewsDb" \
   "Host=localhost;Port=${TUTORFLOW_DB_PORT:-5432};Database=tutorflow_reviews;Username=${TUTORFLOW_DB_APP_USER};Password=${TUTORFLOW_DB_APP_PASSWORD}" \
   --project src/TutorFlow.Host
+
+dotnet user-secrets set "ConnectionStrings:PaymentsDb" \
+  "Host=localhost;Port=${TUTORFLOW_DB_PORT:-5432};Database=tutorflow_payments;Username=${TUTORFLOW_DB_APP_USER};Password=${TUTORFLOW_DB_APP_PASSWORD}" \
+  --project src/TutorFlow.Host
+
+dotnet user-secrets set "ConnectionStrings:NotificationsDb" \
+  "Host=localhost;Port=${TUTORFLOW_DB_PORT:-5432};Database=tutorflow_notifications;Username=${TUTORFLOW_DB_APP_USER};Password=${TUTORFLOW_DB_APP_PASSWORD}" \
+  --project src/TutorFlow.Host
 ```
+
+`WolverineDb` and `MessagingDb` are deliberately not included above — see the open naming
+question in §1.
 
 (`dotnet user-secrets list --project src/TutorFlow.Host` to confirm — secrets live outside the
 repo, under your user profile, never in source control.)
